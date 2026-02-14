@@ -11,9 +11,28 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_local_env() -> None:
+    env_file = BASE_DIR / '.env'
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+_load_local_env()
 
 
 # Quick-start development settings - unsuitable for production
@@ -54,7 +73,6 @@ ROOT_URLCONF = 'Project.urls'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400  # 24 hours in seconds
 ROOT_URLCONF = 'Project.urls'
-import os
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -81,13 +99,28 @@ WSGI_APPLICATION = 'Project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+database_url = os.getenv('DATABASE_PUBLIC_URL') or os.getenv('DATABASE_URL')
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if database_url:
+    parsed_db = urlparse(database_url)
+    db_config = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': parsed_db.path.lstrip('/'),
+        'USER': parsed_db.username,
+        'PASSWORD': parsed_db.password,
+        'HOST': parsed_db.hostname,
+        'PORT': str(parsed_db.port or 5432),
     }
-}
+    if parsed_db.hostname and not parsed_db.hostname.endswith('railway.internal'):
+        db_config['OPTIONS'] = {'sslmode': 'require'}
+    DATABASES = {'default': db_config}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
