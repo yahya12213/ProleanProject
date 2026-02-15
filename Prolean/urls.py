@@ -1,6 +1,7 @@
 # urls.py - FIXED
 from django.urls import path
 from . import views
+from .integration import views as integration_views
 
 app_name = "Prolean"
 
@@ -13,6 +14,7 @@ urlpatterns = [
     path("centres-contact/", views.contact_centers, name="contact_centers"),
     
     # API endpoints
+    path("api/integration/health/", integration_views.integration_health, name="integration_health"),
     path("api/contact/", views.submit_contact_request, name="submit_contact_request"),
     path("api/review/", views.submit_review, name="submit_review"),
     path("api/waitlist/", views.join_waitlist, name="join_waitlist"),

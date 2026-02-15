@@ -65,6 +65,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'Prolean.middleware.ExternalAuthorityGuardMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -214,3 +215,13 @@ EMAIL_SUBJECT_PREFIX = '[Prolean] '
 LOGIN_REDIRECT_URL = 'Prolean:dashboard'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
+
+# External contract settings (management system as source of truth)
+PROLEAN_MANAGEMENT_API_BASE_URL = os.getenv('PROLEAN_MANAGEMENT_API_BASE_URL', '')
+PROLEAN_MANAGEMENT_API_TOKEN = os.getenv('PROLEAN_MANAGEMENT_API_TOKEN', '')
+PROLEAN_MANAGEMENT_API_TIMEOUT_SECONDS = int(os.getenv('PROLEAN_MANAGEMENT_API_TIMEOUT_SECONDS', '8'))
+PROLEAN_MANAGEMENT_API_MAX_RETRIES = int(os.getenv('PROLEAN_MANAGEMENT_API_MAX_RETRIES', '2'))
+PROLEAN_EXTERNAL_ACCESS_CACHE_TTL_SECONDS = int(os.getenv('PROLEAN_EXTERNAL_ACCESS_CACHE_TTL_SECONDS', '60'))
+PROLEAN_EXTERNAL_HEALTH_CACHE_TTL_SECONDS = int(os.getenv('PROLEAN_EXTERNAL_HEALTH_CACHE_TTL_SECONDS', '30'))
+PROLEAN_STRICT_AUTHORITY_MODE = os.getenv('PROLEAN_STRICT_AUTHORITY_MODE', 'false').lower() == 'true'
+PROLEAN_READ_ONLY_ON_OUTAGE = os.getenv('PROLEAN_READ_ONLY_ON_OUTAGE', 'true').lower() == 'true'
