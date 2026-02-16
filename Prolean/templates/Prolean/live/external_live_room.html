@@ -24,27 +24,6 @@
 
 {% block content %}
 <div class="live-room-shell w-full px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
-    <div class="rounded-3xl border border-neutral-800 bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-800 p-4 sm:p-5 shadow-2xl mb-3 sm:mb-4">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">Live Session</p>
-                <h1 class="text-lg sm:text-2xl font-black text-white break-words">{{ room_name }}</h1>
-                <p class="text-xs sm:text-sm text-neutral-300 mt-1">Role: {{ live_role|title }}</p>
-            </div>
-            <div class="flex items-center gap-2 sm:gap-3">
-                <span id="conn-badge" class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-700">
-                    Connecting
-                </span>
-                <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="px-3 sm:px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-xs sm:text-sm hover:bg-red-700 transition-colors">
-                        Leave
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <div id="conn-error" class="hidden mb-3 px-4 py-3 rounded-xl border border-red-900 bg-red-950/70 text-red-200 text-sm font-semibold"></div>
 
     <div class="mb-3 rounded-2xl border border-emerald-700/40 bg-emerald-900/20 p-3 sm:p-4">
@@ -65,13 +44,24 @@
     </div>
 
     <div class="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4">
-        <div class="xl:col-span-3 rounded-3xl border border-neutral-800 bg-neutral-950 p-3 sm:p-4 min-h-[70vh] sm:min-h-[80vh]">
+        <div class="xl:col-span-3 rounded-3xl border border-neutral-800 bg-neutral-950 p-3 sm:p-4 min-h-[74vh] sm:min-h-[84vh]">
             <div id="main-stage" class="relative w-full h-[58vh] sm:h-[66vh] rounded-2xl overflow-hidden bg-black border border-neutral-800"></div>
             <div id="thumb-strip" class="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
             <div id="audio-sink" class="hidden"></div>
         </div>
 
         <div class="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-2 mb-4">
+                <span id="conn-badge" class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-700">
+                    Connecting
+                </span>
+                <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-2 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors">
+                        <span class="material-symbols-outlined text-sm">logout</span>
+                    </button>
+                </form>
+            </div>
             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-300 mb-4">Controls</p>
             <div class="grid grid-cols-4 gap-2 sm:gap-3">
                 <button id="toggle-audio" title="Microphone" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">

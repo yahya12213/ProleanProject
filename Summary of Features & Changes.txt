@@ -185,6 +185,15 @@ Recent Entries
 - Validation:
   - Django system check passed.
 
+[2026-02-16 UTC] Area: Prolean | Type: UI/Presentation Mode
+- Removed top session banner from live room and kept a presentation-first canvas.
+- Moved connection state + leave action into compact control panel block.
+- Increased default stage footprint for a stronger "presentation mode" feel.
+- Why:
+  - Requirement to follow reference style and avoid header clutter.
+- Validation:
+  - Django system check passed.
+
 [2026-02-16 UTC] Area: Prolean | Type: Feature/Floating Live Shortcut
 - Extended global polling endpoint to include external/Barka live sessions.
 - Floating button now receives live updates from all authenticated pages (not only student dashboard context) and switches from WhatsApp to live shortcut when active.
