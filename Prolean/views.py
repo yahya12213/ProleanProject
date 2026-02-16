@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.utils import OperationalError, ProgrammingError
 import json
 import requests
 from datetime import datetime, timedelta
@@ -459,31 +460,36 @@ def track_page_view(request, page_title=''):
 def home(request):
     """Home page view with optimized queries"""
     track_page_view(request, "Accueil - Prolean Centre")
-    
-    # Get featured trainings from cache or database
-    featured_trainings = cache.get('featured_trainings')
-    
-    if featured_trainings is None:
-        featured_trainings = Training.objects.filter(
-            is_active=True,
-            is_featured=True
-        ).only(
-            'id', 'title', 'slug', 'short_description', 'price_mad',
-            'duration_days', 'success_rate', 'max_students', 'badge',
-            'thumbnail'
-        ).order_by('-created_at')[:4]
-        
-        # If no featured trainings, get recent active ones
-        if not featured_trainings:
+    featured_trainings = []
+
+    try:
+        # Get featured trainings from cache or database
+        featured_trainings = cache.get('featured_trainings')
+
+        if featured_trainings is None:
             featured_trainings = Training.objects.filter(
-                is_active=True
+                is_active=True,
+                is_featured=True
             ).only(
                 'id', 'title', 'slug', 'short_description', 'price_mad',
                 'duration_days', 'success_rate', 'max_students', 'badge',
                 'thumbnail'
             ).order_by('-created_at')[:4]
-        
-        cache.set('featured_trainings', featured_trainings, 1800)  # 30 minutes
+
+            # If no featured trainings, get recent active ones
+            if not featured_trainings:
+                featured_trainings = Training.objects.filter(
+                    is_active=True
+                ).only(
+                    'id', 'title', 'slug', 'short_description', 'price_mad',
+                    'duration_days', 'success_rate', 'max_students', 'badge',
+                    'thumbnail'
+                ).order_by('-created_at')[:4]
+
+            cache.set('featured_trainings', featured_trainings, 1800)  # 30 minutes
+    except (OperationalError, ProgrammingError):
+        logger.exception("Home page fallback: database tables not ready yet.")
+        featured_trainings = []
     
     # Get user location
     ip_address = get_client_ip(request)
