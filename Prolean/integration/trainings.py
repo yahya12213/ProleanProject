@@ -14,6 +14,10 @@ class ExternalTraining:
     duration_days: int
     thumbnail: str | None = None
 
+    # Precomputed pricing fields used by views/templates (slots-safe).
+    price_mad_float: float = 0.0
+    price_in_preferred: float = 0.0
+
     # Optional/template-driven fields (defaults avoid template errors).
     max_students: int = 20
     success_rate: int = 95
@@ -79,5 +83,6 @@ def to_external_training(payload: dict[str, Any]) -> ExternalTraining:
         price_mad=price,
         duration_days=duration_days,
         thumbnail=thumbnail,
+        price_mad_float=price,
+        price_in_preferred=price,
     )
-

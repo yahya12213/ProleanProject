@@ -536,12 +536,19 @@ def home(request):
         try:
             training.price_mad_float = float(getattr(training, "price_mad", 0))
         except Exception:
-            training.price_mad_float = 0.0
+            # Some external projection objects may be slots-based; keep existing default.
+            pass
 
         if hasattr(training, "get_price_in_currency"):
-            training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+            try:
+                training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+            except Exception:
+                pass
         else:
-            training.price_in_preferred = training.price_mad_float
+            try:
+                training.price_in_preferred = float(getattr(training, "price_mad_float", getattr(training, "price_mad", 0)))
+            except Exception:
+                pass
     
     context = {
         'featured_trainings': featured_trainings,
@@ -633,11 +640,17 @@ def training_catalog(request):
         try:
             training.price_mad_float = float(getattr(training, "price_mad", 0))
         except Exception:
-            training.price_mad_float = 0.0
+            pass
         if hasattr(training, "get_price_in_currency"):
-            training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+            try:
+                training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+            except Exception:
+                pass
         else:
-            training.price_in_preferred = training.price_mad_float
+            try:
+                training.price_in_preferred = float(getattr(training, "price_mad_float", getattr(training, "price_mad", 0)))
+            except Exception:
+                pass
     
     # Pagination
     page = request.GET.get('page', 1)
