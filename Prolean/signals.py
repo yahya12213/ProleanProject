@@ -3,6 +3,17 @@ from django.contrib.auth.models import User
 from django.dispatch import receiver
 from .models import Profile, StudentProfile
 
+def _build_fallback_phone(username: str) -> str:
+    base = f"ext-{(username or 'user').strip().lower()}"
+    base = base[:40]
+    candidate = base
+    i = 1
+    while Profile.objects.filter(phone_number=candidate).exists():
+        suffix = f"-{i}"
+        candidate = f"{base[:max(1, 50 - len(suffix))]}{suffix}"
+        i += 1
+    return candidate
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """
@@ -14,6 +25,7 @@ def create_user_profile(sender, instance, created, **kwargs):
         user=instance,
         defaults={
             'full_name': f"{instance.first_name} {instance.last_name}".strip() or instance.username,
+            'phone_number': _build_fallback_phone(instance.username),
         }
     )
 

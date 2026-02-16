@@ -1889,6 +1889,17 @@ class Notification(models.Model):
 
 # ========== SIGNALS FOR AUTOMATED PROFILE CREATION ==========
 
+def _build_fallback_phone(username: str) -> str:
+    base = f"ext-{(username or 'user').strip().lower()}"
+    base = base[:40]
+    candidate = base
+    i = 1
+    while Profile.objects.filter(phone_number=candidate).exists():
+        suffix = f"-{i}"
+        candidate = f"{base[:max(1, 50 - len(suffix))]}{suffix}"
+        i += 1
+    return candidate
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create a Profile whenever a User is created"""
@@ -1897,6 +1908,7 @@ def create_user_profile(sender, instance, created, **kwargs):
             user=instance,
             defaults={
                 'full_name': instance.get_full_name() or instance.username,
+                'phone_number': _build_fallback_phone(instance.username),
             }
         )
 
