@@ -90,3 +90,20 @@ Recent Entries
   - Replace ambiguous "Connection Failed" with actionable reason for debugging.
 - Validation:
   - Django system check passed and pushed.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/URL Normalization
+- Added normalization for LiveKit websocket URL in join payload:
+  - trims spaces/quotes
+  - enforces ws scheme by prefixing with `wss://` if missing
+- Why:
+  - Prevent invalid URL errors in browser connect flow.
+- Validation:
+  - Route syntax check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Client Validation
+- Added client-side LiveKit URL normalization and explicit URL validation in live room page.
+- Added raw/normalized URL error output for fast diagnosis.
+- Why:
+  - Expose exact malformed URL problems instead of generic connection failure.
+- Validation:
+  - Django system check passed and pushed.
