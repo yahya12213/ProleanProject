@@ -2230,6 +2230,43 @@ def recorded_videos_list(request, training_slug):
 @professor_required
 def professor_dashboard(request):
     """Professor dashboard main view - Session-Centric"""
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if mgmt.is_configured() and isinstance(token, str) and token.strip():
+        try:
+            sessions = mgmt.list_sessions_formation(bearer_token=token.strip())
+            selected_session_id = request.GET.get('session_id')
+            selected_session = None
+            if selected_session_id:
+                selected_session = next((s for s in sessions if str(s.get("id")) == str(selected_session_id)), None)
+            if not selected_session and sessions:
+                selected_session = sessions[0]
+
+            selected_students = []
+            if selected_session and selected_session.get("id"):
+                details = mgmt.get_session_formation_detail(str(selected_session.get("id")), bearer_token=token.strip())
+                selected_students = details.get("etudiants") if isinstance(details, dict) else []
+                if not isinstance(selected_students, list):
+                    selected_students = []
+
+            context = {
+                'external_professor_mode': True,
+                'external_sessions': sessions if isinstance(sessions, list) else [],
+                'external_selected_session': selected_session,
+                'external_students': selected_students,
+                'students_count': len(selected_students),
+                'all_sessions': [],
+                'selected_session': None,
+                'recent_comments': [],
+                'active_streams': [],
+                'notifications': [],
+                'upcoming_sessions': [],
+                'active_sessions': [],
+            }
+            return render(request, 'Prolean/professor/dashboard.html', context)
+        except Exception as exc:
+            logger.warning("External professor dashboard fallback to local mode: %s", exc)
+
     prof_profile = get_object_or_404(ProfessorProfile, profile=request.user.profile)
     
     # Get all potential sessions for this professor
@@ -2315,6 +2352,38 @@ def account_status(request):
 @professor_required
 def professor_students(request):
     """List students enrolled in professor's sessions - Session-Centric"""
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if mgmt.is_configured() and isinstance(token, str) and token.strip():
+        try:
+            sessions = mgmt.list_sessions_formation(bearer_token=token.strip())
+            session_id = request.GET.get('session_id')
+            selected_session = None
+            if session_id:
+                selected_session = next((s for s in sessions if str(s.get("id")) == str(session_id)), None)
+            if not selected_session and sessions:
+                selected_session = sessions[0]
+
+            students = []
+            if selected_session and selected_session.get("id"):
+                details = mgmt.get_session_formation_detail(str(selected_session.get("id")), bearer_token=token.strip())
+                students = details.get("etudiants") if isinstance(details, dict) else []
+                if not isinstance(students, list):
+                    students = []
+
+            context = {
+                'external_professor_mode': True,
+                'external_sessions': sessions if isinstance(sessions, list) else [],
+                'external_selected_session': selected_session,
+                'external_students': students,
+                'students': [],
+                'all_sessions': [],
+                'selected_session': None,
+            }
+            return render(request, 'Prolean/professor/students.html', context)
+        except Exception as exc:
+            logger.warning("External professor students fallback to local mode: %s", exc)
+
     prof_profile = get_object_or_404(ProfessorProfile, profile=request.user.profile)
     
     # Session filtering

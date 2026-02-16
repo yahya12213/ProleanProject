@@ -5,6 +5,43 @@
 {% block header_subtitle %}Suivi détaillé de votre cohorte et progrès académiques.{% endblock %}
 
 {% block professor_content %}
+{% if external_professor_mode %}
+<div class="space-y-8">
+    <div class="glass-card p-6 flex items-center justify-between">
+        <div>
+            <h2 class="text-xl font-black" style="color: var(--prof-text-main);">Étudiants par Session (Barka)</h2>
+            <p class="text-sm opacity-70" style="color: var(--prof-text-muted);">Live assignments from management system.</p>
+        </div>
+        <span class="text-2xl font-black text-brand">{{ external_students|length }}</span>
+    </div>
+
+    {% if external_sessions %}
+    <div class="flex flex-wrap gap-3">
+        {% for sess in external_sessions %}
+        <a href="?session_id={{ sess.id }}" class="px-4 py-2 rounded-xl border font-bold text-sm {% if external_selected_session and external_selected_session.id == sess.id %}bg-brand text-white border-brand{% else %}bg-surface-hover border-prof{% endif %}">
+            {{ sess.titre|default:"Session" }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for st in external_students %}
+        <div class="glass-card p-5">
+            <h3 class="font-black text-lg" style="color: var(--prof-text-main);">{{ st.student_name|default:"Étudiant" }}</h3>
+            <p class="text-xs opacity-70 mt-1" style="color: var(--prof-text-muted);">{{ st.student_email|default:"-" }}</p>
+            <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">{{ st.student_phone|default:"-" }}</p>
+            <div class="mt-4 text-[10px] uppercase tracking-widest font-bold opacity-60">{{ st.formation_title|default:"Formation" }}</div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-20 text-center opacity-60">
+            <span class="material-symbols-outlined text-4xl text-muted">person_off</span>
+            <p class="font-bold mt-3">Aucun étudiant trouvé pour cette session</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
 <div class="space-y-8">
     <!-- Header with Stats -->
     <div class="glass-card p-6 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -113,4 +150,5 @@
         {% endfor %}
     </div>
 </div>
+{% endif %}
 {% endblock %}
