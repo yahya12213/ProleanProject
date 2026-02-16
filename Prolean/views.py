@@ -2234,7 +2234,7 @@ def professor_dashboard(request):
     mgmt = ManagementContractClient()
     if mgmt.is_configured() and isinstance(token, str) and token.strip():
         try:
-            sessions = mgmt.list_sessions_formation(bearer_token=token.strip())
+            sessions = mgmt.list_my_professor_sessions(bearer_token=token.strip())
             selected_session_id = request.GET.get('session_id')
             selected_session = None
             if selected_session_id:
@@ -2244,7 +2244,7 @@ def professor_dashboard(request):
 
             selected_students = []
             if selected_session and selected_session.get("id"):
-                details = mgmt.get_session_formation_detail(str(selected_session.get("id")), bearer_token=token.strip())
+                details = mgmt.get_my_professor_session_detail(str(selected_session.get("id")), bearer_token=token.strip())
                 selected_students = details.get("etudiants") if isinstance(details, dict) else []
                 if not isinstance(selected_students, list):
                     selected_students = []
@@ -2356,7 +2356,7 @@ def professor_students(request):
     mgmt = ManagementContractClient()
     if mgmt.is_configured() and isinstance(token, str) and token.strip():
         try:
-            sessions = mgmt.list_sessions_formation(bearer_token=token.strip())
+            sessions = mgmt.list_my_professor_sessions(bearer_token=token.strip())
             session_id = request.GET.get('session_id')
             selected_session = None
             if session_id:
@@ -2366,7 +2366,7 @@ def professor_students(request):
 
             students = []
             if selected_session and selected_session.get("id"):
-                details = mgmt.get_session_formation_detail(str(selected_session.get("id")), bearer_token=token.strip())
+                details = mgmt.get_my_professor_session_detail(str(selected_session.get("id")), bearer_token=token.strip())
                 students = details.get("etudiants") if isinstance(details, dict) else []
                 if not isinstance(students, list):
                     students = []

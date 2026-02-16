@@ -196,6 +196,28 @@ class ManagementContractClient:
             return data
         raise ContractError("Unexpected session detail payload.")
 
+    def list_my_professor_sessions(self, *, bearer_token: str) -> list[dict[str, Any]]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/my-sessions"
+        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        if isinstance(data, dict) and isinstance(data.get("sessions"), list):
+            return data["sessions"]
+        if isinstance(data, list):
+            return data
+        raise ContractError("Unexpected my-sessions payload (expected list).")
+
+    def get_my_professor_session_detail(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/my-sessions/{session_id}"
+        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        if isinstance(data, dict) and isinstance(data.get("session"), dict):
+            return data["session"]
+        if isinstance(data, dict):
+            return data
+        raise ContractError("Unexpected my-session detail payload.")
+
     def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         headers = kwargs.pop("headers", {})
         bearer_token = kwargs.pop("bearer_token", None)
