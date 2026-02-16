@@ -20,6 +20,7 @@ class ManagementContractClient:
     def get_access_snapshot(self, subject_id: str) -> dict[str, Any]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
+        # Backward compatible: prefer dedicated snapshot endpoint if available.
         endpoint = f"{self.config.base_url}/access/snapshot/{subject_id}"
         return self._request("GET", endpoint)
 
@@ -39,9 +40,46 @@ class ManagementContractClient:
         except UpstreamUnavailable:
             return {"status": "down"}
 
+    # ------------------------------------------------------------------
+    # Barka-compatible endpoints (Prolean consumes Barka as authority)
+    # NOTE: These paths assume PROLEAN_MANAGEMENT_API_BASE_URL ends with "/api".
+    # Example: https://your-barka-domain.up.railway.app/api
+    # ------------------------------------------------------------------
+
+    def login(self, username: str, password: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/auth/login"
+        return self._request("POST", endpoint, json={"username": username, "password": password})
+
+    def get_current_user(self, bearer_token: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/auth/me"
+        return self._request("GET", endpoint, bearer_token=bearer_token)
+
+    def list_formations(self, *, bearer_token: str | None = None) -> list[dict[str, Any]]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/cours/formations"
+        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        # Barka returns a JSON array for this endpoint.
+        if isinstance(data, list):
+            return data
+        raise ContractError("Unexpected formations payload (expected list).")
+
+    def get_formation(self, formation_id: str, *, bearer_token: str | None = None) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/cours/formations/{formation_id}"
+        return self._request("GET", endpoint, bearer_token=bearer_token)
+
     def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
         headers = kwargs.pop("headers", {})
-        if self.config.api_token:
+        bearer_token = kwargs.pop("bearer_token", None)
+        if bearer_token:
+            headers["Authorization"] = f"Bearer {bearer_token}"
+        elif self.config.api_token:
             headers["Authorization"] = f"Bearer {self.config.api_token}"
         headers["Accept"] = "application/json"
 
@@ -76,4 +114,3 @@ class ManagementContractClient:
         raise UpstreamUnavailable(
             f"Contract request failed after retries: {last_exception!s}"
         )
-

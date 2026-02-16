@@ -24,10 +24,12 @@ class ExternalAuthorityGuardMiddleware:
 
         if request.user.is_authenticated and request.method not in self.SAFE_METHODS:
             subject_id = getattr(request.user, "username", "") or str(request.user.id)
+            bearer_token = request.session.get("barka_token") if hasattr(request, "session") else None
             decision = self.authz.evaluate(
                 subject_id=subject_id,
                 mutation=True,
                 allow_local_fallback=False,
+                bearer_token=bearer_token,
             )
             request.integration_auth_decision = decision
 

@@ -6,7 +6,7 @@ from typing import Any
 
 from django.core.cache import cache
 
-from .adapter import to_access_snapshot
+from .adapter import to_access_snapshot, to_access_snapshot_from_barka_me
 from .client import ManagementContractClient
 from .contracts import AccessSnapshot, AuthorizationDecision
 from .exceptions import ContractError, UpstreamUnavailable
@@ -34,11 +34,12 @@ class ExternalAuthorizationService:
         required_permissions: set[str] | None = None,
         mutation: bool = False,
         allow_local_fallback: bool = True,
+        bearer_token: str | None = None,
     ) -> AuthorizationDecision:
         required_roles = required_roles or set()
         required_permissions = required_permissions or set()
 
-        snapshot = self._get_snapshot(subject_id)
+        snapshot = self._get_snapshot(subject_id, bearer_token=bearer_token)
         if snapshot is None:
             if self.config.strict_authority_mode and not allow_local_fallback:
                 return AuthorizationDecision(
@@ -84,7 +85,7 @@ class ExternalAuthorizationService:
             )
         return AuthorizationDecision(allowed=True, source="external", snapshot=snapshot)
 
-    def _get_snapshot(self, subject_id: str) -> AccessSnapshot | None:
+    def _get_snapshot(self, subject_id: str, *, bearer_token: str | None = None) -> AccessSnapshot | None:
         if not subject_id:
             return None
 
@@ -94,6 +95,11 @@ class ExternalAuthorizationService:
             return to_access_snapshot(subject_id, cached)
 
         try:
+            if bearer_token:
+                payload = self.client.get_current_user(bearer_token)
+                snapshot = to_access_snapshot_from_barka_me(subject_id, payload)
+                cache.set(key, snapshot.raw_payload, timeout=self.config.access_cache_ttl_seconds)
+                return snapshot
             payload = self.client.get_access_snapshot(subject_id)
         except (UpstreamUnavailable, ContractError) as exc:
             logger.warning("External access snapshot unavailable for %s: %s", subject_id, exc)
@@ -122,4 +128,3 @@ class ExternalAuthorizationService:
         if snapshot is None:
             return None
         return asdict(snapshot)
-

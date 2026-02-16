@@ -40,3 +40,29 @@ def to_access_snapshot(subject_id: str, payload: dict[str, Any]) -> AccessSnapsh
         raw_payload=payload,
     )
 
+
+def to_access_snapshot_from_barka_me(subject_id: str, payload: dict[str, Any]) -> AccessSnapshot:
+    """
+    Adapter for Barka `/auth/me` payload:
+    {
+      "success": true,
+      "user": {..., "role": "...", ...},
+      "permissions": [...]
+    }
+    """
+    user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
+    role = str(user.get("role", "")).strip()
+    permissions = payload.get("permissions") if isinstance(payload.get("permissions"), list) else []
+
+    # Treat presence of a user as "active". Fine-grained revocation comes from Barka.
+    normalized = {
+        "active": True,
+        "roles": [role] if role else [],
+        "permissions": permissions,
+        # Keep useful identifiers for downstream debugging and optional policy checks.
+        "assignments": [],
+        "version": "",
+        "emitted_at": None,
+        "raw": payload,
+    }
+    return to_access_snapshot(subject_id, normalized)

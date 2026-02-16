@@ -81,6 +81,11 @@ def professor_required(view_func):
 
 logger = logging.getLogger(__name__)
 
+# External authority (Barka) integration
+from Prolean.integration.client import ManagementContractClient
+from Prolean.integration.exceptions import ContractError, UpstreamUnavailable
+from Prolean.integration.trainings import to_external_training
+
 # ========== RATE LIMITING & THREAT DETECTION ==========
 
 class RateLimiter:
@@ -462,34 +467,50 @@ def home(request):
     track_page_view(request, "Accueil - Prolean Centre")
     featured_trainings = []
 
-    try:
-        # Get featured trainings from cache or database
-        featured_trainings = cache.get('featured_trainings')
+    # 1) Prefer external authority (Barka) if configured.
+    mgmt = ManagementContractClient()
+    if mgmt.is_configured():
+        try:
+            cache_key = "external:featured_formations:v1"
+            cached = cache.get(cache_key)
+            if cached is None:
+                formations = mgmt.list_formations()
+                trainings = [to_external_training(f) for f in formations if isinstance(f, dict)]
+                featured_trainings = trainings[:4]
+                cache.set(cache_key, featured_trainings, 300)  # 5 min
+            else:
+                featured_trainings = cached
+        except (UpstreamUnavailable, ContractError) as exc:
+            logger.warning("External formations unavailable, falling back to local DB: %s", exc)
 
-        if featured_trainings is None:
-            featured_trainings = Training.objects.filter(
-                is_active=True,
-                is_featured=True
-            ).only(
-                'id', 'title', 'slug', 'short_description', 'price_mad',
-                'duration_days', 'success_rate', 'max_students', 'badge',
-                'thumbnail'
-            ).order_by('-created_at')[:4]
+    # 2) Fallback to local DB (legacy mode).
+    if not featured_trainings:
+        try:
+            featured_trainings = cache.get('featured_trainings')
 
-            # If no featured trainings, get recent active ones
-            if not featured_trainings:
+            if featured_trainings is None:
                 featured_trainings = Training.objects.filter(
-                    is_active=True
+                    is_active=True,
+                    is_featured=True
                 ).only(
                     'id', 'title', 'slug', 'short_description', 'price_mad',
                     'duration_days', 'success_rate', 'max_students', 'badge',
                     'thumbnail'
                 ).order_by('-created_at')[:4]
 
-            cache.set('featured_trainings', featured_trainings, 1800)  # 30 minutes
-    except (OperationalError, ProgrammingError):
-        logger.exception("Home page fallback: database tables not ready yet.")
-        featured_trainings = []
+                if not featured_trainings:
+                    featured_trainings = Training.objects.filter(
+                        is_active=True
+                    ).only(
+                        'id', 'title', 'slug', 'short_description', 'price_mad',
+                        'duration_days', 'success_rate', 'max_students', 'badge',
+                        'thumbnail'
+                    ).order_by('-created_at')[:4]
+
+                cache.set('featured_trainings', featured_trainings, 1800)  # 30 minutes
+        except (OperationalError, ProgrammingError):
+            logger.exception("Home page fallback: database tables not ready yet.")
+            featured_trainings = []
     
     # Get user location
     ip_address = get_client_ip(request)
@@ -512,8 +533,15 @@ def home(request):
     
     # Prepare training data
     for training in featured_trainings:
-        training.price_mad_float = float(training.price_mad)
-        training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+        try:
+            training.price_mad_float = float(getattr(training, "price_mad", 0))
+        except Exception:
+            training.price_mad_float = 0.0
+
+        if hasattr(training, "get_price_in_currency"):
+            training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+        else:
+            training.price_in_preferred = training.price_mad_float
     
     context = {
         'featured_trainings': featured_trainings,
@@ -538,26 +566,48 @@ def training_catalog(request):
             'wait_time': wait_time
         }, status=429)
     
-    # Get all active trainings with optimized query
-    trainings = Training.objects.filter(is_active=True).only(
-        'id', 'title', 'slug', 'short_description', 'price_mad',
-        'duration_days', 'success_rate', 'max_students', 'badge',
-        'thumbnail', 'next_session', 'is_featured',
-        'category_caces', 'category_electricite', 'category_soudage',
-        'category_securite', 'category_management', 'category_autre'
-    ).order_by('-created_at')
+    mgmt = ManagementContractClient()
+    trainings = None
+    external_mode = False
+
+    if mgmt.is_configured():
+        try:
+            cache_key = "external:formations:all:v1"
+            cached = cache.get(cache_key)
+            if cached is None:
+                formations = mgmt.list_formations()
+                cached = [to_external_training(f) for f in formations if isinstance(f, dict)]
+                cache.set(cache_key, cached, 300)  # 5 min
+            trainings = list(cached)
+            external_mode = True
+        except (UpstreamUnavailable, ContractError) as exc:
+            logger.warning("External formations unavailable, using local DB: %s", exc)
+            trainings = None
+
+    if trainings is None:
+        trainings = Training.objects.filter(is_active=True).only(
+            'id', 'title', 'slug', 'short_description', 'price_mad',
+            'duration_days', 'success_rate', 'max_students', 'badge',
+            'thumbnail', 'next_session', 'is_featured',
+            'category_caces', 'category_electricite', 'category_soudage',
+            'category_securite', 'category_management', 'category_autre'
+        ).order_by('-created_at')
     
     # Get search query
     search_query = request.GET.get('q', '')
     if search_query:
-        trainings = trainings.filter(
-            Q(title__icontains=search_query) |
-            Q(short_description__icontains=search_query)
-        )
+        if external_mode:
+            q = search_query.lower()
+            trainings = [t for t in trainings if q in (t.title or "").lower() or q in (t.short_description or "").lower()]
+        else:
+            trainings = trainings.filter(
+                Q(title__icontains=search_query) |
+                Q(short_description__icontains=search_query)
+            )
     
     # Get category filter
     category_filter = request.GET.get('category', 'all')
-    if category_filter != 'all':
+    if category_filter != 'all' and not external_mode:
         category_map = {
             'caces': 'category_caces',
             'electricite': 'category_electricite',
@@ -571,8 +621,8 @@ def training_catalog(request):
             trainings = trainings.filter(**filter_kwargs)
     
     # Get categories from cache
-    categories = get_cached_categories(trainings)
-    total_count = trainings.count()
+    categories = [] if external_mode else get_cached_categories(trainings)
+    total_count = len(trainings) if external_mode else trainings.count()
     
     # Get preferred currency
     preferred_currency = request.session.get('preferred_currency', 'MAD')
@@ -580,8 +630,14 @@ def training_catalog(request):
     # Prepare training data
     trainings_list = list(trainings)
     for training in trainings_list:
-        training.price_mad_float = float(training.price_mad)
-        training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+        try:
+            training.price_mad_float = float(getattr(training, "price_mad", 0))
+        except Exception:
+            training.price_mad_float = 0.0
+        if hasattr(training, "get_price_in_currency"):
+            training.price_in_preferred = float(training.get_price_in_currency(preferred_currency))
+        else:
+            training.price_in_preferred = training.price_mad_float
     
     # Pagination
     page = request.GET.get('page', 1)
@@ -1288,12 +1344,65 @@ def login_view(request):
         if form.is_valid():
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
+            mgmt = ManagementContractClient()
+            if mgmt.is_configured():
+                try:
+                    payload = mgmt.login(username=username, password=password)
+                    if not payload.get("success"):
+                        messages.error(request, payload.get("error") or "Identifiants invalides.")
+                        return redirect('Prolean:login')
+
+                    token = payload.get("token")
+                    user_data = payload.get("user") if isinstance(payload.get("user"), dict) else {}
+                    permissions = payload.get("permissions") if isinstance(payload.get("permissions"), list) else []
+
+                    local_username = str(user_data.get("username") or username).strip()
+                    if not local_username:
+                        messages.error(request, "Identifiant invalide.")
+                        return redirect('Prolean:login')
+
+                    django_user, _created = User.objects.get_or_create(username=local_username)
+                    django_user.set_unusable_password()
+                    django_user.save()
+
+                    # Mirror role in Prolean profile (projection only).
+                    try:
+                        profile = django_user.profile
+                    except Exception:
+                        from .models import Profile as ProleanProfile
+                        profile, _ = ProleanProfile.objects.get_or_create(user=django_user)
+
+                    raw_role = str(user_data.get("role", "")).strip().upper()
+                    if raw_role == "STUDENT" or raw_role == "student":
+                        profile.role = "STUDENT"
+                    elif raw_role == "PROFESSOR" or raw_role == "professor":
+                        profile.role = "PROFESSOR"
+                    elif raw_role == "ADMIN" or raw_role == "GERANT":
+                        profile.role = "ADMIN"
+                    else:
+                        # Default safe role.
+                        profile.role = "STUDENT"
+
+                    if user_data.get("full_name"):
+                        profile.full_name = str(user_data.get("full_name"))
+                    profile.status = "ACTIVE"
+                    profile.save()
+
+                    if token:
+                        request.session["barka_token"] = token
+                    request.session["barka_permissions"] = permissions
+
+                    login(request, django_user)
+                    return redirect('Prolean:home')
+                except (UpstreamUnavailable, ContractError) as exc:
+                    messages.error(request, f"External login unavailable: {exc}")
+                    return redirect('Prolean:login')
+
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
                 return redirect('Prolean:home')
-            else:
-                messages.error(request, "Identifiants invalides.")
+            messages.error(request, "Identifiants invalides.")
         else:
              messages.error(request, "Identifiants invalides.")
     
