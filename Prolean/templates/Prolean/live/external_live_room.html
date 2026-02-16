@@ -94,7 +94,7 @@
   const raisedHandsList = document.getElementById("raised-hands-list");
   const speakingCount = document.getElementById("speaking-count");
 
-  const videoTiles = new Map();  // key -> {wrapper, media}
+  const videoTiles = new Map();  // key -> {wrapper, media, track, isLocal, label}
   const audioEls = new Map();    // key -> element
   const raisedHands = new Map(); // identity -> name
   let mainVideoKey = null;
@@ -202,14 +202,14 @@
     if (mainVideoKey === key) return;
     mainStage.innerHTML = "";
     const tile = videoTiles.get(key);
-    const cloned = tile.wrapper.cloneNode(true);
+    const cloned = document.createElement("div");
     cloned.className = "relative w-full h-full rounded-2xl overflow-hidden bg-black";
-    const media = tile.media.cloneNode(true);
-    media.className = "w-full h-full object-contain bg-black";
+    const media = tile.track.attach();
+    media.className = "w-full h-full object-cover bg-black";
     media.muted = tile.isLocal;
     media.autoplay = true;
     media.playsInline = true;
-    cloned.innerHTML = "";
+    media.setAttribute("playsinline", "true");
     cloned.appendChild(media);
     const footer = document.createElement("div");
     footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/70 text-white text-xs font-bold";
@@ -236,7 +236,7 @@
     wrapper.addEventListener("click", () => setMainVideo(key));
     thumbStrip.appendChild(wrapper);
 
-    videoTiles.set(key, { wrapper, media, label, isLocal, identity });
+    videoTiles.set(key, { wrapper, media, label, isLocal, identity, track });
 
     if (!mainVideoKey) {
       setMainVideo(key);

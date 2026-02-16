@@ -142,3 +142,15 @@ Recent Entries
   - Resolve stream sizing/usability issues on mobile and improve overall UX consistency.
 - Validation:
   - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live Rendering + UX
+- Fixed main-stage black preview issue by using real attached track elements in stage view (no clone-without-stream).
+- Updated professor external live control panel with improved responsive design and clearer CTA:
+  - `Start & Join Live`
+  - `Pause Live`
+  - `End Live`
+  - persistent `Back to Live Room` when live is active
+- Why:
+  - Ensure professor camera fills full stage and improve live action clarity.
+- Validation:
+  - Django system check passed.

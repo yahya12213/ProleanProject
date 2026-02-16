@@ -48,32 +48,39 @@
             </div>
         </div>
 
-        <div class="mb-6 p-4 rounded-xl border border-prof bg-surface-hover">
-            <div class="flex flex-wrap items-center gap-3">
+        <div class="mb-6 p-5 rounded-2xl border border-prof bg-gradient-to-r from-white to-surface-hover shadow-sm">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Live Controls</p>
+                    <p class="text-xs font-semibold opacity-70">Start launches and joins the live room immediately.</p>
+                </div>
+                {% if external_live_state and external_live_state.status == 'live' %}
+                <a href="{% url 'Prolean:external_live_room' external_selected_session.id %}" class="px-4 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-wider hover:opacity-90">
+                    Back to Live Room
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">
                     {% csrf_token %}
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-black uppercase tracking-wider hover:bg-green-700">
-                        Start Live
+                    <button type="submit" class="w-full px-4 py-3 rounded-xl bg-green-600 text-white text-xs font-black uppercase tracking-wider hover:bg-green-700 shadow-md shadow-green-500/20">
+                        Start & Join Live
                     </button>
                 </form>
                 <form method="post" action="{% url 'Prolean:external_professor_live_pause' external_selected_session.id %}">
                     {% csrf_token %}
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-600">
+                    <button type="submit" class="w-full px-4 py-3 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-600 shadow-md shadow-amber-500/20">
                         Pause Live
                     </button>
                 </form>
-                <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}" class="flex items-center gap-2">
+                <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}" class="sm:col-span-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                     {% csrf_token %}
-                    <input type="url" name="recording_url" placeholder="Recording URL (optional)" class="px-3 py-2 rounded-xl border border-prof bg-white text-xs min-w-[220px]">
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-wider hover:bg-red-700">
+                    <input type="url" name="recording_url" placeholder="Recording URL (optional)" class="px-3 py-3 rounded-xl border border-prof bg-white text-xs w-full">
+                    <button type="submit" class="px-4 py-3 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-wider hover:bg-red-700 shadow-md shadow-red-500/20">
                         End Live
                     </button>
                 </form>
-                {% if external_live_state and external_live_state.status == 'live' %}
-                <a href="{% url 'Prolean:external_live_room' external_selected_session.id %}" class="px-4 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-wider hover:opacity-90">
-                    Join Room
-                </a>
-                {% endif %}
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
