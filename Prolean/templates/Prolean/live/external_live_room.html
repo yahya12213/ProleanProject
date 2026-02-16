@@ -47,17 +47,42 @@
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script>
 (() => {
-  const livekitUrl = "{{ livekit_url|escapejs }}";
+  const rawLivekitUrl = "{{ livekit_url|escapejs }}";
   const livekitToken = "{{ livekit_token|escapejs }}";
   const isProfessor = "{{ live_role|escapejs }}" === "professor";
   const videoGrid = document.getElementById("video-grid");
   const badge = document.getElementById("conn-badge");
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
+  const errBox = document.getElementById("conn-error");
+
+  const normalizeLivekitUrl = (value) => {
+    const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
+    if (!cleaned) return "";
+    if (/^wss?:\/\//i.test(cleaned)) return cleaned;
+    return `wss://${cleaned}`;
+  };
+  const livekitUrl = normalizeLivekitUrl(rawLivekitUrl);
 
   if (!livekitUrl || !livekitToken) {
     badge.textContent = "Config Error";
     badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    if (errBox) {
+      errBox.textContent = `Missing live config. URL="${rawLivekitUrl || '-'}"`;
+      errBox.classList.remove("hidden");
+    }
+    return;
+  }
+
+  try {
+    new URL(livekitUrl);
+  } catch {
+    badge.textContent = "Invalid URL";
+    badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    if (errBox) {
+      errBox.textContent = `Invalid LiveKit URL after normalization: "${livekitUrl}" (raw: "${rawLivekitUrl || '-'}")`;
+      errBox.classList.remove("hidden");
+    }
     return;
   }
 
@@ -108,7 +133,6 @@
   }).catch((err) => {
     badge.textContent = "Connection Failed";
     badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
-    const errBox = document.getElementById("conn-error");
     if (errBox) {
       const errMsg = (err && (err.message || String(err))) ? (err.message || String(err)) : "Unknown LiveKit connection error.";
       errBox.textContent = `LiveKit connection failed: ${errMsg}`;
