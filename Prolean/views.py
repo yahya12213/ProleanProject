@@ -1458,7 +1458,7 @@ def login_view(request):
         if use_external:
             form = ExternalAuthorityLoginForm(request.POST)
             if form.is_valid():
-                username = (form.cleaned_data.get('username') or '').strip()
+                username = (form.cleaned_data.get('username') or '').strip().upper().replace(" ", "")
                 password = form.cleaned_data.get('password') or ''
                 try:
                     payload = mgmt.login(username=username, password=password)
