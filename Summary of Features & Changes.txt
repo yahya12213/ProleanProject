@@ -61,3 +61,11 @@ Recent Entries
 - Validation:
   - Django system check passed.
 
+[2026-02-16 UTC] Area: Barka | Type: Fix/Config Guard
+- Added early validation of LiveKit env config in session live endpoints:
+  - start live now checks LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET before creating a live.
+  - join live now checks the same vars before generating token.
+- Why:
+  - Prevented confusing runtime failure where live starts but join fails with missing credentials.
+- Validation:
+  - Route syntax check passed.
