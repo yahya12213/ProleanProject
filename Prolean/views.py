@@ -1396,21 +1396,49 @@ def register(request):
                         "adresse": address,
                         "statut_compte": "actif",
                     })
-                    # Best-effort: trigger profile auto-creation in Barka via CIN login.
-                    # This may return 403 until the student is enrolled, but it will create the profile row.
-                    try:
-                        mgmt.login(username=cin, password=str(form.cleaned_data.get('password') or ''))
-                    except Exception:
-                        pass
                 except (UpstreamUnavailable, ContractError) as exc:
                     messages.error(request, f"Registration is temporarily unavailable: {exc}")
                     return render(request, 'registration/signup.html', {'form': form, 'external_authority': True})
 
-                messages.success(
-                    request,
-                    "Registration received. Your account will be activated after assignment to a session."
-                )
-                return redirect('Prolean:login')
+                # Auto-login after successful registration (requested UX).
+                try:
+                    login_payload = mgmt.login(username=cin, password=str(form.cleaned_data.get('password') or ''))
+                    if not login_payload.get("success"):
+                        messages.success(request, "Registration successful. Please login to access your space.")
+                        return redirect('Prolean:login')
+
+                    token = login_payload.get("token")
+                    user_data = login_payload.get("user") if isinstance(login_payload.get("user"), dict) else {}
+                    permissions = login_payload.get("permissions") if isinstance(login_payload.get("permissions"), list) else []
+
+                    local_username = str(user_data.get("username") or cin).strip()
+                    django_user, _created = User.objects.get_or_create(username=local_username)
+                    django_user.set_unusable_password()
+                    django_user.save()
+
+                    try:
+                        profile = django_user.profile
+                    except Exception:
+                        from .models import Profile as ProleanProfile
+                        profile, _ = ProleanProfile.objects.get_or_create(user=django_user)
+
+                    profile.role = "STUDENT"
+                    if user_data.get("full_name"):
+                        profile.full_name = str(user_data.get("full_name"))
+                    profile.status = "ACTIVE"
+                    profile.save()
+
+                    if token:
+                        request.session["barka_token"] = token
+                    request.session["barka_permissions"] = permissions
+
+                    login(request, django_user)
+                    messages.success(request, "Welcome to your space.")
+                    return redirect('Prolean:dashboard')
+                except (UpstreamUnavailable, ContractError) as exc:
+                    messages.success(request, "Registration successful. Please login to access your space.")
+                    messages.error(request, f"Login temporarily unavailable: {exc}")
+                    return redirect('Prolean:login')
 
             # 2) Legacy local registration fallback (when external authority is not configured).
             user = User.objects.create_user(
