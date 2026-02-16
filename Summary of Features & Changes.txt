@@ -192,3 +192,12 @@ Recent Entries
   - Make live room access persistent across the entire website.
 - Validation:
   - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live Local Camera
+- Fixed student self-preview when turning camera on during live room:
+  - local track publication now explicitly attaches video/audio for local participant
+  - camera toggle now triggers a delayed local-track attach to handle async publication timing
+- Why:
+  - Students were not seeing themselves after enabling camera.
+- Validation:
+  - Django system check passed.

@@ -409,6 +409,16 @@
     });
   };
 
+  const attachLocalTracksNow = () => {
+    if (!room.localParticipant) return;
+    room.localParticipant.trackPublications.forEach((pub) => {
+      if (!pub.track) return;
+      if (pub.track.kind === "video") attachVideoTrack(pub.track, room.localParticipant.identity, pub.source || "camera");
+      if (pub.track.kind === "audio") attachAudioTrack(pub.track, room.localParticipant.identity);
+    });
+    refreshLocalAvatarState();
+  };
+
   const applyLayoutMode = () => {
     if (layoutMode === 0) {
       thumbStrip.className = "mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3";
@@ -437,7 +447,12 @@
       detachTrack(track);
       if (participant && participant.identity === room.localParticipant.identity) refreshLocalAvatarState();
     })
-    .on(LivekitClient.RoomEvent.LocalTrackPublished, () => refreshLocalAvatarState())
+    .on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
+      const track = publication?.track;
+      if (track?.kind === "video") attachVideoTrack(track, room.localParticipant.identity, publication?.source || "camera");
+      if (track?.kind === "audio") attachAudioTrack(track, room.localParticipant.identity);
+      refreshLocalAvatarState();
+    })
     .on(LivekitClient.RoomEvent.LocalTrackUnpublished, () => refreshLocalAvatarState())
     .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, () => renderSpeaking())
     .on(LivekitClient.RoomEvent.Disconnected, () => setStatus("Disconnected", "err"))
@@ -500,6 +515,10 @@
       const enabled = room.localParticipant.isCameraEnabled;
       await room.localParticipant.setCameraEnabled(!enabled);
       btnVideo.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'videocam_off' : 'videocam'}</span>`;
+      if (!enabled) {
+        // Local publication may complete asynchronously; attach on next tick.
+        setTimeout(() => attachLocalTracksNow(), 200);
+      }
       refreshLocalAvatarState();
     } catch (err) {
       showError(`Camera toggle failed: ${err?.message || err}`);
