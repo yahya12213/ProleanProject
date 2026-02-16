@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.utils import OperationalError, ProgrammingError
 import json
+import re
 import requests
 from datetime import datetime, timedelta
 import logging
@@ -1486,7 +1487,12 @@ def login_view(request):
         if use_external:
             form = ExternalAuthorityLoginForm(request.POST)
             if form.is_valid():
-                username = (form.cleaned_data.get('username') or '').strip().upper().replace(" ", "")
+                raw_identifier = str(form.cleaned_data.get('username') or '').strip()
+                cin_pattern = re.compile(r'^[A-Za-z]{1,2}\s*\d{6}$')
+                if cin_pattern.match(raw_identifier):
+                    username = raw_identifier.replace(" ", "").upper()
+                else:
+                    username = raw_identifier
                 password = form.cleaned_data.get('password') or ''
                 try:
                     payload = mgmt.login(username=username, password=password)

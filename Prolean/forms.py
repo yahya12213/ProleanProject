@@ -5,7 +5,7 @@ from .models import ContactRequest, TrainingReview , TrainingWaitlist, Profile, 
 from django.contrib.auth.models import User
 
 class ExternalAuthorityLoginForm(forms.Form):
-    username = forms.CharField(label="CIN", max_length=64)
+    username = forms.CharField(label="CIN or Username", max_length=64)
     password = forms.CharField(label="Password", widget=forms.PasswordInput)
 
 class ContactRequestForm(forms.ModelForm):
