@@ -18,6 +18,7 @@
         --prof-text-main: #0F172A;
         --prof-text-muted: #64748B;
         --prof-brand: #FF6B00;
+        --prof-brand-alt: #06B6D4;
         --prof-brand-light: rgba(255, 107, 0, 0.1);
         --prof-accent: #4A4A4A;
         --prof-accent-light: rgba(74, 74, 74, 0.1);
@@ -42,6 +43,18 @@
         color: var(--prof-text-main);
         transition: background-color 0.3s ease, color 0.3s ease;
         position: relative;
+        isolation: isolate;
+    }
+
+    .prof-layout::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 4% 10%, rgba(255, 107, 0, 0.12), transparent 35%),
+            radial-gradient(circle at 96% 22%, rgba(6, 182, 212, 0.12), transparent 36%);
+        pointer-events: none;
+        z-index: -1;
     }
 
     /* Ensure sticky positioning works by overriding global main overflow */
@@ -100,9 +113,15 @@
 
     .prof-main {
         flex: 1;
-        padding: 40px;
+        padding: 24px;
         min-width: 0; /* Prevent flex blowout */
         /* Sidebar is now in flow */
+    }
+    @media (min-width: 768px) {
+        .prof-main { padding: 32px; }
+    }
+    @media (min-width: 1280px) {
+        .prof-main { padding: 40px 44px; }
     }
 
     /* Glass Cards & Elevation */
@@ -209,7 +228,7 @@
             transform: translateX(0);
         }
         .prof-main {
-            padding: 20px;
+            padding: 16px;
         }
     }
 </style>
@@ -289,7 +308,7 @@
     <!-- Main Content -->
     <main class="prof-main">
         <!-- Top Bar -->
-        <header class="flex items-center justify-between mb-8 sticky top-0 z-40 py-2 transition-all" id="topbar">
+        <header class="flex items-center justify-between mb-6 sm:mb-8 sticky top-0 z-40 py-3 px-3 sm:px-4 rounded-2xl border border-prof bg-white/60 dark:bg-neutral-900/70 backdrop-blur-sm transition-all" id="topbar">
             <!-- Mobile Toggle -->
             <button class="lg:hidden p-2 text-prof-text-main" onclick="toggleSidebar()">
                 <span class="material-symbols-outlined">menu</span>

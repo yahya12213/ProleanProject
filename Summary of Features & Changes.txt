@@ -128,3 +128,17 @@ Recent Entries
   - Fix dark frame/self-preview missing, duplicate stream appearance, and muted audio UX issues.
 - Validation:
   - Django system check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Refactor/Live Stage + Responsive UI
+- Rebuilt external live room page for a stage-based layout:
+  - main stream fills stage area properly
+  - participant thumbnails in strip
+  - explicit live activity banner (speaking + raised hands)
+  - improved mobile responsiveness and control ergonomics
+- Fixed false global "Connection Failed" by handling post-connect mic/camera errors separately from socket connection status.
+- Added stronger audio recovery flow (`Enable Sound`) and speaking state rendering.
+- Updated student/professor base layouts with improved responsive spacing and visual hierarchy.
+- Why:
+  - Resolve stream sizing/usability issues on mobile and improve overall UX consistency.
+- Validation:
+  - Django system check passed.
