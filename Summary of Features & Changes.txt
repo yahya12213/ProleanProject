@@ -107,3 +107,24 @@ Recent Entries
   - Expose exact malformed URL problems instead of generic connection failure.
 - Validation:
   - Django system check passed and pushed.
+
+[2026-02-16 UTC] Area: Barka | Type: Feature/Live Permissions
+- Updated LiveKit token grants:
+  - professor can publish camera + microphone (+ data)
+  - student can publish microphone only (+ data), no camera source permission
+- Why:
+  - Requirement: students can talk/raise hand but must not share camera.
+- Validation:
+  - Route syntax check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live UX+Media
+- Live room now:
+  - shows professor self-preview ("You") by rendering local video track
+  - separates audio tracks from video grid (prevents duplicate/black tiles)
+  - avoids duplicate track attachments
+  - keeps student camera disabled in UI
+  - adds "Raise Hand" data signal and "Enable Sound" control
+- Why:
+  - Fix dark frame/self-preview missing, duplicate stream appearance, and muted audio UX issues.
+- Validation:
+  - Django system check passed and pushed.
