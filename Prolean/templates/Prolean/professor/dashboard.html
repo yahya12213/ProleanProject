@@ -65,20 +65,20 @@
                 <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">
                     {% csrf_token %}
                     <button type="submit" class="w-full px-4 py-3 rounded-xl bg-green-600 text-white text-xs font-black uppercase tracking-wider hover:bg-green-700 shadow-md shadow-green-500/20">
-                        Start & Join Live
+                        <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-sm">play_circle</span>Start & Join</span>
                     </button>
                 </form>
                 <form method="post" action="{% url 'Prolean:external_professor_live_pause' external_selected_session.id %}">
                     {% csrf_token %}
                     <button type="submit" class="w-full px-4 py-3 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-600 shadow-md shadow-amber-500/20">
-                        Pause Live
+                        <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-sm">pause_circle</span>Pause</span>
                     </button>
                 </form>
                 <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}" class="sm:col-span-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                     {% csrf_token %}
                     <input type="url" name="recording_url" placeholder="Recording URL (optional)" class="px-3 py-3 rounded-xl border border-prof bg-white text-xs w-full">
                     <button type="submit" class="px-4 py-3 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-wider hover:bg-red-700 shadow-md shadow-red-500/20">
-                        End Live
+                        <span class="inline-flex items-center gap-2"><span class="material-symbols-outlined text-sm">stop_circle</span>End</span>
                     </button>
                 </form>
             </div>

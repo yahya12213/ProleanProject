@@ -54,21 +54,30 @@
 
         <div class="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-5">
             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-4">Controls</p>
-            <div class="space-y-3">
-                <button id="toggle-audio" class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50">
-                    Mute Mic
+            <div class="grid grid-cols-4 gap-2 sm:gap-3">
+                <button id="toggle-audio" title="Microphone" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">mic</span>
                 </button>
-                <button id="toggle-video" class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50">
-                    Stop Camera
+                <button id="toggle-video" title="Camera" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">videocam</span>
                 </button>
-                <button id="raise-hand" class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50">
-                    Raise Hand
+                <button id="toggle-screen" title="Share Screen (Professor)" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">present_to_all</span>
                 </button>
-                <button id="enable-sound" class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50">
-                    Enable Sound
+                <button id="raise-hand" title="Raise Hand" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">front_hand</span>
+                </button>
+                <button id="enable-sound" title="Enable Sound" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">volume_up</span>
+                </button>
+                <button id="toggle-fullscreen" title="Fullscreen Stage" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">fullscreen</span>
+                </button>
+                <button id="cycle-layout" title="Switch View" class="aspect-square rounded-xl border border-neutral-300 font-bold text-sm hover:bg-neutral-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined">dashboard</span>
                 </button>
             </div>
-            <p class="text-xs text-neutral-500 mt-5">Students can speak and raise hand. Student camera is disabled.</p>
+            <p class="text-xs text-neutral-500 mt-5">Tap icons: mic, camera, hand raise, fullscreen. Students can use camera and microphone.</p>
         </div>
     </div>
 </div>
@@ -87,8 +96,11 @@
   const badge = document.getElementById("conn-badge");
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
+  const btnScreen = document.getElementById("toggle-screen");
   const btnRaiseHand = document.getElementById("raise-hand");
   const btnEnableSound = document.getElementById("enable-sound");
+  const btnFullscreen = document.getElementById("toggle-fullscreen");
+  const btnLayout = document.getElementById("cycle-layout");
   const errBox = document.getElementById("conn-error");
   const speakingList = document.getElementById("speaking-list");
   const raisedHandsList = document.getElementById("raised-hands-list");
@@ -97,7 +109,9 @@
   const videoTiles = new Map();  // key -> {wrapper, media, track, isLocal, label}
   const audioEls = new Map();    // key -> element
   const raisedHands = new Map(); // identity -> name
+  const avatarTiles = new Map(); // key -> avatar wrapper
   let mainVideoKey = null;
+  let layoutMode = 0;
 
   const normalizeLivekitUrl = (value) => {
     const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
@@ -157,6 +171,12 @@
     return identity;
   };
 
+  const initialsFromLabel = (label) => {
+    const normalized = String(label || "U").trim();
+    if (!normalized) return "U";
+    return normalized[0].toUpperCase();
+  };
+
   const renderSpeaking = () => {
     const speakers = room.activeSpeakers || [];
     speakingList.innerHTML = "";
@@ -197,6 +217,20 @@
     return wrapper;
   };
 
+  const createAvatarWrapper = (label) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "relative rounded-xl overflow-hidden border border-neutral-800 bg-gradient-to-br from-neutral-800 to-neutral-900 h-28 sm:h-32 flex items-center justify-center";
+    const avatar = document.createElement("div");
+    avatar.className = "size-14 rounded-full bg-orange-500 text-white font-black text-2xl flex items-center justify-center";
+    avatar.textContent = initialsFromLabel(label);
+    wrapper.appendChild(avatar);
+    const footer = document.createElement("div");
+    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/70 text-white text-[11px] font-bold";
+    footer.textContent = label;
+    wrapper.appendChild(footer);
+    return wrapper;
+  };
+
   const setMainVideo = (key) => {
     if (!videoTiles.has(key)) return;
     if (mainVideoKey === key) return;
@@ -219,12 +253,29 @@
     mainVideoKey = key;
   };
 
-  const attachVideoTrack = (track, identity) => {
-    const key = `video:${track.sid || identity}`;
+  const setMainAvatar = (key, label) => {
+    mainStage.innerHTML = "";
+    const container = document.createElement("div");
+    container.className = "w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-900 to-neutral-800";
+    const avatar = document.createElement("div");
+    avatar.className = "size-24 sm:size-32 rounded-full bg-orange-500 text-white font-black text-4xl sm:text-5xl flex items-center justify-center shadow-2xl";
+    avatar.textContent = initialsFromLabel(label);
+    container.appendChild(avatar);
+    const footer = document.createElement("div");
+    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/70 text-white text-xs font-bold";
+    footer.textContent = label;
+    mainStage.appendChild(container);
+    mainStage.appendChild(footer);
+    mainVideoKey = key;
+  };
+
+  const attachVideoTrack = (track, identity, source = "camera") => {
+    const key = `video:${source}:${track.sid || identity}`;
     if (videoTiles.has(key)) return;
 
     const isLocal = identity === room.localParticipant.identity;
-    const label = makeIdentityLabel(identity);
+    const baseLabel = makeIdentityLabel(identity);
+    const label = source === "screen_share" ? `${baseLabel} · Content` : baseLabel;
     const wrapper = createVideoWrapper(label);
     const media = track.attach();
     media.className = "w-full h-28 sm:h-32 object-cover bg-black";
@@ -237,6 +288,10 @@
     thumbStrip.appendChild(wrapper);
 
     videoTiles.set(key, { wrapper, media, label, isLocal, identity, track });
+    if (avatarTiles.has(`avatar:${identity}`)) {
+      avatarTiles.get(`avatar:${identity}`).remove();
+      avatarTiles.delete(`avatar:${identity}`);
+    }
 
     if (!mainVideoKey) {
       setMainVideo(key);
@@ -244,6 +299,30 @@
       setMainVideo(key);
     } else if (!isProfessor && !isLocal && String(identity).startsWith("prof_")) {
       setMainVideo(key);
+    }
+  };
+
+  const attachAvatar = (identity, label) => {
+    const key = `avatar:${identity}`;
+    if (avatarTiles.has(key)) return;
+    const wrapper = createAvatarWrapper(label);
+    wrapper.dataset.avatarKey = key;
+    wrapper.addEventListener("click", () => setMainAvatar(key, label));
+    thumbStrip.appendChild(wrapper);
+    avatarTiles.set(key, wrapper);
+    if (!mainVideoKey) setMainAvatar(key, label);
+  };
+
+  const removeAvatar = (identity) => {
+    const key = `avatar:${identity}`;
+    if (!avatarTiles.has(key)) return;
+    avatarTiles.get(key).remove();
+    avatarTiles.delete(key);
+    if (mainVideoKey === key) {
+      mainVideoKey = null;
+      const nextVideo = videoTiles.keys().next();
+      if (!nextVideo.done) setMainVideo(nextVideo.value);
+      else mainStage.innerHTML = "";
     }
   };
 
@@ -265,25 +344,24 @@
   };
 
   const detachTrack = (track) => {
-    const sid = track.sid || "";
-    const videoKey = `video:${sid}`;
-    const audioKey = `audio:${sid}`;
-
-    if (videoTiles.has(videoKey)) {
-      const tile = videoTiles.get(videoKey);
-      tile.wrapper.remove();
-      videoTiles.delete(videoKey);
-      if (mainVideoKey === videoKey) {
-        mainVideoKey = null;
-        const next = videoTiles.keys().next();
-        if (!next.done) setMainVideo(next.value);
-        else mainStage.innerHTML = "";
+    for (const [k, tile] of videoTiles.entries()) {
+      if (tile.track?.sid && track.sid && tile.track.sid === track.sid) {
+        tile.wrapper.remove();
+        videoTiles.delete(k);
+        if (mainVideoKey === k) {
+          mainVideoKey = null;
+          const next = videoTiles.keys().next();
+          if (!next.done) setMainVideo(next.value);
+          else mainStage.innerHTML = "";
+        }
       }
     }
 
-    if (audioEls.has(audioKey)) {
-      audioEls.get(audioKey).remove();
-      audioEls.delete(audioKey);
+    for (const [k, audio] of audioEls.entries()) {
+      if (k.includes(track.sid || "")) {
+        audio.remove();
+        audioEls.delete(k);
+      }
     }
 
     track.detach().forEach((el) => el.remove());
@@ -292,17 +370,41 @@
   const renderExistingParticipantTracks = (participant) => {
     participant.trackPublications.forEach((pub) => {
       if (!pub.track) return;
-      if (pub.track.kind === "video") attachVideoTrack(pub.track, participant.identity);
+      if (pub.track.kind === "video") attachVideoTrack(pub.track, participant.identity, pub.source || "camera");
       if (pub.track.kind === "audio") attachAudioTrack(pub.track, participant.identity);
     });
   };
 
+  const applyLayoutMode = () => {
+    if (layoutMode === 0) {
+      thumbStrip.className = "mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3";
+    } else if (layoutMode === 1) {
+      thumbStrip.className = "mt-3 flex gap-3 overflow-x-auto pb-1";
+    } else {
+      thumbStrip.className = "mt-3 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2";
+    }
+  };
+
+  const refreshLocalAvatarState = () => {
+    if (!room.localParticipant) return;
+    const localIdentity = room.localParticipant.identity;
+    const hasVideo = Array.from(videoTiles.values()).some((tile) => tile.identity === localIdentity);
+    if (!hasVideo) attachAvatar(localIdentity, "You");
+    else removeAvatar(localIdentity);
+  };
+
   room
     .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-      if (track.kind === "video") attachVideoTrack(track, participant.identity);
+      if (track.kind === "video") attachVideoTrack(track, participant.identity, publication?.source || "camera");
       if (track.kind === "audio") attachAudioTrack(track, participant.identity);
+      if (participant.identity === room.localParticipant.identity) refreshLocalAvatarState();
     })
-    .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => detachTrack(track))
+    .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+      detachTrack(track);
+      if (participant && participant.identity === room.localParticipant.identity) refreshLocalAvatarState();
+    })
+    .on(LivekitClient.RoomEvent.LocalTrackPublished, () => refreshLocalAvatarState())
+    .on(LivekitClient.RoomEvent.LocalTrackUnpublished, () => refreshLocalAvatarState())
     .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, () => renderSpeaking())
     .on(LivekitClient.RoomEvent.Disconnected, () => setStatus("Disconnected", "err"))
     .on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
@@ -323,6 +425,7 @@
   setStatus("Connecting", "warn");
   renderSpeaking();
   renderRaisedHands();
+  applyLayoutMode();
 
   room.connect(livekitUrl, livekitToken)
     .then(async () => {
@@ -333,14 +436,14 @@
         try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Microphone error: ${e.message || e}`); }
         try { await room.localParticipant.setCameraEnabled(true); } catch (e) { showError(`Camera error: ${e.message || e}`); }
         renderExistingParticipantTracks(room.localParticipant);
-        btnVideo.disabled = false;
-        btnVideo.classList.remove("opacity-50", "cursor-not-allowed");
       } else {
         try { await room.localParticipant.setCameraEnabled(false); } catch (_) {}
         try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Student microphone permission: ${e.message || e}`); }
-        btnVideo.disabled = true;
-        btnVideo.classList.add("opacity-50", "cursor-not-allowed");
-        btnVideo.textContent = "Camera Disabled for Students";
+      }
+      refreshLocalAvatarState();
+      if (!isProfessor) {
+        btnScreen.disabled = true;
+        btnScreen.classList.add("opacity-50", "cursor-not-allowed");
       }
     })
     .catch((err) => {
@@ -352,20 +455,31 @@
     try {
       const enabled = room.localParticipant.isMicrophoneEnabled;
       await room.localParticipant.setMicrophoneEnabled(!enabled);
-      btnAudio.textContent = enabled ? "Unmute Mic" : "Mute Mic";
+      btnAudio.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'mic_off' : 'mic'}</span>`;
     } catch (err) {
       showError(`Mic toggle failed: ${err?.message || err}`);
     }
   });
 
   btnVideo.addEventListener("click", async () => {
-    if (!isProfessor) return;
     try {
       const enabled = room.localParticipant.isCameraEnabled;
       await room.localParticipant.setCameraEnabled(!enabled);
-      btnVideo.textContent = enabled ? "Start Camera" : "Stop Camera";
+      btnVideo.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'videocam_off' : 'videocam'}</span>`;
+      refreshLocalAvatarState();
     } catch (err) {
       showError(`Camera toggle failed: ${err?.message || err}`);
+    }
+  });
+
+  btnScreen.addEventListener("click", async () => {
+    if (!isProfessor) return;
+    try {
+      const enabled = !!room.localParticipant.isScreenShareEnabled;
+      await room.localParticipant.setScreenShareEnabled(!enabled);
+      btnScreen.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'present_to_all' : 'stop_screen_share'}</span>`;
+    } catch (err) {
+      showError(`Screen share failed: ${err?.message || err}`);
     }
   });
 
@@ -373,8 +487,8 @@
     try {
       const payload = JSON.stringify({ type: "raise_hand", name: selfName, ts: Date.now() });
       await room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: true });
-      btnRaiseHand.textContent = "Hand Raised";
-      setTimeout(() => { btnRaiseHand.textContent = "Raise Hand"; }, 2000);
+      btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">waving_hand</span>';
+      setTimeout(() => { btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">front_hand</span>'; }, 2000);
     } catch (err) {
       showError(`Raise hand failed: ${err?.message || err}`);
     }
@@ -390,6 +504,21 @@
       } catch (_) {}
     }
     setStatus("Connected", "ok");
+  });
+
+  btnFullscreen.addEventListener("click", async () => {
+    if (!document.fullscreenElement) {
+      await mainStage.requestFullscreen().catch(() => {});
+      btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen_exit</span>';
+    } else {
+      await document.exitFullscreen().catch(() => {});
+      btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+    }
+  });
+
+  btnLayout.addEventListener("click", () => {
+    layoutMode = (layoutMode + 1) % 3;
+    applyLayoutMode();
   });
 })();
 </script>

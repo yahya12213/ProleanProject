@@ -513,6 +513,15 @@
 <script>
     // Animation for progress bar
     document.addEventListener('DOMContentLoaded', () => {
+        {% if external_active_live_sessions %}
+        const externalLives = [
+            {% for live_row in external_active_live_sessions %}
+            { join_url: "{% url 'Prolean:external_live_room' live_row.session_id %}" }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        window.dispatchEvent(new CustomEvent('liveStreamsUpdate', { detail: externalLives }));
+        {% endif %}
+
         const progressBar = document.querySelector('.bg-accent-green');
         if (progressBar) {
             const width = progressBar.style.width;

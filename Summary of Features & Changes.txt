@@ -154,3 +154,23 @@ Recent Entries
   - Ensure professor camera fills full stage and improve live action clarity.
 - Validation:
   - Django system check passed.
+
+[2026-02-16 UTC] Area: Barka | Type: Feature/Live Permissions Update
+- Updated student LiveKit publish sources to allow camera + microphone (instead of mic-only).
+- Kept professor screen-share capability.
+- Why:
+  - New requirement allows students to open camera while staying in the same live room model.
+- Validation:
+  - Route syntax check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Refactor/Live UX
+- Reworked live room controls to icon-first interaction (mic/camera/screen share/raise hand/sound/fullscreen/layout).
+- Added professor screen-share toggle.
+- Added local avatar fallback tile (first letter) when camera is off.
+- Improved tile-to-stage switching behavior and fullscreen support for easier low-tech use.
+- Wired floating buttons to switch from WhatsApp to "Join Live" when live stream updates are detected, including external live data dispatch from student dashboard.
+- Updated professor dashboard live actions with icon-assisted buttons and clearer semantics.
+- Why:
+  - Improve usability for non-technical users and match requested UX behavior.
+- Validation:
+  - Django system check passed.

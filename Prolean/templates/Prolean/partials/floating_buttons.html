@@ -10,8 +10,15 @@
         <span class="material-symbols-outlined">how_to_reg</span>
     </a>
     {% else %}
+    <!-- Live Button (Shown when a live is active) -->
+    <a id="floating-live-btn" class="floating-button bg-red-600 text-white hover:bg-red-700 hidden"
+       href="#"
+       title="Rejoindre le live">
+        <span class="material-symbols-outlined">live_tv</span>
+    </a>
+
     <!-- WhatsApp Button (Default) -->
-    <a class="floating-button bg-[#25D366] text-white hover:bg-[#128C7E]" 
+    <a id="floating-whatsapp-btn" class="floating-button bg-[#25D366] text-white hover:bg-[#128C7E]" 
        href="https://wa.me/212779259942" 
        target="_blank" 
        rel="noopener noreferrer"
@@ -56,6 +63,24 @@
 </style>
 
 <script>
+    function updateFloatingLiveButton(streams) {
+        const liveBtn = document.getElementById('floating-live-btn');
+        const waBtn = document.getElementById('floating-whatsapp-btn');
+        if (!liveBtn || !waBtn) return;
+        if (Array.isArray(streams) && streams.length > 0) {
+            const first = streams[0] || {};
+            const joinUrl = first.join_url || '';
+            if (joinUrl) {
+                liveBtn.href = joinUrl;
+                liveBtn.classList.remove('hidden');
+                waBtn.classList.add('hidden');
+                return;
+            }
+        }
+        liveBtn.classList.add('hidden');
+        waBtn.classList.remove('hidden');
+    }
+
     // Notification system
     function showNotification(type, title, message) {
         const modal = document.getElementById('notification-modal');
@@ -91,4 +116,9 @@
     function scrollToTop() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    // Listen to global live updates from base polling.
+    window.addEventListener('liveStreamsUpdate', function(event) {
+        updateFloatingLiveButton(event.detail || []);
+    });
 </script>
