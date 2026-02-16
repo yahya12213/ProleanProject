@@ -76,3 +76,17 @@ Recent Entries
   - Prolean retries 503 as transient upstream downtime; this masked the real configuration error.
 - Validation:
   - Route syntax check passed and commit pushed to Barka remotes.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/Config Robustness
+- Normalized LiveKit env values (trim + quote stripping) before token generation and URL response.
+- Why:
+  - Prevent failures caused by copied env values containing whitespace/quotes.
+- Validation:
+  - Route syntax check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/UI Diagnostics
+- Enhanced external live room to display detailed LiveKit connection error text on page.
+- Why:
+  - Replace ambiguous "Connection Failed" with actionable reason for debugging.
+- Validation:
+  - Django system check passed and pushed.
