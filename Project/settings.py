@@ -42,9 +42,31 @@ _load_local_env()
 SECRET_KEY = 'django-insecure-9^0!3pixm64jjc(h$wyprge$25ryvj+ld8mze*$dp@d+ck5_9i'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+def _env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
-ALLOWED_HOSTS = ["*"]
+
+def _env_csv(name: str) -> list[str]:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return []
+    return [v.strip() for v in raw.split(",") if v.strip()]
+
+
+DEBUG = _env_bool("DEBUG", False)
+
+ALLOWED_HOSTS = _env_csv("ALLOWED_HOSTS") or ["*"]
+
+# Railway (and most PaaS) runs Django behind a proxy/ingress; ensure HTTPS is
+# correctly detected for security features like CSRF Origin checking.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# CSRF origin allowlist must include scheme (https://...). Configure via env
+# for custom domains; default covers Railway app domains.
+CSRF_TRUSTED_ORIGINS = _env_csv("CSRF_TRUSTED_ORIGINS") or [
+    "https://*.up.railway.app",
+    "https://proleanproject-production.up.railway.app",
+]
 
 
 # Application definition
