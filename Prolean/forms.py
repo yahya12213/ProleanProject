@@ -4,6 +4,10 @@ from django.core.validators import MinLengthValidator, EmailValidator
 from .models import ContactRequest, TrainingReview , TrainingWaitlist, Profile, City
 from django.contrib.auth.models import User
 
+class ExternalAuthorityLoginForm(forms.Form):
+    username = forms.CharField(label="CIN", max_length=64)
+    password = forms.CharField(label="Password", widget=forms.PasswordInput)
+
 class ContactRequestForm(forms.ModelForm):
     """Contact request form with validation"""
     class Meta:
@@ -135,6 +139,25 @@ class StudentRegistrationForm(forms.ModelForm):
             'class': 'form-input', 'placeholder': 'Confirmer le mot de passe'
         })
     )
+
+    # Required by Barka authority student schema
+    birth_date = forms.DateField(
+        label="Date of birth",
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'auth-input'}),
+        required=False,
+    )
+    birth_place = forms.CharField(
+        label="Place of birth",
+        widget=forms.TextInput(attrs={'class': 'auth-input', 'placeholder': 'City of birth'}),
+        required=False,
+        max_length=200,
+    )
+    address = forms.CharField(
+        label="Address",
+        widget=forms.TextInput(attrs={'class': 'auth-input', 'placeholder': 'Your address'}),
+        required=False,
+        max_length=300,
+    )
     
     class Meta:
         model = Profile
@@ -160,8 +183,14 @@ class StudentRegistrationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.external_authority = bool(kwargs.pop("external_authority", False))
         super().__init__(*args, **kwargs)
-        self.fields['cin_or_passport'].required = False
-        self.fields['cin_or_passport'].widget.attrs['placeholder'] = 'CIN ou Passeport (Optionnel)'
+        self.fields['cin_or_passport'].required = bool(self.external_authority)
+        self.fields['cin_or_passport'].widget.attrs['placeholder'] = (
+            'CIN (Required)' if self.external_authority else 'CIN ou Passeport (Optionnel)'
+        )
+        if self.external_authority:
+            self.fields['birth_date'].required = True
+            self.fields['birth_place'].required = True
+            self.fields['address'].required = True
 
     def clean_email(self):
         email = self.cleaned_data.get('email')

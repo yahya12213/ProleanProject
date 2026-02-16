@@ -25,7 +25,7 @@ from .models import (
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
     TrainingPreSubscription, Notification, Live, Seance
 )
-from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm
+from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -1315,6 +1315,27 @@ def mark_review_helpful(request):
 
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
+import json
+
+
+def _extract_contract_error_message(exc: Exception) -> str:
+    """
+    ContractError embeds upstream JSON in the exception string.
+    Try to extract a clean message for end users.
+    """
+    raw = str(exc)
+    idx = raw.find("{")
+    if idx != -1:
+        try:
+            payload = json.loads(raw[idx:])
+            if isinstance(payload, dict):
+                if payload.get("error"):
+                    return str(payload["error"])
+                if payload.get("message"):
+                    return str(payload["message"])
+        except Exception:
+            pass
+    return raw
 
 def register(request):
     """Handle student registration"""
@@ -1343,9 +1364,21 @@ def register(request):
                 cin = str(form.cleaned_data.get('cin_or_passport') or '').strip().upper()
                 if not cin:
                     form.add_error('cin_or_passport', "CIN is required for registration.")
-                    return render(request, 'registration/signup.html', {'form': form})
+                    return render(request, 'registration/signup.html', {'form': form, 'external_authority': True})
                 phone = str(form.cleaned_data.get('phone_number') or '').strip()
                 email = str(form.cleaned_data.get('email') or '').strip()
+                birth_date = form.cleaned_data.get('birth_date')
+                birth_place = str(form.cleaned_data.get('birth_place') or '').strip()
+                address = str(form.cleaned_data.get('address') or '').strip()
+
+                if not birth_date:
+                    form.add_error('birth_date', "Date of birth is required.")
+                if not birth_place:
+                    form.add_error('birth_place', "Place of birth is required.")
+                if not address:
+                    form.add_error('address', "Address is required.")
+                if form.errors:
+                    return render(request, 'registration/signup.html', {'form': form, 'external_authority': True})
 
                 parts = [p for p in full_name.split(" ") if p]
                 prenom = parts[0] if parts else full_name
@@ -1358,6 +1391,9 @@ def register(request):
                         "cin": cin,
                         "email": email,
                         "phone": phone,
+                        "date_naissance": birth_date.isoformat() if hasattr(birth_date, "isoformat") else str(birth_date),
+                        "lieu_naissance": birth_place,
+                        "adresse": address,
                         "statut_compte": "actif",
                     })
                     # Best-effort: trigger profile auto-creation in Barka via CIN login.
@@ -1368,7 +1404,7 @@ def register(request):
                         pass
                 except (UpstreamUnavailable, ContractError) as exc:
                     messages.error(request, f"Registration is temporarily unavailable: {exc}")
-                    return render(request, 'registration/signup.html', {'form': form})
+                    return render(request, 'registration/signup.html', {'form': form, 'external_authority': True})
 
                 messages.success(
                     request,
@@ -1411,21 +1447,23 @@ def register(request):
     except Exception:
         pass
     
-    return render(request, 'registration/signup.html', {'form': form})
+    return render(request, 'registration/signup.html', {'form': form, 'external_authority': mgmt.is_configured()})
 
 def login_view(request):
     """Custom login view"""
+    mgmt = ManagementContractClient()
+    use_external = mgmt.is_configured()
+
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            mgmt = ManagementContractClient()
-            if mgmt.is_configured():
+        if use_external:
+            form = ExternalAuthorityLoginForm(request.POST)
+            if form.is_valid():
+                username = (form.cleaned_data.get('username') or '').strip()
+                password = form.cleaned_data.get('password') or ''
                 try:
                     payload = mgmt.login(username=username, password=password)
                     if not payload.get("success"):
-                        messages.error(request, payload.get("error") or "Identifiants invalides.")
+                        messages.error(request, payload.get("error") or "Invalid credentials.")
                         return redirect('Prolean:login')
 
                     token = payload.get("token")
@@ -1470,19 +1508,29 @@ def login_view(request):
 
                     login(request, django_user)
                     return redirect('Prolean:home')
-                except (UpstreamUnavailable, ContractError) as exc:
-                    messages.error(request, f"External login unavailable: {exc}")
+                except UpstreamUnavailable as exc:
+                    messages.error(request, f"Login temporarily unavailable: {exc}")
                     return redirect('Prolean:login')
-
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                return redirect('Prolean:home')
-            messages.error(request, "Identifiants invalides.")
+                except ContractError as exc:
+                    messages.error(request, _extract_contract_error_message(exc))
+                    return redirect('Prolean:login')
+            else:
+                messages.error(request, "Invalid credentials.")
         else:
-             messages.error(request, "Identifiants invalides.")
+            form = AuthenticationForm(request, data=request.POST)
+            if form.is_valid():
+                username = form.cleaned_data.get('username')
+                password = form.cleaned_data.get('password')
+
+                user = authenticate(username=username, password=password)
+                if user is not None:
+                    login(request, user)
+                    return redirect('Prolean:home')
+                messages.error(request, "Identifiants invalides.")
+            else:
+                messages.error(request, "Identifiants invalides.")
     
-    form = AuthenticationForm()
+    form = ExternalAuthorityLoginForm() if use_external else AuthenticationForm()
     return render(request, 'registration/login.html', {'form': form})
 
 def logout_view(request):

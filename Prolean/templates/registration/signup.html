@@ -141,11 +141,13 @@
                         <!-- CIN -->
                         <div class="space-y-2">
                             <label for="{{ form.cin_or_passport.id_for_label }}" class="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1 truncate block">
-                                {{ form.cin_or_passport.label }} <span class="text-neutral-400 text-[10px] font-medium">(Optional)</span>
+                                {{ form.cin_or_passport.label }}
+                                {% if external_authority %}<span class="text-red-500 text-xs">*</span>{% else %}<span class="text-neutral-400 text-[10px] font-medium">(Optional)</span>{% endif %}
                             </label>
                             <input type="text" name="{{ form.cin_or_passport.name }}" id="{{ form.cin_or_passport.id_for_label }}" 
                                    value="{{ form.cin_or_passport.value|default:'' }}" 
                                    placeholder="AB123456"
+                                   {% if external_authority %}required{% endif %}
                                    class="auth-input {% if form.cin_or_passport.errors %}auth-input-error{% endif %}">
                             {% if form.cin_or_passport.errors %}
                             <p class="text-xs text-red-600 font-bold mt-1.5 ml-1">{{ form.cin_or_passport.errors.0 }}</p>
@@ -165,6 +167,48 @@
                             {% endif %}
                         </div>
                     </div>
+
+                    {% if external_authority %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <!-- Birth Date -->
+                        <div class="space-y-2">
+                            <label for="{{ form.birth_date.id_for_label }}" class="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1 truncate block">
+                                {{ form.birth_date.label }} <span class="text-red-500 text-xs">*</span>
+                            </label>
+                            {{ form.birth_date }}
+                            {% if form.birth_date.errors %}
+                            <p class="text-xs text-red-600 font-bold mt-1.5 ml-1">{{ form.birth_date.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        <!-- Birth Place -->
+                        <div class="space-y-2">
+                            <label for="{{ form.birth_place.id_for_label }}" class="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1 truncate block">
+                                {{ form.birth_place.label }} <span class="text-red-500 text-xs">*</span>
+                            </label>
+                            <input type="text" name="{{ form.birth_place.name }}" id="{{ form.birth_place.id_for_label }}" 
+                                   value="{{ form.birth_place.value|default:'' }}" 
+                                   placeholder="City of birth"
+                                   class="auth-input {% if form.birth_place.errors %}auth-input-error{% endif %}" required>
+                            {% if form.birth_place.errors %}
+                            <p class="text-xs text-red-600 font-bold mt-1.5 ml-1">{{ form.birth_place.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="space-y-2">
+                        <label for="{{ form.address.id_for_label }}" class="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1">
+                            {{ form.address.label }} <span class="text-red-500 text-xs">*</span>
+                        </label>
+                        <input type="text" name="{{ form.address.name }}" id="{{ form.address.id_for_label }}" 
+                               value="{{ form.address.value|default:'' }}" 
+                               placeholder="Your address"
+                               class="auth-input {% if form.address.errors %}auth-input-error{% endif %}" required>
+                        {% if form.address.errors %}
+                        <p class="text-xs text-red-600 font-bold mt-1.5 ml-1">{{ form.address.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <!-- City -->
