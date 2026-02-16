@@ -28,6 +28,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div class="lg:col-span-3 rounded-2xl border border-neutral-200 bg-neutral-950 min-h-[520px] p-3">
             <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+            <div id="audio-sink" class="hidden"></div>
         </div>
         <div class="rounded-2xl border border-neutral-200 bg-white p-4">
             <p class="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-4">Controls</p>
@@ -37,6 +38,12 @@
                 </button>
                 <button id="toggle-video" class="w-full px-4 py-2 rounded-xl border border-neutral-300 font-bold text-sm">
                     Stop Camera
+                </button>
+                <button id="raise-hand" class="w-full px-4 py-2 rounded-xl border border-neutral-300 font-bold text-sm">
+                    Raise Hand
+                </button>
+                <button id="enable-sound" class="w-full px-4 py-2 rounded-xl border border-neutral-300 font-bold text-sm">
+                    Enable Sound
                 </button>
             </div>
             <p class="text-xs text-neutral-500 mt-6">If connection drops, return to dashboard and join again.</p>
@@ -51,10 +58,14 @@
   const livekitToken = "{{ livekit_token|escapejs }}";
   const isProfessor = "{{ live_role|escapejs }}" === "professor";
   const videoGrid = document.getElementById("video-grid");
+  const audioSink = document.getElementById("audio-sink");
   const badge = document.getElementById("conn-badge");
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
+  const btnRaiseHand = document.getElementById("raise-hand");
+  const btnEnableSound = document.getElementById("enable-sound");
   const errBox = document.getElementById("conn-error");
+  const attachedTrackKeys = new Set();
 
   const normalizeLivekitUrl = (value) => {
     const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
@@ -91,15 +102,79 @@
     dynacast: true,
   });
 
-  const attachTrack = (track, participantIdentity) => {
+  const trackKey = (track, kindHint) => `${kindHint || track.kind}:${track.sid || track.mediaStreamTrack?.id || Math.random().toString(36).slice(2)}`;
+
+  const attachVideoTrack = (track, participantIdentity, label) => {
+    const key = trackKey(track, "video");
+    if (attachedTrackKeys.has(key)) return;
+    attachedTrackKeys.add(key);
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "relative rounded-xl overflow-hidden border border-neutral-800 bg-black";
+    wrapper.dataset.trackKey = key;
+
     const mediaEl = track.attach();
-    mediaEl.className = "w-full h-60 object-cover rounded-xl bg-black";
-    mediaEl.setAttribute("data-participant", participantIdentity);
-    videoGrid.appendChild(mediaEl);
+    mediaEl.className = "w-full h-64 object-cover bg-black";
+    mediaEl.playsInline = true;
+    mediaEl.autoplay = true;
+    mediaEl.muted = participantIdentity === room.localParticipant.identity;
+    wrapper.appendChild(mediaEl);
+
+    const badge = document.createElement("div");
+    badge.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/60 text-white text-xs font-bold";
+    badge.textContent = label || participantIdentity;
+    wrapper.appendChild(badge);
+
+    videoGrid.appendChild(wrapper);
+  };
+
+  const attachAudioTrack = (track, participantIdentity) => {
+    const key = trackKey(track, "audio");
+    if (attachedTrackKeys.has(key)) return;
+    attachedTrackKeys.add(key);
+
+    const audioEl = track.attach();
+    audioEl.autoplay = true;
+    audioEl.playsInline = true;
+    audioEl.muted = false;
+    audioEl.dataset.trackKey = key;
+    audioEl.dataset.participant = participantIdentity;
+    audioSink.appendChild(audioEl);
+    const p = audioEl.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
   };
 
   const detachTrack = (track) => {
-    track.detach().forEach((el) => el.remove());
+    const videoKey = trackKey(track, "video");
+    const audioKey = trackKey(track, "audio");
+    attachedTrackKeys.delete(videoKey);
+    attachedTrackKeys.delete(audioKey);
+    track.detach().forEach((el) => {
+      const wrapper = el.closest("[data-track-key]");
+      if (wrapper) {
+        wrapper.remove();
+      } else {
+        el.remove();
+      }
+    });
+  };
+
+  const attachTrack = (track, participantIdentity, label) => {
+    if (track.kind === "video") {
+      attachVideoTrack(track, participantIdentity, label);
+      return;
+    }
+    if (track.kind === "audio") {
+      attachAudioTrack(track, participantIdentity);
+    }
+  };
+
+  const renderParticipantTracks = (participant, label) => {
+    participant.trackPublications.forEach((pub) => {
+      if (pub.track) {
+        attachTrack(pub.track, participant.identity, label || participant.identity);
+      }
+    });
   };
 
   room
@@ -112,23 +187,37 @@
     .on(LivekitClient.RoomEvent.Disconnected, () => {
       badge.textContent = "Disconnected";
       badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    })
+    .on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+      try {
+        const message = JSON.parse(new TextDecoder().decode(payload));
+        if (isProfessor && message && message.type === "raise_hand") {
+          if (errBox) {
+            errBox.textContent = `${message.name || participant?.identity || "Student"} raised hand`;
+            errBox.classList.remove("hidden");
+          }
+        }
+      } catch (_) {}
     });
 
   room.connect(livekitUrl, livekitToken).then(async () => {
     badge.textContent = "Connected";
     badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-700";
 
-    room.remoteParticipants.forEach((participant) => {
-      participant.trackPublications.forEach((pub) => {
-        if (pub.track) {
-          attachTrack(pub.track, participant.identity);
-        }
-      });
-    });
+    room.remoteParticipants.forEach((participant) => renderParticipantTracks(participant));
 
     if (isProfessor) {
       await room.localParticipant.setMicrophoneEnabled(true);
       await room.localParticipant.setCameraEnabled(true);
+      renderParticipantTracks(room.localParticipant, "You");
+      btnVideo.disabled = false;
+      btnVideo.classList.remove("opacity-50", "cursor-not-allowed");
+    } else {
+      await room.localParticipant.setCameraEnabled(false);
+      await room.localParticipant.setMicrophoneEnabled(true);
+      btnVideo.disabled = true;
+      btnVideo.classList.add("opacity-50", "cursor-not-allowed");
+      btnVideo.textContent = "Camera Disabled for Students";
     }
   }).catch((err) => {
     badge.textContent = "Connection Failed";
@@ -147,9 +236,39 @@
   });
 
   btnVideo.addEventListener("click", async () => {
+    if (!isProfessor) return;
     const enabled = room.localParticipant.isCameraEnabled;
     await room.localParticipant.setCameraEnabled(!enabled);
     btnVideo.textContent = enabled ? "Start Camera" : "Stop Camera";
+  });
+
+  btnRaiseHand.addEventListener("click", async () => {
+    try {
+      const payload = JSON.stringify({
+        type: "raise_hand",
+        name: "{{ user.get_full_name|default:user.username|escapejs }}",
+        ts: Date.now()
+      });
+      await room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: true });
+      btnRaiseHand.textContent = "Hand Raised";
+      setTimeout(() => { btnRaiseHand.textContent = "Raise Hand"; }, 3000);
+    } catch (err) {
+      if (errBox) {
+        errBox.textContent = `Raise hand failed: ${err?.message || err}`;
+        errBox.classList.remove("hidden");
+      }
+    }
+  });
+
+  btnEnableSound.addEventListener("click", async () => {
+    const audios = audioSink.querySelectorAll("audio");
+    for (const audio of audios) {
+      try {
+        audio.muted = false;
+        audio.volume = 1;
+        await audio.play();
+      } catch (_) {}
+    }
   });
 })();
 </script>
