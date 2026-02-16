@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import requests
+from django.core.cache import cache
 
 from .exceptions import ContractError, UpstreamUnavailable
 from .settings import get_contract_settings
@@ -16,6 +17,44 @@ class ManagementContractClient:
 
     def is_configured(self) -> bool:
         return bool(self.config.base_url)
+
+    def _looks_like_jwt(self, token: str) -> bool:
+        return token.count(".") == 2
+
+    def _service_token_cache_key(self) -> str:
+        return "integration:service:barka_token"
+
+    def _get_service_bearer_token(self) -> str:
+        """
+        Resolve a bearer token for server-to-server calls.
+        Priority:
+        1) PROLEAN_MANAGEMENT_API_TOKEN if it looks like a JWT
+        2) cached token obtained via PROLEAN_MANAGEMENT_SERVICE_USERNAME/PASSWORD
+        """
+        api_token = (self.config.api_token or "").strip()
+        if api_token and self._looks_like_jwt(api_token):
+            return api_token
+
+        cached = cache.get(self._service_token_cache_key())
+        if isinstance(cached, str) and cached.strip():
+            return cached.strip()
+
+        username = (self.config.service_username or "").strip()
+        password = (self.config.service_password or "").strip()
+        if not username or not password:
+            return ""
+
+        payload = self._request(
+            "POST",
+            f"{self.config.base_url}/auth/login",
+            json={"username": username, "password": password},
+            skip_auth=True,
+        )
+        token = str(payload.get("token", "")).strip()
+        if token and self._looks_like_jwt(token):
+            cache.set(self._service_token_cache_key(), token, timeout=22 * 60 * 60)  # 22h
+            return token
+        return ""
 
     def get_access_snapshot(self, subject_id: str) -> dict[str, Any]:
         if not self.is_configured():
@@ -50,7 +89,7 @@ class ManagementContractClient:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
         endpoint = f"{self.config.base_url}/auth/login"
-        return self._request("POST", endpoint, json={"username": username, "password": password})
+        return self._request("POST", endpoint, json={"username": username, "password": password}, skip_auth=True)
 
     def get_current_user(self, bearer_token: str) -> dict[str, Any]:
         if not self.is_configured():
@@ -61,8 +100,9 @@ class ManagementContractClient:
     def list_formations(self, *, bearer_token: str | None = None) -> list[dict[str, Any]]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
+        resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/cours/formations"
-        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        data = self._request("GET", endpoint, bearer_token=resolved)
         # Barka returns a JSON array for this endpoint.
         if isinstance(data, list):
             return data
@@ -71,15 +111,41 @@ class ManagementContractClient:
     def get_formation(self, formation_id: str, *, bearer_token: str | None = None) -> dict[str, Any]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
+        resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/cours/formations/{formation_id}"
-        return self._request("GET", endpoint, bearer_token=bearer_token)
+        return self._request("GET", endpoint, bearer_token=resolved)
 
-    def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+    def list_cities(self, *, bearer_token: str | None = None) -> list[dict[str, Any]]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        resolved = bearer_token or self._get_service_bearer_token()
+        endpoint = f"{self.config.base_url}/cities"
+        data = self._request("GET", endpoint, bearer_token=resolved)
+        if isinstance(data, list):
+            return data
+        # Some APIs wrap results.
+        if isinstance(data, dict) and isinstance(data.get("cities"), list):
+            return data["cities"]
+        raise ContractError("Unexpected cities payload (expected list).")
+
+    def create_student(self, payload: dict[str, Any], *, bearer_token: str | None = None) -> dict[str, Any]:
+        """
+        Create a student in Barka.
+        Note: Barka endpoint may accept JSON or multipart. We try JSON first.
+        """
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        resolved = bearer_token or self._get_service_bearer_token()
+        endpoint = f"{self.config.base_url}/students"
+        return self._request("POST", endpoint, bearer_token=resolved, json=payload)
+
+    def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         headers = kwargs.pop("headers", {})
         bearer_token = kwargs.pop("bearer_token", None)
+        skip_auth = bool(kwargs.pop("skip_auth", False))
         if bearer_token:
             headers["Authorization"] = f"Bearer {bearer_token}"
-        elif self.config.api_token:
+        elif not skip_auth and self.config.api_token:
             headers["Authorization"] = f"Bearer {self.config.api_token}"
         headers["Accept"] = "application/json"
 

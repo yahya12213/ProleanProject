@@ -1305,9 +1305,62 @@ from django.contrib import messages
 
 def register(request):
     """Handle student registration"""
+    # Keep city list in sync with Barka authority (projection-only).
+    mgmt = ManagementContractClient()
+    if mgmt.is_configured():
+        try:
+            from .models import City
+            remote_cities = mgmt.list_cities()
+            for c in remote_cities:
+                if not isinstance(c, dict):
+                    continue
+                name = str(c.get("name", "")).strip()
+                if not name:
+                    continue
+                City.objects.get_or_create(name=name)
+        except Exception as exc:
+            logger.warning("Could not sync cities from authority: %s", exc)
+
     if request.method == 'POST':
         form = StudentRegistrationForm(request.POST)
         if form.is_valid():
+            # 1) Create student in Barka (source of truth) if configured.
+            if mgmt.is_configured():
+                full_name = str(form.cleaned_data.get('full_name') or '').strip()
+                cin = str(form.cleaned_data.get('cin_or_passport') or '').strip().upper()
+                phone = str(form.cleaned_data.get('phone_number') or '').strip()
+                email = str(form.cleaned_data.get('email') or '').strip()
+
+                parts = [p for p in full_name.split(" ") if p]
+                prenom = parts[0] if parts else full_name
+                nom = " ".join(parts[1:]) if len(parts) > 1 else (parts[0] if parts else full_name)
+
+                try:
+                    mgmt.create_student({
+                        "nom": nom,
+                        "prenom": prenom,
+                        "cin": cin,
+                        "email": email,
+                        "phone": phone,
+                        "statut_compte": "actif",
+                    })
+                    # Best-effort: trigger profile auto-creation in Barka via CIN login.
+                    # This may return 403 until the student is enrolled, but it will create the profile row.
+                    try:
+                        mgmt.login(username=cin, password=str(form.cleaned_data.get('password') or ''))
+                    except Exception:
+                        pass
+                except (UpstreamUnavailable, ContractError) as exc:
+                    messages.error(request, f"Registration is temporarily unavailable: {exc}")
+                    return render(request, 'registration/signup.html', {'form': form})
+
+                messages.success(
+                    request,
+                    "Registration received. Your account will be activated after assignment to a session."
+                )
+                return redirect('Prolean:login')
+
+            # 2) Legacy local registration fallback (when external authority is not configured).
             user = User.objects.create_user(
                 username=form.cleaned_data['cin_or_passport'],
                 email=form.cleaned_data['email'],
@@ -1334,6 +1387,13 @@ def register(request):
             return redirect('Prolean:home')
     else:
         form = StudentRegistrationForm()
+
+    # Ensure form gets latest city queryset after sync.
+    try:
+        from .models import City
+        form.fields['city'].queryset = City.objects.filter(is_active=True).order_by('name')
+    except Exception:
+        pass
     
     return render(request, 'registration/signup.html', {'form': form})
 

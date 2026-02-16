@@ -9,6 +9,8 @@ from django.conf import settings
 class ContractSettings:
     base_url: str
     api_token: str
+    service_username: str
+    service_password: str
     timeout_seconds: int
     max_retries: int
     access_cache_ttl_seconds: int
@@ -21,6 +23,8 @@ def get_contract_settings() -> ContractSettings:
     return ContractSettings(
         base_url=getattr(settings, "PROLEAN_MANAGEMENT_API_BASE_URL", "").rstrip("/"),
         api_token=getattr(settings, "PROLEAN_MANAGEMENT_API_TOKEN", ""),
+        service_username=getattr(settings, "PROLEAN_MANAGEMENT_SERVICE_USERNAME", ""),
+        service_password=getattr(settings, "PROLEAN_MANAGEMENT_SERVICE_PASSWORD", ""),
         timeout_seconds=int(getattr(settings, "PROLEAN_MANAGEMENT_API_TIMEOUT_SECONDS", 8)),
         max_retries=int(getattr(settings, "PROLEAN_MANAGEMENT_API_MAX_RETRIES", 2)),
         access_cache_ttl_seconds=int(
@@ -32,4 +36,3 @@ def get_contract_settings() -> ContractSettings:
         strict_authority_mode=bool(getattr(settings, "PROLEAN_STRICT_AUTHORITY_MODE", False)),
         read_only_on_outage=bool(getattr(settings, "PROLEAN_READ_ONLY_ON_OUTAGE", True)),
     )
-
