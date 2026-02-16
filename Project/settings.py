@@ -63,10 +63,14 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # CSRF origin allowlist must include scheme (https://...). Configure via env
 # for custom domains; default covers Railway app domains.
-CSRF_TRUSTED_ORIGINS = _env_csv("CSRF_TRUSTED_ORIGINS") or [
+_default_csrf_trusted_origins = [
+    # Railway default domains
     "https://*.up.railway.app",
     "https://proleanproject-production.up.railway.app",
+    # Some proxy setups may forward http internally; keep this to avoid false positives.
+    "http://proleanproject-production.up.railway.app",
 ]
+CSRF_TRUSTED_ORIGINS = sorted(set(_default_csrf_trusted_origins + _env_csv("CSRF_TRUSTED_ORIGINS")))
 
 
 # Application definition

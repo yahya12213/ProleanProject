@@ -121,19 +121,23 @@
                     {% for field in form %}
                     <div class="space-y-2">
                         <label for="{{ field.id_for_label }}" class="text-sm font-bold text-neutral-700 dark:text-neutral-300 flex justify-between">
-                            {{ field.label }}
+                            {% if field.name == 'username' %}
+                                CIN
+                            {% else %}
+                                {{ field.label }}
+                            {% endif %}
                             {% if field.field.required %}<span class="text-red-500 text-xs">*</span>{% endif %}
                         </label>
                         <div class="relative group">
                             <input type="{{ field.field.widget.input_type|default:'text' }}" 
                                    name="{{ field.name }}" 
                                    id="{{ field.id_for_label }}"
-                                   placeholder="{{ field.label }}"
+                                   placeholder="{% if field.name == 'username' %}CIN{% else %}{{ field.label }}{% endif %}"
                                    {% if field.value and field.field.widget.input_type != 'password' %}value="{{ field.value }}"{% endif %}
                                    {% if field.field.required %}required{% endif %}
                                    class="auth-input {% if field.errors %}auth-input-error{% endif %} pl-12">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-accent-green transition-colors">
-                                {% if 'username' in field.name or 'email' in field.name %}
+                                {% if field.name == 'username' %}
                                 <span class="material-symbols-outlined text-xl">person</span>
                                 {% elif 'password' in field.name %}
                                 <span class="material-symbols-outlined text-xl">lock</span>
