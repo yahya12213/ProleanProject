@@ -69,3 +69,10 @@ Recent Entries
   - Prevented confusing runtime failure where live starts but join fails with missing credentials.
 - Validation:
   - Route syntax check passed.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/Error Handling
+- Changed missing LiveKit config response from 503 to 500 on live start/join.
+- Why:
+  - Prolean retries 503 as transient upstream downtime; this masked the real configuration error.
+- Validation:
+  - Route syntax check passed and commit pushed to Barka remotes.
