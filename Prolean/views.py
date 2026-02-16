@@ -1641,6 +1641,7 @@ def dashboard(request):
     external_schedule = []
     external_authority_mode = False
     external_live_states = {}
+    external_active_live_sessions = []
     try:
         token = request.session.get("barka_token")
         mgmt = ManagementContractClient()
@@ -1726,6 +1727,26 @@ def dashboard(request):
         except Exception as exc:
             logger.warning("Could not resolve external live states for student dashboard: %s", exc)
 
+    if isinstance(external_formations, list) and external_formations and isinstance(external_live_states, dict):
+        session_preview = {}
+        for row in external_formations:
+            if not isinstance(row, dict):
+                continue
+            session_id = str(row.get("session_id") or "").strip()
+            if not session_id or session_id in session_preview:
+                continue
+            session_preview[session_id] = {
+                "session_id": session_id,
+                "session_name": row.get("session_name") or "Session",
+                "professor_name": row.get("professor_name") or "Professor",
+                "ville": row.get("ville") or "-",
+            }
+        external_active_live_sessions = [
+            session_preview[sid]
+            for sid, state in external_live_states.items()
+            if sid in session_preview and isinstance(state, dict) and str(state.get("status", "")).lower() == "live"
+        ]
+
     context = {
         'profile': profile,
         'student_profile': student_profile,
@@ -1743,6 +1764,7 @@ def dashboard(request):
         'external_pending_assignment': external_pending_assignment,
         'external_authority_mode': external_authority_mode,
         'external_live_states': external_live_states,
+        'external_active_live_sessions': external_active_live_sessions,
     }
     
     return render(request, 'Prolean/dashboard/dashboard.html', context)
@@ -2387,6 +2409,7 @@ def external_professor_live_start(request, session_id):
     try:
         mgmt.start_session_live(str(session_id), bearer_token=token.strip())
         messages.success(request, "Live started successfully.")
+        return redirect('Prolean:external_live_room', session_id=str(session_id))
     except Exception as exc:
         messages.error(request, f"Unable to start live: {exc}")
     return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")

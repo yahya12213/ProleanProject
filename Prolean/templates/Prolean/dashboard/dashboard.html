@@ -86,6 +86,38 @@
         </div>
     </div>
     {% else %}
+    {% if external_active_live_sessions %}
+    <div class="mb-6 p-6 rounded-3xl border border-red-200 bg-gradient-to-r from-red-50 via-white to-orange-50 shadow-sm">
+        <div class="flex items-center justify-between gap-4 mb-4">
+            <div class="flex items-center gap-3">
+                <span class="size-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
+                    <span class="material-symbols-outlined">sensors</span>
+                </span>
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-red-600">Live Available</p>
+                    <h3 class="text-lg font-black" style="color: var(--stu-text-main);">Join Your Active Session</h3>
+                </div>
+            </div>
+            <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest">
+                {{ external_active_live_sessions|length }} Live
+            </span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {% for live_row in external_active_live_sessions %}
+            <div class="rounded-2xl border border-red-100 bg-white/80 p-4 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-black truncate" style="color: var(--stu-text-main);">{{ live_row.session_name }}</p>
+                    <p class="text-xs font-semibold opacity-70 truncate" style="color: var(--stu-text-muted);">{{ live_row.professor_name }} · {{ live_row.ville }}</p>
+                </div>
+                <a href="{% url 'Prolean:external_live_room' live_row.session_id %}" class="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-wider hover:bg-red-700">
+                    Join
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
             <div class="size-10 rounded-xl bg-accent-green/10 text-accent-green flex items-center justify-center">

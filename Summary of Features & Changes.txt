@@ -1,0 +1,63 @@
+Summary of Features & Changes
+=================================
+
+Purpose
+- Persistent project log of implemented features, fixes, and key decisions.
+- This file must be updated whenever a new feature is added or an error fix is applied.
+
+Update Rule
+- For every new change, append a new entry with:
+  - Date (UTC)
+  - Area (Barka / Prolean / Infra)
+  - Type (Feature / Fix / Config / Refactor)
+  - What changed
+  - Why it changed
+  - Validation done
+
+Project Baseline (Current Working Direction)
+- Barka is source of truth for identity, roles/permissions, sessions, formations, cities, and assignments.
+- Prolean consumes Barka via API contract and adapts payloads to UI.
+- Login supports CIN and username depending on user type.
+- Registration creates student in Barka and redirects to student dashboard.
+- Student dashboard renders external assignments and pending-assignment states.
+- Professor dashboard renders assigned external sessions/students.
+- Live streaming integrated through LiveKit with Barka-controlled access.
+
+Recent Entries
+--------------
+
+[2026-02-16 UTC] Area: Barka | Type: Feature
+- Added session live lifecycle contract endpoints:
+  - get live state
+  - start live
+  - pause live
+  - end live (with optional recording URL)
+  - join live
+  - leave live
+- Added live/session participant persistence with idempotent initialization.
+- Why:
+  - Enforce session-scoped live authorization under Barka authority.
+- Validation:
+  - Route syntax check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Feature
+- Added external live integration client methods and routes/views.
+- Added external live room page for LiveKit join experience.
+- Added professor controls (start/pause/end/join) in external dashboard.
+- Added student live status/CTA binding based on Barka live state.
+- Why:
+  - Enable end-to-end live flow with Barka as authority.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/UI
+- Fixed silent live action behavior:
+  - Start-live now redirects professor directly to live room after success.
+  - Added visible flash alerts (success/error/warning/info) in professor and student base layouts.
+- Improved student UX:
+  - Added clear "Live Available" panel with direct Join buttons for active session lives.
+- Why:
+  - Users reported clicking start/join with no visible outcome and unclear student join entry points.
+- Validation:
+  - Django system check passed.
+
