@@ -154,6 +154,20 @@ class ManagementContractClient:
             raise ContractError(str(data.get("error")))
         raise ContractError("Unexpected student profile payload.")
 
+    def list_students_with_sessions(self, *, bearer_token: str | None = None) -> list[dict[str, Any]]:
+        """
+        Service-level fallback to resolve student assignments by CIN when
+        student token payload is incomplete.
+        """
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        resolved = bearer_token or self._get_service_bearer_token()
+        endpoint = f"{self.config.base_url}/students/with-sessions"
+        data = self._request("GET", endpoint, bearer_token=resolved)
+        if isinstance(data, list):
+            return data
+        raise ContractError("Unexpected students-with-sessions payload (expected list).")
+
     def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         headers = kwargs.pop("headers", {})
         bearer_token = kwargs.pop("bearer_token", None)

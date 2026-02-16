@@ -1632,10 +1632,12 @@ def dashboard(request):
     external_pending_assignment = False
     external_formations = []
     external_schedule = []
+    external_authority_mode = False
     try:
         token = request.session.get("barka_token")
         mgmt = ManagementContractClient()
-        if mgmt.is_configured() and isinstance(token, str) and token.strip():
+        external_authority_mode = mgmt.is_configured()
+        if external_authority_mode and isinstance(token, str) and token.strip():
             external_profile_payload = mgmt.get_student_me_profile(bearer_token=token.strip())
             external_formations = external_profile_payload.get("formations") or []
             external_schedule = external_profile_payload.get("schedule") or []
@@ -1646,6 +1648,37 @@ def dashboard(request):
                 external_pending_assignment = True
     except Exception as exc:
         logger.warning("Could not load external student profile: %s", exc)
+
+    # Fallback mapping by CIN using service credentials (UI adaptation resilience).
+    if external_authority_mode and not external_formations:
+        try:
+            mgmt = ManagementContractClient()
+            cin = str(getattr(request.user, "username", "") or "").strip().upper()
+            if cin:
+                rows = mgmt.list_students_with_sessions()
+                matched = [r for r in rows if isinstance(r, dict) and str(r.get("cin", "")).strip().upper() == cin]
+                mapped = []
+                for row in matched:
+                    if not row.get("session_id"):
+                        continue
+                    mapped.append({
+                        "formation_name": row.get("formation_titre"),
+                        "session_id": row.get("session_id"),
+                        "session_name": row.get("session_titre"),
+                        "session_type": row.get("session_type"),
+                        "session_status": row.get("session_statut"),
+                        "ville": row.get("ville"),
+                        "professor_name": row.get("professor_name"),
+                        "montant_total": row.get("montant_total"),
+                        "montant_paye": row.get("montant_paye"),
+                        "montant_du": row.get("montant_du"),
+                        "student_status": "actif",
+                    })
+                if mapped:
+                    external_formations = mapped
+                external_pending_assignment = len(external_formations) == 0
+        except Exception as exc:
+            logger.warning("Could not load fallback assignments by CIN: %s", exc)
 
     # Prefer payment values from external authority when available.
     if isinstance(external_formations, list) and external_formations:
@@ -1678,6 +1711,7 @@ def dashboard(request):
         'external_formations': external_formations if isinstance(external_formations, list) else [],
         'external_schedule': external_schedule if isinstance(external_schedule, list) else [],
         'external_pending_assignment': external_pending_assignment,
+        'external_authority_mode': external_authority_mode,
     }
     
     return render(request, 'Prolean/dashboard/dashboard.html', context)
