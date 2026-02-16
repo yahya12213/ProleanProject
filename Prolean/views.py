@@ -2104,6 +2104,42 @@ def check_updates_ajax(request):
             'join_url': f"/live/{stream.id}/" # Hardcoded path or use reverse
         })
 
+    # 3. External/Barka live streams (available on all pages for floating live button)
+    try:
+        token = request.session.get("barka_token")
+        mgmt = ManagementContractClient()
+        if mgmt.is_configured() and isinstance(token, str) and token.strip():
+            external_candidates: set[str] = set()
+            if profile.role == 'STUDENT':
+                payload = mgmt.get_student_me_profile(bearer_token=token.strip())
+                formations = payload.get("formations") if isinstance(payload, dict) else []
+                if isinstance(formations, list):
+                    for row in formations:
+                        if isinstance(row, dict) and row.get("session_id"):
+                            external_candidates.add(str(row.get("session_id")))
+            elif profile.role == 'PROFESSOR':
+                sessions = mgmt.list_my_professor_sessions(bearer_token=token.strip())
+                if isinstance(sessions, list):
+                    for row in sessions:
+                        if isinstance(row, dict) and row.get("id"):
+                            external_candidates.add(str(row.get("id")))
+
+            for sid in external_candidates:
+                try:
+                    state = mgmt.get_session_live_state(sid, bearer_token=token.strip())
+                    if isinstance(state, dict) and str(state.get("status", "")).lower() == "live":
+                        active_streams_data.append({
+                            'id': state.get('id') or sid,
+                            'session_id': sid,
+                            'trainings': state.get('room_name') or 'External live',
+                            'professor': '',
+                            'join_url': reverse('Prolean:external_live_room', kwargs={'session_id': sid}),
+                        })
+                except Exception:
+                    continue
+    except Exception as exc:
+        logger.warning("External live polling skipped: %s", exc)
+
     return JsonResponse({
         'status': 'success',
         'notifications': notif_data,

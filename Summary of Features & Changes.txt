@@ -174,3 +174,21 @@ Recent Entries
   - Improve usability for non-technical users and match requested UX behavior.
 - Validation:
   - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live Fullscreen UX
+- Live room now opens in full-width page mode and hides site footer during live.
+- Stage defaults to large viewport-focused dimensions to match event-room style.
+- Fixed duplicate self-video perception by hiding whichever tile is currently focused in main stage.
+- End-live control in professor dashboard is now shown only when a live is active/paused.
+- Why:
+  - Match requested design behavior and reduce confusion for non-technical users.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Feature/Floating Live Shortcut
+- Extended global polling endpoint to include external/Barka live sessions.
+- Floating button now receives live updates from all authenticated pages (not only student dashboard context) and switches from WhatsApp to live shortcut when active.
+- Why:
+  - Make live room access persistent across the entire website.
+- Validation:
+  - Django system check passed.
