@@ -139,6 +139,21 @@ class ManagementContractClient:
         endpoint = f"{self.config.base_url}/students"
         return self._request("POST", endpoint, bearer_token=resolved, json=payload)
 
+    def get_student_me_profile(self, *, bearer_token: str) -> dict[str, Any]:
+        """
+        Get current student profile + assignments (formations, schedule) from Barka.
+        Requires a user bearer token (student token).
+        """
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/students/me/profile"
+        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        if isinstance(data, dict) and data.get("success") is True:
+            return data
+        if isinstance(data, dict) and data.get("error"):
+            raise ContractError(str(data.get("error")))
+        raise ContractError("Unexpected student profile payload.")
+
     def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         headers = kwargs.pop("headers", {})
         bearer_token = kwargs.pop("bearer_token", None)

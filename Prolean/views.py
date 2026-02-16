@@ -1627,6 +1627,42 @@ def dashboard(request):
         is_active=True
     ).select_related('session', 'session__professor__profile').prefetch_related('session__formations') if student_session else []
 
+    # External authority (Barka) snapshot for assignments.
+    external_profile_payload = None
+    external_pending_assignment = False
+    external_formations = []
+    external_schedule = []
+    try:
+        token = request.session.get("barka_token")
+        mgmt = ManagementContractClient()
+        if mgmt.is_configured() and isinstance(token, str) and token.strip():
+            external_profile_payload = mgmt.get_student_me_profile(bearer_token=token.strip())
+            external_formations = external_profile_payload.get("formations") or []
+            external_schedule = external_profile_payload.get("schedule") or []
+            if isinstance(external_formations, list):
+                external_pending_assignment = len(external_formations) == 0
+            else:
+                external_formations = []
+                external_pending_assignment = True
+    except Exception as exc:
+        logger.warning("Could not load external student profile: %s", exc)
+
+    # Prefer payment values from external authority when available.
+    if isinstance(external_formations, list) and external_formations:
+        def _to_float(v):
+            try:
+                return float(v)
+            except Exception:
+                return 0.0
+
+        amount_paid_ext = sum(_to_float(f.get("montant_paye")) for f in external_formations if isinstance(f, dict))
+        amount_remaining_ext = sum(_to_float(f.get("montant_du")) for f in external_formations if isinstance(f, dict))
+        context_amount_paid = amount_paid_ext
+        context_amount_remaining = amount_remaining_ext
+    else:
+        context_amount_paid = student_profile.amount_paid
+        context_amount_remaining = student_profile.amount_remaining
+
     context = {
         'profile': profile,
         'student_profile': student_profile,
@@ -1636,8 +1672,12 @@ def dashboard(request):
         'active_streams': active_streams,
         'notifications': notifications,
         'active_count': my_formations.count(),
-        'amount_paid': student_profile.amount_paid,
-        'amount_remaining': student_profile.amount_remaining,
+        'amount_paid': context_amount_paid,
+        'amount_remaining': context_amount_remaining,
+        'external_profile': external_profile_payload,
+        'external_formations': external_formations if isinstance(external_formations, list) else [],
+        'external_schedule': external_schedule if isinstance(external_schedule, list) else [],
+        'external_pending_assignment': external_pending_assignment,
     }
     
     return render(request, 'Prolean/dashboard/dashboard.html', context)
