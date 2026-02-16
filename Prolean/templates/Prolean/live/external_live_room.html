@@ -1,0 +1,125 @@
+{% extends 'Prolean/base.html' %}
+{% load static %}
+
+{% block title %}Live Session{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm mb-6 flex items-center justify-between gap-4">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-widest text-neutral-500">Live Session</p>
+            <h1 class="text-2xl font-black text-neutral-900">{{ room_name }}</h1>
+            <p class="text-sm text-neutral-600 mt-1">Role: {{ live_role|title }}</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="conn-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-700">
+                Connecting
+            </span>
+            <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors">
+                    Leave
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div class="lg:col-span-3 rounded-2xl border border-neutral-200 bg-neutral-950 min-h-[520px] p-3">
+            <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+        </div>
+        <div class="rounded-2xl border border-neutral-200 bg-white p-4">
+            <p class="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-4">Controls</p>
+            <div class="space-y-3">
+                <button id="toggle-audio" class="w-full px-4 py-2 rounded-xl border border-neutral-300 font-bold text-sm">
+                    Mute Mic
+                </button>
+                <button id="toggle-video" class="w-full px-4 py-2 rounded-xl border border-neutral-300 font-bold text-sm">
+                    Stop Camera
+                </button>
+            </div>
+            <p class="text-xs text-neutral-500 mt-6">If connection drops, return to dashboard and join again.</p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<script>
+(() => {
+  const livekitUrl = "{{ livekit_url|escapejs }}";
+  const livekitToken = "{{ livekit_token|escapejs }}";
+  const isProfessor = "{{ live_role|escapejs }}" === "professor";
+  const videoGrid = document.getElementById("video-grid");
+  const badge = document.getElementById("conn-badge");
+  const btnAudio = document.getElementById("toggle-audio");
+  const btnVideo = document.getElementById("toggle-video");
+
+  if (!livekitUrl || !livekitToken) {
+    badge.textContent = "Config Error";
+    badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    return;
+  }
+
+  const room = new LivekitClient.Room({
+    adaptiveStream: true,
+    dynacast: true,
+  });
+
+  const attachTrack = (track, participantIdentity) => {
+    const mediaEl = track.attach();
+    mediaEl.className = "w-full h-60 object-cover rounded-xl bg-black";
+    mediaEl.setAttribute("data-participant", participantIdentity);
+    videoGrid.appendChild(mediaEl);
+  };
+
+  const detachTrack = (track) => {
+    track.detach().forEach((el) => el.remove());
+  };
+
+  room
+    .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      attachTrack(track, participant.identity);
+    })
+    .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+      detachTrack(track);
+    })
+    .on(LivekitClient.RoomEvent.Disconnected, () => {
+      badge.textContent = "Disconnected";
+      badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    });
+
+  room.connect(livekitUrl, livekitToken).then(async () => {
+    badge.textContent = "Connected";
+    badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-700";
+
+    room.remoteParticipants.forEach((participant) => {
+      participant.trackPublications.forEach((pub) => {
+        if (pub.track) {
+          attachTrack(pub.track, participant.identity);
+        }
+      });
+    });
+
+    if (isProfessor) {
+      await room.localParticipant.setMicrophoneEnabled(true);
+      await room.localParticipant.setCameraEnabled(true);
+    }
+  }).catch(() => {
+    badge.textContent = "Connection Failed";
+    badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+  });
+
+  btnAudio.addEventListener("click", async () => {
+    const enabled = room.localParticipant.isMicrophoneEnabled;
+    await room.localParticipant.setMicrophoneEnabled(!enabled);
+    btnAudio.textContent = enabled ? "Unmute Mic" : "Mute Mic";
+  });
+
+  btnVideo.addEventListener("click", async () => {
+    const enabled = room.localParticipant.isCameraEnabled;
+    await room.localParticipant.setCameraEnabled(!enabled);
+    btnVideo.textContent = enabled ? "Start Camera" : "Stop Camera";
+  });
+})();
+</script>
+{% endblock %}

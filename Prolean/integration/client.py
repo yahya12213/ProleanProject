@@ -218,6 +218,64 @@ class ManagementContractClient:
             return data
         raise ContractError("Unexpected my-session detail payload.")
 
+    def get_session_live_state(self, session_id: str, *, bearer_token: str) -> dict[str, Any] | None:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live"
+        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        if isinstance(data, dict):
+            live = data.get("live")
+            return live if isinstance(live, dict) else None
+        raise ContractError("Unexpected live state payload.")
+
+    def start_session_live(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/start"
+        data = self._request("POST", endpoint, bearer_token=bearer_token, json={})
+        if isinstance(data, dict):
+            return data
+        raise ContractError("Unexpected start-live payload.")
+
+    def pause_session_live(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/pause"
+        data = self._request("POST", endpoint, bearer_token=bearer_token, json={})
+        if isinstance(data, dict):
+            return data
+        raise ContractError("Unexpected pause-live payload.")
+
+    def end_session_live(self, session_id: str, *, bearer_token: str, recording_url: str | None = None) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/end"
+        payload: dict[str, Any] = {}
+        if recording_url:
+            payload["recording_url"] = recording_url
+        data = self._request("POST", endpoint, bearer_token=bearer_token, json=payload)
+        if isinstance(data, dict):
+            return data
+        raise ContractError("Unexpected end-live payload.")
+
+    def join_session_live(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/join"
+        data = self._request("POST", endpoint, bearer_token=bearer_token, json={})
+        if isinstance(data, dict):
+            return data
+        raise ContractError("Unexpected join-live payload.")
+
+    def leave_session_live(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/leave"
+        data = self._request("POST", endpoint, bearer_token=bearer_token, json={})
+        if isinstance(data, dict):
+            return data
+        raise ContractError("Unexpected leave-live payload.")
+
     def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         headers = kwargs.pop("headers", {})
         bearer_token = kwargs.pop("bearer_token", None)

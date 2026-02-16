@@ -1,5 +1,5 @@
 {% extends 'Prolean/dashboard/base_student.html' %}
-{% load static price_filters %}
+{% load static price_filters custom_filters %}
 
 {% block student_header_title %}
     Bonjour, <span class="text-gradient">{% if user.is_authenticated %}{{ user.first_name|default:profile.full_name|cut:" " }}{% else %}Cher Visiteur{% endif %}</span> 👋
@@ -121,6 +121,23 @@
                     </p>
                 </div>
             </div>
+
+            {% with session_key=group.grouper|stringformat:"s" %}
+            {% with live_state=external_live_states|get_item:session_key %}
+            <div class="mb-5 flex flex-wrap items-center gap-3">
+                {% if live_state and live_state.status == 'live' %}
+                <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest">Live Now</span>
+                <a href="{% url 'Prolean:external_live_room' group.grouper %}" class="px-4 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-wider hover:opacity-90">
+                    Join Live
+                </a>
+                {% elif live_state and live_state.status == 'paused' %}
+                <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">Live Paused</span>
+                {% else %}
+                <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest">No Active Live</span>
+                {% endif %}
+            </div>
+            {% endwith %}
+            {% endwith %}
 
             <div class="border-t border-stu-border pt-5">
                 <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Formations</p>

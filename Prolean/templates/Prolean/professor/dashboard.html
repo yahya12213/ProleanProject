@@ -1,8 +1,8 @@
-{% extends 'Prolean/professor/base_professor.html' %}
+﻿{% extends 'Prolean/professor/base_professor.html' %}
 {% load static %}
 
 {% block header_title %}Tableau de Bord{% endblock %}
-{% block header_subtitle %}Aperçu de vos performances et de vos sessions.{% endblock %}
+{% block header_subtitle %}AperÃ§u de vos performances et de vos sessions.{% endblock %}
 
 {% block professor_content %}
 {% if external_professor_mode %}
@@ -33,22 +33,59 @@
             <div>
                 <h3 class="text-lg font-black" style="color: var(--prof-text-main);">{{ external_selected_session.titre|default:"Session" }}</h3>
                 <p class="text-sm opacity-70" style="color: var(--prof-text-muted);">
-                    {{ external_selected_session.ville_name|default:"-" }} · {{ external_selected_session.session_type|default:"-" }} · {{ external_selected_session.statut|default:"-" }}
+                    {{ external_selected_session.ville_name|default:"-" }} Â· {{ external_selected_session.session_type|default:"-" }} Â· {{ external_selected_session.statut|default:"-" }}
                 </p>
             </div>
-            <span class="px-3 py-1 rounded-full badge-success text-[10px] font-black uppercase tracking-widest">{{ students_count }} Étudiant{{ students_count|pluralize }}</span>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1 rounded-full badge-success text-[10px] font-black uppercase tracking-widest">{{ students_count }} Etudiant{{ students_count|pluralize }}</span>
+                {% if external_live_state and external_live_state.status == 'live' %}
+                <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest">Live</span>
+                {% elif external_live_state and external_live_state.status == 'paused' %}
+                <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">Paused</span>
+                {% else %}
+                <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest">Offline</span>
+                {% endif %}
+            </div>
         </div>
 
+        <div class="mb-6 p-4 rounded-xl border border-prof bg-surface-hover">
+            <div class="flex flex-wrap items-center gap-3">
+                <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-black uppercase tracking-wider hover:bg-green-700">
+                        Start Live
+                    </button>
+                </form>
+                <form method="post" action="{% url 'Prolean:external_professor_live_pause' external_selected_session.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-600">
+                        Pause Live
+                    </button>
+                </form>
+                <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}" class="flex items-center gap-2">
+                    {% csrf_token %}
+                    <input type="url" name="recording_url" placeholder="Recording URL (optional)" class="px-3 py-2 rounded-xl border border-prof bg-white text-xs min-w-[220px]">
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-wider hover:bg-red-700">
+                        End Live
+                    </button>
+                </form>
+                {% if external_live_state and external_live_state.status == 'live' %}
+                <a href="{% url 'Prolean:external_live_room' external_selected_session.id %}" class="px-4 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-wider hover:opacity-90">
+                    Join Room
+                </a>
+                {% endif %}
+            </div>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {% for st in external_students %}
             <div class="p-4 rounded-xl border border-prof bg-surface-hover">
-                <p class="font-bold" style="color: var(--prof-text-main);">{{ st.student_name|default:"Étudiant" }}</p>
-                <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">{{ st.student_email|default:"-" }} · {{ st.student_phone|default:"-" }}</p>
+                <p class="font-bold" style="color: var(--prof-text-main);">{{ st.student_name|default:"Ã‰tudiant" }}</p>
+                <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">{{ st.student_email|default:"-" }} Â· {{ st.student_phone|default:"-" }}</p>
             </div>
             {% empty %}
             <div class="md:col-span-2 p-8 text-center opacity-60">
                 <span class="material-symbols-outlined text-4xl text-muted">group_off</span>
-                <p class="font-bold mt-3">Aucun étudiant pour cette session</p>
+                <p class="font-bold mt-3">Aucun Ã©tudiant pour cette session</p>
             </div>
             {% endfor %}
         </div>
@@ -68,7 +105,7 @@
     </div>
     <h2 class="text-2xl font-black mb-2" style="color: var(--prof-text-main);">Aucune session active</h2>
     <p class="font-medium max-w-md mx-auto mb-8" style="color: var(--prof-text-muted);">
-        Sélectionnez une session dans le menu pour accéder aux outils de pilotage.
+        SÃ©lectionnez une session dans le menu pour accÃ©der aux outils de pilotage.
     </p>
     {% if all_sessions %}
     <div class="flex flex-wrap justify-center gap-4">
@@ -96,7 +133,7 @@
                     Actifs
                 </span>
             </div>
-            <p class="text-xs font-bold uppercase tracking-widest opacity-60 mb-1" style="color: var(--prof-text-muted);">Étudiants</p>
+            <p class="text-xs font-bold uppercase tracking-widest opacity-60 mb-1" style="color: var(--prof-text-muted);">Ã‰tudiants</p>
             <h3 class="text-3xl font-black" style="color: var(--prof-text-main);">{{ students_count }}</h3>
         </div>
     </div>
@@ -180,7 +217,7 @@
             <div class="p-6 border-b border-prof flex items-center justify-between">
                 <h3 class="font-bold flex items-center gap-2" style="color: var(--prof-text-main);">
                     <span class="material-symbols-outlined text-brand">forum</span>
-                    Dernières Interactions
+                    DerniÃ¨res Interactions
                 </h3>
                 <a href="{% url 'Prolean:professor_comments' %}" class="text-xs font-bold uppercase tracking-widest text-brand hover:underline">Voir tout</a>
             </div>
@@ -197,14 +234,14 @@
                                 <span class="text-[10px] font-bold opacity-50" style="color: var(--prof-text-muted);">{{ comment.created_at|timesince }}</span>
                             </div>
                             <p class="text-sm opacity-80 mb-3" style="color: var(--prof-text-muted);">{{ comment.content|truncatechars:100 }}</p>
-                            <a href="{% url 'Prolean:professor_comments' %}?student_id={{ comment.student.id }}" class="text-xs font-bold text-brand hover:underline">Répondre</a>
+                            <a href="{% url 'Prolean:professor_comments' %}?student_id={{ comment.student.id }}" class="text-xs font-bold text-brand hover:underline">RÃ©pondre</a>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="p-12 text-center opacity-50">
                         <span class="material-symbols-outlined text-4xl mb-2 text-muted">chat_bubble_outline</span>
-                        <p class="text-sm font-medium text-muted">Aucune interaction récente</p>
+                        <p class="text-sm font-medium text-muted">Aucune interaction rÃ©cente</p>
                     </div>
                 {% endif %}
             </div>
@@ -235,7 +272,7 @@
         <!-- Session Status Control -->
         <div class="glass-card p-6">
             <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-bold opacity-50 uppercase tracking-widest" style="color: var(--prof-text-muted);">État Session</span>
+                <span class="text-xs font-bold opacity-50 uppercase tracking-widest" style="color: var(--prof-text-muted);">Ã‰tat Session</span>
                 <span class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-hover border border-prof text-[10px] font-bold uppercase tracking-widest" style="color: var(--prof-text-main);">
                     <span class="size-2 rounded-full {% if selected_session.status == 'ONGOING' %}bg-green-500 animate-pulse{% else %}bg-slate-400{% endif %}"></span>
                     {{ selected_session.get_status_display }}
@@ -248,7 +285,7 @@
             </button>
             {% else %}
             <div class="p-4 text-center border border-prof rounded-xl bg-surface-hover opacity-50">
-                <span class="text-xs font-bold">Session Clôturée</span>
+                <span class="text-xs font-bold">Session ClÃ´turÃ©e</span>
             </div>
             {% endif %}
         </div>
@@ -262,8 +299,8 @@
         <div class="size-14 mx-auto bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl flex items-center justify-center mb-4">
             <span class="material-symbols-outlined text-3xl">warning</span>
         </div>
-        <h3 class="text-xl font-black text-center mb-2" style="color: var(--prof-text-main);">Clôturer la session ?</h3>
-        <p class="text-center text-sm opacity-60 mb-8" style="color: var(--prof-text-muted);">Cette action est irréversible et archivera la session actuelle.</p>
+        <h3 class="text-xl font-black text-center mb-2" style="color: var(--prof-text-main);">ClÃ´turer la session ?</h3>
+        <p class="text-center text-sm opacity-60 mb-8" style="color: var(--prof-text-muted);">Cette action est irrÃ©versible et archivera la session actuelle.</p>
         
         <div class="flex gap-3">
             <button onclick="document.getElementById('endSessionModal').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-prof font-bold text-sm hover:bg-surface-hover transition-colors" style="color: var(--prof-text-main);">Annuler</button>

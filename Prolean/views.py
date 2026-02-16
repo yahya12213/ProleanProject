@@ -30,6 +30,7 @@ from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, Trainin
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.urls import reverse
 from .context_processors import get_client_ip, get_location_from_ip
 import uuid
 
@@ -1639,6 +1640,7 @@ def dashboard(request):
     external_formations = []
     external_schedule = []
     external_authority_mode = False
+    external_live_states = {}
     try:
         token = request.session.get("barka_token")
         mgmt = ManagementContractClient()
@@ -1702,6 +1704,28 @@ def dashboard(request):
         context_amount_paid = student_profile.amount_paid
         context_amount_remaining = student_profile.amount_remaining
 
+    # Resolve live state per external session for dashboard badges/actions.
+    if external_authority_mode and isinstance(external_formations, list) and external_formations:
+        try:
+            token = request.session.get("barka_token")
+            if isinstance(token, str) and token.strip():
+                mgmt = ManagementContractClient()
+                session_ids = {
+                    str(row.get("session_id")).strip()
+                    for row in external_formations
+                    if isinstance(row, dict) and row.get("session_id")
+                }
+                for session_id in session_ids:
+                    try:
+                        state = mgmt.get_session_live_state(session_id, bearer_token=token.strip())
+                        if isinstance(state, dict):
+                            external_live_states[session_id] = state
+                    except Exception:
+                        # Keep dashboard resilient even if one session state fails.
+                        continue
+        except Exception as exc:
+            logger.warning("Could not resolve external live states for student dashboard: %s", exc)
+
     context = {
         'profile': profile,
         'student_profile': student_profile,
@@ -1718,6 +1742,7 @@ def dashboard(request):
         'external_schedule': external_schedule if isinstance(external_schedule, list) else [],
         'external_pending_assignment': external_pending_assignment,
         'external_authority_mode': external_authority_mode,
+        'external_live_states': external_live_states,
     }
     
     return render(request, 'Prolean/dashboard/dashboard.html', context)
@@ -2255,11 +2280,19 @@ def professor_dashboard(request):
                 if not isinstance(selected_students, list):
                     selected_students = []
 
+            external_live_state = None
+            if selected_session and selected_session.get("id"):
+                try:
+                    external_live_state = mgmt.get_session_live_state(str(selected_session.get("id")), bearer_token=token.strip())
+                except Exception as exc:
+                    logger.warning("Could not load live state for professor dashboard: %s", exc)
+
             context = {
                 'external_professor_mode': True,
                 'external_sessions': sessions if isinstance(sessions, list) else [],
                 'external_selected_session': selected_session,
                 'external_students': selected_students,
+                'external_live_state': external_live_state if isinstance(external_live_state, dict) else None,
                 'students_count': len(selected_students),
                 'all_sessions': [],
                 'selected_session': None,
@@ -2340,6 +2373,109 @@ def professor_dashboard(request):
         'current_time': timezone.now(),
     }
     return render(request, 'Prolean/professor/dashboard.html', context)
+
+
+@professor_required
+@require_POST
+def external_professor_live_start(request, session_id):
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
+        messages.error(request, "Live controls are unavailable: external authority token is missing.")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    try:
+        mgmt.start_session_live(str(session_id), bearer_token=token.strip())
+        messages.success(request, "Live started successfully.")
+    except Exception as exc:
+        messages.error(request, f"Unable to start live: {exc}")
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_professor_live_pause(request, session_id):
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
+        messages.error(request, "Live controls are unavailable: external authority token is missing.")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    try:
+        mgmt.pause_session_live(str(session_id), bearer_token=token.strip())
+        messages.success(request, "Live paused successfully.")
+    except Exception as exc:
+        messages.error(request, f"Unable to pause live: {exc}")
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_professor_live_end(request, session_id):
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
+        messages.error(request, "Live controls are unavailable: external authority token is missing.")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    recording_url = str(request.POST.get("recording_url", "") or "").strip() or None
+    try:
+        mgmt.end_session_live(str(session_id), bearer_token=token.strip(), recording_url=recording_url)
+        messages.success(request, "Live ended successfully.")
+    except Exception as exc:
+        messages.error(request, f"Unable to end live: {exc}")
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@login_required
+def external_live_room(request, session_id):
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
+        messages.error(request, "Live is unavailable: external authority token is missing.")
+        return redirect('Prolean:dashboard')
+
+    try:
+        payload = mgmt.join_session_live(str(session_id), bearer_token=token.strip())
+        live = payload.get("live") if isinstance(payload, dict) else None
+        join_token = payload.get("token") if isinstance(payload, dict) else None
+        role = payload.get("role") if isinstance(payload, dict) else "student"
+        if not isinstance(live, dict) or not isinstance(join_token, str) or not join_token.strip():
+            raise ContractError("Invalid live join payload.")
+        livekit_url = str(live.get("livekit_url") or "").strip()
+        room_name = str(live.get("room_name") or "").strip()
+        if not livekit_url or not room_name:
+            raise ContractError("LiveKit configuration is incomplete on authority backend.")
+
+        return render(request, 'Prolean/live/external_live_room.html', {
+            "session_id": str(session_id),
+            "live_state": live,
+            "livekit_url": livekit_url,
+            "livekit_token": join_token.strip(),
+            "room_name": room_name,
+            "live_role": str(role),
+        })
+    except Exception as exc:
+        messages.error(request, f"Unable to join live: {exc}")
+        if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
+            return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+        return redirect('Prolean:dashboard')
+
+
+@login_required
+@require_POST
+def external_live_leave(request, session_id):
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if mgmt.is_configured() and isinstance(token, str) and token.strip():
+        try:
+            mgmt.leave_session_live(str(session_id), bearer_token=token.strip())
+        except Exception as exc:
+            logger.warning("External live leave failed for session %s: %s", session_id, exc)
+
+    if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+    return redirect('Prolean:dashboard')
 
 @login_required
 def account_status(request):
