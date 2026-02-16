@@ -158,19 +158,20 @@ class StudentRegistrationForm(forms.ModelForm):
     )
 
     def __init__(self, *args, **kwargs):
+        self.external_authority = bool(kwargs.pop("external_authority", False))
         super().__init__(*args, **kwargs)
         self.fields['cin_or_passport'].required = False
         self.fields['cin_or_passport'].widget.attrs['placeholder'] = 'CIN ou Passeport (Optionnel)'
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
+        if (not self.external_authority) and User.objects.filter(email=email).exists():
             raise forms.ValidationError("Cet email est déjà utilisé.")
         return email
 
     def clean_phone_number(self):
         phone = self.cleaned_data.get('phone_number')
-        if phone and Profile.objects.filter(phone_number=phone).exists():
+        if (not self.external_authority) and phone and Profile.objects.filter(phone_number=phone).exists():
             raise forms.ValidationError("Ce numéro de téléphone est déjà utilisé.")
         return phone
 
@@ -183,7 +184,7 @@ class StudentRegistrationForm(forms.ModelForm):
             if not re.match(cin_regex, cin):
                 raise forms.ValidationError("Format CIN invalide. Utilisez 1 ou 2 lettres suivies de 6 chiffres (ex: AB123456).")
             
-            if Profile.objects.filter(cin_or_passport=cin).exists():
+            if (not self.external_authority) and Profile.objects.filter(cin_or_passport=cin).exists():
                 raise forms.ValidationError("Ce numéro CIN ou Passeport est déjà utilisé.")
         return cin
 

@@ -1335,12 +1335,15 @@ def register(request):
             logger.warning("Could not sync cities from authority: %s", exc)
 
     if request.method == 'POST':
-        form = StudentRegistrationForm(request.POST)
+        form = StudentRegistrationForm(request.POST, external_authority=mgmt.is_configured())
         if form.is_valid():
             # 1) Create student in Barka (source of truth) if configured.
             if mgmt.is_configured():
                 full_name = str(form.cleaned_data.get('full_name') or '').strip()
                 cin = str(form.cleaned_data.get('cin_or_passport') or '').strip().upper()
+                if not cin:
+                    form.add_error('cin_or_passport', "CIN is required for registration.")
+                    return render(request, 'registration/signup.html', {'form': form})
                 phone = str(form.cleaned_data.get('phone_number') or '').strip()
                 email = str(form.cleaned_data.get('email') or '').strip()
 
@@ -1399,7 +1402,7 @@ def register(request):
             messages.success(request, "Compte créé avec succès! En attente de validation.")
             return redirect('Prolean:home')
     else:
-        form = StudentRegistrationForm()
+        form = StudentRegistrationForm(external_authority=mgmt.is_configured())
 
     # Ensure form gets latest city queryset after sync.
     try:
