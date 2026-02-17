@@ -430,7 +430,10 @@
       avatarTiles.delete(`avatar:${identity}`);
     }
 
-    if (!mainVideoKey) {
+    const hasValidMain =
+      !!mainVideoKey && (videoTiles.has(mainVideoKey) || avatarTiles.has(mainVideoKey));
+
+    if (!hasValidMain) {
       setMainVideo(key);
     } else if (source === "camera" && isProfessor && isLocal) {
       setMainVideo(key);
@@ -438,7 +441,8 @@
       const currentMainTile = mainVideoKey ? videoTiles.get(mainVideoKey) : null;
       const mainIsLocalVideo = !!(currentMainTile && currentMainTile.isLocal);
       const mainIsLocalAvatar = mainVideoKey === `avatar:${room.localParticipant.identity}`;
-      if (mainIsLocalVideo || mainIsLocalAvatar) {
+      const mainIsAnyAvatar = String(mainVideoKey || "").startsWith("avatar:");
+      if (mainIsLocalVideo || mainIsLocalAvatar || mainIsAnyAvatar) {
         setMainVideo(key);
       }
     }
