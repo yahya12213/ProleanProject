@@ -51,6 +51,22 @@
         cursor: pointer;
     }
 
+    .right-split {
+        height: 100%;
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+    }
+
+    .right-split-top, .right-split-bottom {
+        position: relative;
+        min-height: 180px;
+        background: #090b0f;
+    }
+
+    .right-split-bottom {
+        border-top: 2px solid #f97316;
+    }
+
     .pane-title {
         position: absolute;
         top: 8px;
@@ -195,7 +211,7 @@
         </section>
 
         <section id="right-pane" class="pane pane-side" title="Tap to switch right screen mode">
-            <div id="right-title" class="pane-title">Professor Screen Share</div>
+            <div id="right-title" class="pane-title">Professor Screen Share + Your Camera</div>
             <div id="right-host" class="video-host"></div>
         </section>
     </div>
@@ -246,7 +262,9 @@
   const speakingIds = new Set();
 
   let professorIdentity = null;
-  let rightMode = 0; // 0 screen share, 1 self cam, 2 students grid
+  const joinOrder = new Map();
+  let joinCounter = 0;
+  let rightMode = 1; // 0 screen share only, 1 split (screen+self), 2 students grid
 
   const normalizeLivekitUrl = (value) => {
     const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
@@ -309,12 +327,35 @@
 
   const resolveProfessorIdentity = () => {
     if (isProfessor && room.localParticipant) return room.localParticipant.identity;
+
+    if (professorIdentity) {
+      const existingCam = pickTrack(professorIdentity, false);
+      if (existingCam) return professorIdentity;
+    }
+
     for (const [id, role] of participantRoles.entries()) {
       if (role === "professor") return id;
     }
+
+    const screenOwners = new Set(
+      Array.from(videoTracks.values())
+        .filter((v) => !v.isLocal && isScreenShare(v.source))
+        .map((v) => v.identity)
+    );
+    for (const id of screenOwners) {
+      if (pickTrack(id, false)) return id;
+    }
+
+    const cameraOwners = Array.from(new Set(
+      Array.from(videoTracks.values())
+        .filter((v) => !v.isLocal && !isScreenShare(v.source))
+        .map((v) => v.identity)
+    ));
+    cameraOwners.sort((a, b) => (joinOrder.get(a) || 999999) - (joinOrder.get(b) || 999999));
+    if (cameraOwners.length) return cameraOwners[0];
+
     for (const { identity, source, isLocal } of videoTracks.values()) {
-      if (isLocal) continue;
-      if (!isScreenShare(source)) return identity;
+      if (!isLocal && !isScreenShare(source)) return identity;
     }
     return professorIdentity;
   };
@@ -414,11 +455,28 @@
       if (screen) renderTrack(rightHost, screen, "Screen Share");
       else renderAvatar(rightHost, "No Screen Share");
     } else if (rightMode === 1) {
-      rightTitle.textContent = "Your Camera (Tap to Switch)";
+      rightTitle.textContent = "Professor Screen Share + Your Camera (Tap to Switch)";
+      rightHost.innerHTML = "";
+      const split = document.createElement("div");
+      split.className = "right-split";
+
+      const top = document.createElement("div");
+      top.className = "right-split-top";
+      const bottom = document.createElement("div");
+      bottom.className = "right-split-bottom";
+
+      const screen = professorIdentity ? pickTrack(professorIdentity, true) : null;
+      if (screen) renderTrack(top, screen, "The prof screen sharing");
+      else renderAvatar(top, "No Screen Share");
+
       const localId = room.localParticipant ? room.localParticipant.identity : null;
       const localCam = localId ? pickTrack(localId, false) : null;
-      if (localCam) renderTrack(rightHost, localCam, "You");
-      else renderAvatar(rightHost, "You");
+      if (localCam) renderTrack(bottom, localCam, "The student video LIVE");
+      else renderAvatar(bottom, "The student video LIVE");
+
+      split.appendChild(top);
+      split.appendChild(bottom);
+      rightHost.appendChild(split);
     } else {
       rightTitle.textContent = "Students Grid (Tap to Switch)";
       renderStudentsGrid();
@@ -449,6 +507,7 @@
   const upsertParticipant = (participant) => {
     if (!participant) return;
     participantLabels.set(participant.identity, participant.name || participant.identity);
+    if (!joinOrder.has(participant.identity)) joinOrder.set(participant.identity, ++joinCounter);
     const role = getIdentityRole(participant);
     if (role) participantRoles.set(participant.identity, role);
   };
