@@ -288,6 +288,53 @@
         display: none;
     }
 
+    .mobile-rotate-tip {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        background: rgba(10, 12, 16, 0.88);
+        color: #e2e8f0;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        padding: 24px;
+    }
+
+    @media (max-width: 900px) and (orientation: portrait) {
+        .mobile-rotate-tip {
+            display: flex;
+        }
+    }
+
+    @media (max-width: 900px) {
+        .presenter-room {
+            height: 100dvh;
+            max-height: 100dvh;
+        }
+
+        .room-shell {
+            padding: 8px;
+            gap: 8px;
+        }
+
+        .controls-bar {
+            padding: 8px;
+            gap: 6px;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+        }
+
+        .ctrl-btn {
+            width: 40px;
+            height: 40px;
+            flex: 0 0 auto;
+        }
+    }
+
     .presenter-room.swapped .room-shell {
         grid-template-columns: minmax(320px, var(--right-pane-width, 28%)) 10px minmax(0, 1fr);
         grid-template-areas: "right resize left";
@@ -406,6 +453,7 @@
         <div id="audio-sink" class="hidden"></div>
     </div>
 </div>
+<div id="mobile-rotate-tip" class="mobile-rotate-tip">Rotate your phone to landscape for full-screen live view</div>
 
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script>
@@ -416,6 +464,7 @@
   const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
 
   const roomRoot = document.getElementById("room-root");
+  const mobileRotateTip = document.getElementById("mobile-rotate-tip");
   const leftPane = document.getElementById("left-pane");
   const paneResizer = document.getElementById("pane-resizer");
   const rightPane = document.getElementById("right-pane");
@@ -447,6 +496,7 @@
   const tileSizeValue = document.getElementById("tile-size-value");
   const btnResetLayout = document.getElementById("reset-layout");
   let isResizing = false;
+  let mobileFullscreenInitDone = false;
 
   const participantLabels = new Map();
   const participantRoles = new Map();
@@ -473,6 +523,33 @@
     if (!cleaned) return "";
     if (/^wss?:\/\//i.test(cleaned)) return cleaned;
     return `wss://${cleaned}`;
+  };
+
+  const isMobileView = () => {
+    const ua = navigator.userAgent || "";
+    return window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  };
+
+  const updateRotateTip = () => {
+    if (!mobileRotateTip) return;
+    const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+    mobileRotateTip.style.display = (isMobileView() && isPortrait) ? "flex" : "none";
+  };
+
+  const ensureMobileFullscreenLandscape = async () => {
+    if (!isMobileView() || mobileFullscreenInitDone) return;
+    mobileFullscreenInitDone = true;
+    try {
+      if (!document.fullscreenElement && roomRoot.requestFullscreen) {
+        roomRoot.classList.add("room-fullscreen");
+        await roomRoot.requestFullscreen();
+      }
+    } catch (_) {}
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        await screen.orientation.lock("landscape");
+      }
+    } catch (_) {}
   };
 
   const normalizeSource = (source) => {
@@ -1088,12 +1165,21 @@
     }
   });
 
+  const mobileInitHandler = () => {
+    ensureMobileFullscreenLandscape();
+    roomRoot.removeEventListener("pointerdown", mobileInitHandler);
+  };
+  roomRoot.addEventListener("pointerdown", mobileInitHandler, { passive: true });
+  window.addEventListener("orientationchange", updateRotateTip);
+  window.addEventListener("resize", updateRotateTip);
+
   window.addEventListener("beforeunload", () => {
     room.disconnect();
   });
 
   loadLayoutPrefs();
   applyLayoutPrefs();
+  updateRotateTip();
 })();
 </script>
 {% endblock %}
