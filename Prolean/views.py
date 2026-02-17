@@ -15,6 +15,7 @@ import json
 import re
 import requests
 from datetime import datetime, timedelta
+from time import sleep
 import logging
 from django.db.models import Avg, Count, Sum  # Add this line
 from .models import (
@@ -2495,7 +2496,28 @@ def external_live_room(request, session_id):
         return redirect('Prolean:dashboard')
 
     try:
-        payload = mgmt.join_session_live(str(session_id), bearer_token=token.strip())
+        payload = None
+        last_exc = None
+        for attempt in range(4):
+            try:
+                payload = mgmt.join_session_live(str(session_id), bearer_token=token.strip())
+                break
+            except UpstreamUnavailable as exc:
+                last_exc = exc
+                if attempt >= 3:
+                    raise
+                sleep(0.6 * (attempt + 1))
+            except ContractError as exc:
+                msg = str(exc).lower()
+                is_transient = any(token in msg for token in ("502", "503", "504", "bad gateway", "temporarily unavailable", "upstream"))
+                if not is_transient or attempt >= 3:
+                    raise
+                last_exc = exc
+                sleep(0.6 * (attempt + 1))
+
+        if payload is None and last_exc is not None:
+            raise last_exc
+
         live = payload.get("live") if isinstance(payload, dict) else None
         join_token = payload.get("token") if isinstance(payload, dict) else None
         role = payload.get("role") if isinstance(payload, dict) else "student"
