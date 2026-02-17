@@ -15,20 +15,57 @@
     body > header, body > footer { display: none !important; }
 
     .presenter-room {
+        --bg-main: linear-gradient(180deg, #14171c 0%, #101318 100%);
+        --text-main: #e5e7eb;
+        --panel-bg: #11141a;
+        --top-bg: #15181d;
+        --panel-border: rgba(148, 163, 184, 0.24);
+        --top-border: rgba(148, 163, 184, 0.2);
+        --media-bg: #090b0f;
+        --label-bg: rgba(0, 0, 0, 0.65);
+        --muted-text: #cbd5e1;
+        --layout-bg: #1b212b;
+        --ctrl-bg: #222a35;
+        --mode-bg: #202733;
+        --resizer-bg: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.08));
+        --resizer-border: rgba(148, 163, 184, 0.25);
+        --empty-text: #9ca3af;
         height: 100vh;
         max-height: 100vh;
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        background: linear-gradient(180deg, #14171c 0%, #101318 100%);
-        color: #e5e7eb;
+        background: var(--bg-main);
+        color: var(--text-main);
         font-family: "Plus Jakarta Sans", sans-serif;
     }
 
+    .presenter-room[data-ui-theme="light"] {
+        --bg-main: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+        --text-main: #0f172a;
+        --panel-bg: #ffffff;
+        --top-bg: #f8fafc;
+        --panel-border: rgba(15, 23, 42, 0.12);
+        --top-border: rgba(15, 23, 42, 0.12);
+        --media-bg: #e5e7eb;
+        --label-bg: rgba(15, 23, 42, 0.75);
+        --muted-text: #334155;
+        --layout-bg: #f1f5f9;
+        --ctrl-bg: #e2e8f0;
+        --mode-bg: #e2e8f0;
+        --resizer-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.06));
+        --resizer-border: rgba(15, 23, 42, 0.18);
+        --empty-text: #475569;
+    }
+
     .room-top {
-        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-        background: #15181d;
+        border-bottom: 1px solid var(--top-border);
+        background: var(--top-bg);
         flex: 0 0 auto;
+    }
+
+    .room-title {
+        color: var(--muted-text);
     }
 
     .room-shell {
@@ -59,8 +96,8 @@
     }
 
     .pane {
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: #11141a;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-bg);
         border-radius: 12px;
         overflow: hidden;
         position: relative;
@@ -90,7 +127,7 @@
     .right-split-top, .right-split-bottom {
         position: relative;
         min-height: 0;
-        background: #090b0f;
+        background: var(--media-bg);
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -105,8 +142,8 @@
         top: 8px;
         left: 8px;
         z-index: 5;
-        background: rgba(0, 0, 0, 0.65);
-        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: var(--label-bg);
+        border: 1px solid var(--panel-border);
         border-radius: 8px;
         padding: 4px 8px;
         font-size: 11px;
@@ -126,7 +163,7 @@
     .video-host {
         width: 100%;
         height: 100%;
-        background: #090b0f;
+        background: var(--media-bg);
         flex: 1;
         min-height: 0;
     }
@@ -180,11 +217,11 @@
 
     .student-card {
         min-height: var(--student-tile-min-h, 120px);
-        border: 1px solid rgba(148, 163, 184, 0.28);
+        border: 1px solid var(--panel-border);
         border-radius: 10px;
         overflow: hidden;
         position: relative;
-        background: #0b0d11;
+        background: var(--media-bg);
     }
 
     .student-card video {
@@ -200,15 +237,15 @@
         z-index: 4;
         padding: 3px 7px;
         border-radius: 7px;
-        background: rgba(0, 0, 0, 0.65);
+        background: var(--label-bg);
         color: #fff;
         font-size: 11px;
         font-weight: 700;
     }
 
     .controls-bar {
-        border-top: 1px solid rgba(148, 163, 184, 0.2);
-        background: #15181d;
+        border-top: 1px solid var(--top-border);
+        background: var(--top-bg);
         padding: 10px 12px;
         display: flex;
         align-items: center;
@@ -221,9 +258,9 @@
         width: 42px;
         height: 42px;
         border-radius: 10px;
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        background: #222a35;
-        color: #e5e7eb;
+        border: 1px solid var(--panel-border);
+        background: var(--ctrl-bg);
+        color: var(--text-main);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -239,9 +276,9 @@
         height: 32px;
         padding: 0 10px;
         border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        background: #202733;
-        color: #cbd5e1;
+        border: 1px solid var(--panel-border);
+        background: var(--mode-bg);
+        color: var(--muted-text);
         font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
@@ -259,8 +296,8 @@
         display: none;
         align-items: center;
         gap: 8px;
-        background: #1b212b;
-        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: var(--layout-bg);
+        border: 1px solid var(--panel-border);
         border-radius: 10px;
         padding: 8px;
     }
@@ -274,7 +311,7 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        color: #cbd5e1;
+        color: var(--muted-text);
         font-size: 11px;
         font-weight: 700;
     }
@@ -349,8 +386,8 @@
         grid-area: resize;
         align-self: stretch;
         border-radius: 999px;
-        background: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.08));
-        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: var(--resizer-bg);
+        border: 1px solid var(--resizer-border);
         position: relative;
         cursor: col-resize;
         touch-action: none;
@@ -380,7 +417,7 @@
         align-items: center;
         justify-content: center;
         text-align: center;
-        color: #9ca3af;
+        color: var(--empty-text);
         font-size: 18px;
         font-weight: 700;
         padding: 20px;
@@ -391,7 +428,7 @@
 {% block content %}
 <div id="room-root" class="presenter-room">
     <div class="room-top px-3 py-2 flex items-center justify-between">
-        <div class="text-xs font-black uppercase tracking-widest text-slate-300">Live Presenter</div>
+        <div class="room-title text-xs font-black uppercase tracking-widest">Live Presenter</div>
         <div class="flex items-center gap-2">
             <span id="conn-badge" class="px-2 py-1 rounded bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-wider">Connecting</span>
             <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
@@ -498,6 +535,7 @@
   const tileSizeValue = document.getElementById("tile-size-value");
   const btnResetLayout = document.getElementById("reset-layout");
   let isResizing = false;
+  let themeObserver = null;
 
   const participantLabels = new Map();
   const participantRoles = new Map();
@@ -549,6 +587,36 @@
   const showError = (message) => {
     connError.textContent = message;
     connError.classList.remove("hidden");
+  };
+
+  const detectUiTheme = () => {
+    const body = document.body;
+    const root = document.documentElement;
+    const bodyTheme = String(body?.dataset?.theme || body?.getAttribute("data-bs-theme") || "").toLowerCase();
+    const rootTheme = String(root?.dataset?.theme || root?.getAttribute("data-bs-theme") || "").toLowerCase();
+    const classDark = body?.classList?.contains("dark") || root?.classList?.contains("dark");
+    if (bodyTheme === "light" || rootTheme === "light") return "light";
+    if (bodyTheme === "dark" || rootTheme === "dark" || classDark) return "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  };
+
+  const applyUiTheme = () => {
+    roomRoot.dataset.uiTheme = detectUiTheme();
+  };
+
+  const bindThemeSync = () => {
+    applyUiTheme();
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", applyUiTheme);
+    } else if (typeof media.addListener === "function") {
+      media.addListener(applyUiTheme);
+    }
+    themeObserver = new MutationObserver(applyUiTheme);
+    if (document.body) {
+      themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
+    }
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
   };
 
   const applyLayoutPrefs = () => {
@@ -1172,9 +1240,11 @@
   });
 
   window.addEventListener("beforeunload", () => {
+    if (themeObserver) themeObserver.disconnect();
     room.disconnect();
   });
 
+  bindThemeSync();
   loadLayoutPrefs();
   applyLayoutPrefs();
 })();
