@@ -1,200 +1,214 @@
 {% extends 'Prolean/base.html' %}
 {% load static %}
 
-{% block title %}Live Room{% endblock %}
+{% block title %}Live Presenter Room{% endblock %}
 {% block main_class %}w-full max-w-none{% endblock %}
 {% block extra_css %}
 <style>
-    #contact { display: none !important; }
+    #contact, .floating-buttons { display: none !important; }
+    body > header, body > footer { display: none !important; }
 
-    .live-room {
-        --lr-bg: linear-gradient(180deg, #121417 0%, #111317 100%);
-        --lr-panel: #17191d;
-        --lr-panel-soft: #1f2329;
-        --lr-panel-border: rgba(148, 163, 184, 0.22);
-        --lr-text: #e5e7eb;
-        --lr-muted: #9ca3af;
-        --lr-stage: #090b0f;
-        --lr-chip: #232933;
-        min-height: calc(100vh - 80px);
-        background: var(--lr-bg);
-        color: var(--lr-text);
+    .presenter-room {
+        min-height: 100vh;
+        background: linear-gradient(180deg, #14171c 0%, #101318 100%);
+        color: #e5e7eb;
+        font-family: "Plus Jakarta Sans", sans-serif;
     }
 
-    .dark .live-room {
-        --lr-bg: linear-gradient(180deg, #121417 0%, #111317 100%);
-        --lr-panel: #17191d;
-        --lr-panel-soft: #1f2329;
-        --lr-panel-border: rgba(148, 163, 184, 0.22);
-        --lr-text: #e5e7eb;
-        --lr-muted: #9ca3af;
-        --lr-stage: #090b0f;
-        --lr-chip: #232933;
+    .room-top {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        background: #15181d;
     }
 
-    .lr-panel {
-        background: var(--lr-panel);
-        border: 1px solid var(--lr-panel-border);
+    .room-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 28%);
+        gap: 14px;
+        min-height: calc(100vh - 64px);
+        padding: 12px;
     }
 
-    .lr-status-dot {
-        width: 0.5rem;
-        height: 0.5rem;
+    @media (max-width: 1100px) {
+        .room-shell {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .pane {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: #11141a;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .pane-main {
+        min-height: 62vh;
+    }
+
+    .pane-side {
+        min-height: 62vh;
+        cursor: pointer;
+    }
+
+    .pane-title {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 5;
+        background: rgba(0, 0, 0, 0.65);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .speaker-border {
+        box-shadow: inset 0 0 0 2px #22c55e;
+    }
+
+    .raised-border {
+        box-shadow: inset 0 0 0 2px #ef4444;
+    }
+
+    .video-host {
+        width: 100%;
+        height: 100%;
+        background: #090b0f;
+    }
+
+    .video-host video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-host {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 20% 20%, #1f2937 0%, #0b0d11 100%);
+    }
+
+    .avatar-badge {
+        width: 96px;
+        height: 96px;
         border-radius: 999px;
-        background: #22c55e;
-        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
-        animation: livePulse 1.8s ease-out infinite;
+        background: #f97316;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 38px;
+        font-weight: 900;
     }
 
-    @keyframes livePulse {
-        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
-        80% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    .student-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 40px 8px 8px;
+        height: 100%;
+        overflow: auto;
     }
 
-    .lr-control {
-        border: 1px solid var(--lr-panel-border);
-        background: var(--lr-chip);
-        color: var(--lr-text);
-        transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+    .student-card {
+        min-height: 120px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+        background: #0b0d11;
     }
 
-    .lr-control:hover {
-        transform: translateY(-1px);
+    .student-label {
+        position: absolute;
+        left: 6px;
+        bottom: 6px;
+        z-index: 4;
+        padding: 3px 7px;
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.65);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
     }
 
-    .lr-control[data-state="off"] {
+    .controls-bar {
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        background: #15181d;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .ctrl-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: #222a35;
+        color: #e5e7eb;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ctrl-btn[data-state="off"] {
         background: rgba(239, 68, 68, 0.18);
         border-color: rgba(239, 68, 68, 0.45);
-        color: #ef4444;
-    }
-
-    .dark .lr-control[data-state="off"] {
-        background: rgba(248, 113, 113, 0.16);
         color: #fca5a5;
     }
 
-    .lr-stage {
-        background: var(--lr-stage);
-        min-height: 62vh;
-        border: 1px solid var(--lr-panel-border);
-    }
-
-    .lr-chip {
-        background: var(--lr-chip);
-        color: var(--lr-text);
-        border: 1px solid var(--lr-panel-border);
-    }
-
-    .live-room.fullscreen-mode #live-topbar {
+    .room-fullscreen .room-top {
         display: none;
-    }
-
-    .live-room.fullscreen-mode #presenter-side {
-        display: none;
-    }
-
-    .live-room.fullscreen-mode #room-layout {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .live-room.fullscreen-mode .lr-stage {
-        min-height: calc(100vh - 90px);
-    }
-
-    .lr-preview {
-        background: #090b0f;
-        border: 1px solid var(--lr-panel-border);
-        min-height: 220px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="live-room-root" class="live-room w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-5">
-    <div class="max-w-[1700px] mx-auto space-y-4">
-        <div id="conn-error" class="hidden px-4 py-3 rounded-2xl border border-red-400/40 bg-red-500/10 text-red-700 dark:text-red-300 text-sm font-semibold"></div>
-
-        <header id="live-topbar" class="lr-panel rounded-2xl px-4 sm:px-6 py-3">
-            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <p class="text-[10px] uppercase tracking-[0.22em] font-black text-orange-500">Show Mode</p>
-                    <h1 class="text-lg sm:text-xl font-black tracking-tight">Presentation Live Room</h1>
-                    <p class="text-xs mt-1" style="color: var(--lr-muted);">Professor camera is prioritized on student stage.</p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <span id="conn-badge" class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                        Connecting
-                    </span>
-                    <span class="lr-chip px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider">
-                        <span class="inline-flex items-center gap-2"><span class="lr-status-dot"></span>Live</span>
-                    </span>
-                    <span class="lr-chip px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider">
-                        Role: {{ live_role|default:"participant" }}
-                    </span>
-                    <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-sm">logout</span>
-                            Leave
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </header>
-
-        <div id="room-layout" class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4">
-            <section class="lr-panel rounded-2xl p-3 sm:p-4">
-                <div id="main-stage" class="lr-stage relative w-full rounded-xl overflow-hidden"></div>
-
-                <div class="mt-3 grid grid-cols-7 gap-2">
-                    <button id="toggle-audio" title="Microphone" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
-                        <span class="material-symbols-outlined">mic</span>
-                    </button>
-                    <button id="toggle-video" title="Camera" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
-                        <span class="material-symbols-outlined">videocam</span>
-                    </button>
-                    <button id="toggle-screen" title="Share Screen (Professor)" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                        <span class="material-symbols-outlined">present_to_all</span>
-                    </button>
-                    <button id="raise-hand" title="Raise Hand" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                        <span class="material-symbols-outlined">front_hand</span>
-                    </button>
-                    <button id="enable-sound" title="Enable Sound" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                        <span class="material-symbols-outlined">volume_up</span>
-                    </button>
-                    <button id="toggle-fullscreen" title="Fullscreen" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                        <span class="material-symbols-outlined">fullscreen</span>
-                    </button>
-                    <button id="cycle-layout" title="Switch View" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                        <span class="material-symbols-outlined">dashboard</span>
-                    </button>
-                </div>
-
-                <div id="thumb-strip" class="mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3"></div>
-                <div id="audio-sink" class="hidden"></div>
-            </section>
-
-            <aside id="presenter-side" class="space-y-4">
-                <section class="lr-panel rounded-2xl p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-sm font-semibold" style="color: var(--lr-muted);">Preview</p>
-                        <p class="text-sm font-semibold" style="color: var(--lr-muted);">Notes</p>
-                    </div>
-                    <div id="preview-stage" class="lr-preview rounded-lg overflow-hidden"></div>
-                    <div class="mt-4 rounded-lg p-3 border border-slate-400/25 dark:border-slate-700/60 min-h-[220px]" style="background: var(--lr-panel-soft);">
-                        <div class="flex items-center justify-between mb-2">
-                            <h2 class="text-sm font-black uppercase tracking-[0.16em]">Live Activity</h2>
-                            <span id="speaking-count" class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">0 Speaking</span>
-                        </div>
-                        <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Now Speaking</p>
-                        <div id="speaking-list" class="flex flex-wrap gap-2 mb-3"></div>
-                        <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Raised Hands</p>
-                        <div id="raised-hands-list" class="flex flex-wrap gap-2"></div>
-                    </div>
-                </section>
-            </aside>
+<div id="room-root" class="presenter-room">
+    <div class="room-top px-3 py-2 flex items-center justify-between">
+        <div class="text-xs font-black uppercase tracking-widest text-slate-300">Live Presenter</div>
+        <div class="flex items-center gap-2">
+            <span id="conn-badge" class="px-2 py-1 rounded bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-wider">Connecting</span>
+            <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
+                {% csrf_token %}
+                <button type="submit" class="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider">Leave</button>
+            </form>
         </div>
+    </div>
+
+    <div id="conn-error" class="hidden mx-3 mt-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-red-300 text-xs font-semibold"></div>
+
+    <div class="room-shell">
+        <section id="left-pane" class="pane pane-main">
+            <div class="pane-title">Professor Camera</div>
+            <div id="left-host" class="video-host"></div>
+        </section>
+
+        <section id="right-pane" class="pane pane-side" title="Tap to switch right screen mode">
+            <div id="right-title" class="pane-title">Professor Screen Share</div>
+            <div id="right-host" class="video-host"></div>
+        </section>
+    </div>
+
+    <div class="controls-bar">
+        <button id="toggle-audio" class="ctrl-btn" data-state="on" title="Microphone"><span class="material-symbols-outlined">mic</span></button>
+        <button id="toggle-video" class="ctrl-btn" data-state="on" title="Camera"><span class="material-symbols-outlined">videocam</span></button>
+        <button id="toggle-screen" class="ctrl-btn" title="Screen Share"><span class="material-symbols-outlined">present_to_all</span></button>
+        <button id="raise-hand" class="ctrl-btn" title="Raise Hand"><span class="material-symbols-outlined">front_hand</span></button>
+        <button id="enable-sound" class="ctrl-btn" title="Enable Sound"><span class="material-symbols-outlined">volume_up</span></button>
+        <button id="toggle-fullscreen" class="ctrl-btn" title="Fullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
+        <button id="cycle-right-mode" class="ctrl-btn" title="Switch Right Screen"><span class="material-symbols-outlined">swap_horiz</span></button>
+        <div id="audio-sink" class="hidden"></div>
     </div>
 </div>
 
@@ -206,31 +220,33 @@
   const isProfessor = "{{ live_role|escapejs }}" === "professor";
   const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
 
-  const mainStage = document.getElementById("main-stage");
-  const roomRoot = document.getElementById("live-room-root");
-  const thumbStrip = document.getElementById("thumb-strip");
-  const previewStage = document.getElementById("preview-stage");
+  const roomRoot = document.getElementById("room-root");
+  const leftPane = document.getElementById("left-pane");
+  const rightPane = document.getElementById("right-pane");
+  const leftHost = document.getElementById("left-host");
+  const rightHost = document.getElementById("right-host");
+  const rightTitle = document.getElementById("right-title");
+  const connBadge = document.getElementById("conn-badge");
+  const connError = document.getElementById("conn-error");
   const audioSink = document.getElementById("audio-sink");
-  const badge = document.getElementById("conn-badge");
+
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
   const btnScreen = document.getElementById("toggle-screen");
   const btnRaiseHand = document.getElementById("raise-hand");
-  const btnEnableSound = document.getElementById("enable-sound");
+  const btnSound = document.getElementById("enable-sound");
   const btnFullscreen = document.getElementById("toggle-fullscreen");
-  const btnLayout = document.getElementById("cycle-layout");
-  const errBox = document.getElementById("conn-error");
-  const speakingList = document.getElementById("speaking-list");
-  const raisedHandsList = document.getElementById("raised-hands-list");
-  const speakingCount = document.getElementById("speaking-count");
+  const btnCycleMode = document.getElementById("cycle-right-mode");
 
-  const videoTiles = new Map();
-  const audioEls = new Map();
-  const raisedHands = new Map();
-  const avatarTiles = new Map();
   const participantLabels = new Map();
-  let mainVideoKey = null;
-  let layoutMode = 0;
+  const participantRoles = new Map();
+  const videoTracks = new Map(); // sid -> {track, identity, source, isLocal}
+  const audioEls = new Map(); // identity -> audioEl
+  const raisedHands = new Set();
+  const speakingIds = new Set();
+
+  let professorIdentity = null;
+  let rightMode = 0; // 0 screen share, 1 self cam, 2 students grid
 
   const normalizeLivekitUrl = (value) => {
     const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
@@ -239,36 +255,181 @@
     return `wss://${cleaned}`;
   };
 
-  const normalizeTrackSource = (source) => {
+  const normalizeSource = (source) => {
     const text = String(source || "").toLowerCase();
     if (!text || text === "unknown") return "camera";
     return text;
   };
 
-  const isScreenShareSource = (source) => normalizeTrackSource(source).startsWith("screen_share");
+  const isScreenShare = (source) => normalizeSource(source).startsWith("screen_share");
 
-  const livekitUrl = normalizeLivekitUrl(rawLivekitUrl);
-  if (!livekitUrl || !livekitToken) {
-    badge.textContent = "Config Error";
-    badge.className = "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300";
-    if (errBox) {
-      errBox.textContent = `Missing live config. URL="${rawLivekitUrl || "-"}"`;
-      errBox.classList.remove("hidden");
-    }
-    return;
-  }
+  const initials = (label) => (String(label || "U").trim()[0] || "U").toUpperCase();
 
-  try {
-    new URL(livekitUrl);
-  } catch {
-    badge.textContent = "Invalid URL";
-    badge.className = "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300";
-    if (errBox) {
-      errBox.textContent = `Invalid LiveKit URL: "${livekitUrl}"`;
-      errBox.classList.remove("hidden");
+  const setStatus = (txt, kind = "warn") => {
+    const style = {
+      ok: "bg-green-500/15 text-green-300",
+      warn: "bg-amber-500/15 text-amber-300",
+      err: "bg-red-500/15 text-red-300",
+    }[kind] || "bg-amber-500/15 text-amber-300";
+    connBadge.className = `px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${style}`;
+    connBadge.textContent = txt;
+  };
+
+  const showError = (message) => {
+    connError.textContent = message;
+    connError.classList.remove("hidden");
+  };
+
+  const markPaneBorders = () => {
+    leftPane.classList.remove("speaker-border", "raised-border");
+    rightPane.classList.remove("speaker-border", "raised-border");
+
+    if (professorIdentity && speakingIds.has(professorIdentity)) leftPane.classList.add("speaker-border");
+    if (professorIdentity && raisedHands.has(professorIdentity)) leftPane.classList.add("raised-border");
+
+    const rightIdentity =
+      rightMode === 1 ? (room.localParticipant ? room.localParticipant.identity : null) : null;
+    if (rightIdentity && speakingIds.has(rightIdentity)) rightPane.classList.add("speaker-border");
+    if (rightIdentity && raisedHands.has(rightIdentity)) rightPane.classList.add("raised-border");
+  };
+
+  const getIdentityRole = (participant) => {
+    if (!participant) return null;
+    try {
+      if (participant.metadata) {
+        const meta = JSON.parse(participant.metadata);
+        if (meta && typeof meta.role === "string") return String(meta.role).toLowerCase();
+      }
+    } catch (_) {}
+    const identity = String(participant.identity || "").toLowerCase();
+    if (identity.includes("prof")) return "professor";
+    if (identity.includes("teacher")) return "professor";
+    return null;
+  };
+
+  const resolveProfessorIdentity = () => {
+    if (isProfessor && room.localParticipant) return room.localParticipant.identity;
+    for (const [id, role] of participantRoles.entries()) {
+      if (role === "professor") return id;
     }
-    return;
-  }
+    for (const { identity, source, isLocal } of videoTracks.values()) {
+      if (isLocal) continue;
+      if (!isScreenShare(source)) return identity;
+    }
+    return professorIdentity;
+  };
+
+  const tracksByIdentity = (identity, wantScreen = false) =>
+    Array.from(videoTracks.values()).filter((v) => v.identity === identity && (wantScreen ? isScreenShare(v.source) : !isScreenShare(v.source)));
+
+  const pickTrack = (identity, wantScreen = false) => {
+    const arr = tracksByIdentity(identity, wantScreen);
+    return arr.length ? arr[arr.length - 1] : null;
+  };
+
+  const renderAvatar = (host, label) => {
+    host.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "avatar-host";
+    const badge = document.createElement("div");
+    badge.className = "avatar-badge";
+    badge.textContent = initials(label);
+    wrap.appendChild(badge);
+    const footer = document.createElement("div");
+    footer.className = "student-label";
+    footer.textContent = label;
+    wrap.appendChild(footer);
+    host.appendChild(wrap);
+  };
+
+  const renderTrack = (host, data, label) => {
+    host.innerHTML = "";
+    const media = data.track.attach();
+    media.autoplay = true;
+    media.playsInline = true;
+    media.muted = !!data.isLocal;
+    media.setAttribute("playsinline", "true");
+    const footer = document.createElement("div");
+    footer.className = "student-label";
+    footer.textContent = label;
+    host.appendChild(media);
+    host.appendChild(footer);
+  };
+
+  const renderLeftPane = () => {
+    professorIdentity = resolveProfessorIdentity();
+    const label = participantLabels.get(professorIdentity) || "Professor";
+    const profCam = professorIdentity ? pickTrack(professorIdentity, false) : null;
+    if (profCam) renderTrack(leftHost, profCam, label);
+    else renderAvatar(leftHost, label);
+  };
+
+  const renderStudentsGrid = () => {
+    rightHost.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "student-grid";
+
+    const entries = new Map();
+    for (const [id, name] of participantLabels.entries()) {
+      if (id === professorIdentity) continue;
+      entries.set(id, { id, name });
+    }
+    for (const student of entries.values()) {
+      const card = document.createElement("div");
+      card.className = "student-card";
+      if (raisedHands.has(student.id)) card.classList.add("raised-border");
+      else if (speakingIds.has(student.id)) card.classList.add("speaker-border");
+
+      const cam = pickTrack(student.id, false);
+      if (cam) {
+        const media = cam.track.attach();
+        media.autoplay = true;
+        media.playsInline = true;
+        media.muted = cam.isLocal;
+        media.setAttribute("playsinline", "true");
+        card.appendChild(media);
+      } else {
+        const av = document.createElement("div");
+        av.className = "avatar-host";
+        const badge = document.createElement("div");
+        badge.className = "avatar-badge";
+        badge.textContent = initials(student.name);
+        av.appendChild(badge);
+        card.appendChild(av);
+      }
+      const footer = document.createElement("div");
+      footer.className = "student-label";
+      footer.textContent = student.name;
+      card.appendChild(footer);
+      grid.appendChild(card);
+    }
+
+    rightHost.appendChild(grid);
+  };
+
+  const renderRightPane = () => {
+    if (rightMode === 0) {
+      rightTitle.textContent = "Professor Screen Share (Tap to Switch)";
+      const screen = professorIdentity ? pickTrack(professorIdentity, true) : null;
+      if (screen) renderTrack(rightHost, screen, "Screen Share");
+      else renderAvatar(rightHost, "No Screen Share");
+    } else if (rightMode === 1) {
+      rightTitle.textContent = "Your Camera (Tap to Switch)";
+      const localId = room.localParticipant ? room.localParticipant.identity : null;
+      const localCam = localId ? pickTrack(localId, false) : null;
+      if (localCam) renderTrack(rightHost, localCam, "You");
+      else renderAvatar(rightHost, "You");
+    } else {
+      rightTitle.textContent = "Students Grid (Tap to Switch)";
+      renderStudentsGrid();
+    }
+    markPaneBorders();
+  };
+
+  const rerender = () => {
+    renderLeftPane();
+    renderRightPane();
+  };
 
   const room = new LivekitClient.Room({
     adaptiveStream: true,
@@ -276,401 +437,156 @@
     stopLocalTrackOnUnpublish: true,
   });
 
-  const showError = (message) => {
-    if (!errBox) return;
-    errBox.textContent = message;
-    errBox.classList.remove("hidden");
-  };
-
-  const setStatus = (label, state) => {
-    badge.textContent = label;
-    const classByState = {
-      ok: "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300",
-      warn: "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-      err: "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
-    };
-    badge.className = classByState[state] || classByState.warn;
-  };
-
   const syncControlStates = () => {
     const micOn = !!room.localParticipant?.isMicrophoneEnabled;
     const camOn = !!room.localParticipant?.isCameraEnabled;
-    btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
-    btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
     btnAudio.dataset.state = micOn ? "on" : "off";
     btnVideo.dataset.state = camOn ? "on" : "off";
+    btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
+    btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
   };
 
-  const makeIdentityLabel = (identity) => {
-    if (!identity) return "Participant";
-    if (room.localParticipant && identity === room.localParticipant.identity) return "You";
-    return participantLabels.get(identity) || identity;
+  const upsertParticipant = (participant) => {
+    if (!participant) return;
+    participantLabels.set(participant.identity, participant.name || participant.identity);
+    const role = getIdentityRole(participant);
+    if (role) participantRoles.set(participant.identity, role);
   };
 
-  const initialsFromLabel = (label) => {
-    const normalized = String(label || "U").trim();
-    if (!normalized) return "U";
-    return normalized[0].toUpperCase();
-  };
-
-  const renderSpeaking = () => {
-    const speakers = room.activeSpeakers || [];
-    speakingList.innerHTML = "";
-    if (!speakers.length) {
-      speakingList.innerHTML = '<span class="px-2 py-1 rounded-full bg-slate-200/80 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 text-xs font-bold">No one speaking</span>';
-    } else {
-      speakers.forEach((p) => {
-        const chip = document.createElement("span");
-        chip.className = "px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-bold";
-        chip.textContent = makeIdentityLabel(p.identity);
-        speakingList.appendChild(chip);
-      });
-    }
-    speakingCount.textContent = `${speakers.length} Speaking`;
-  };
-
-  const renderRaisedHands = () => {
-    raisedHandsList.innerHTML = "";
-    if (!raisedHands.size) {
-      raisedHandsList.innerHTML = '<span class="px-2 py-1 rounded-full bg-slate-200/80 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 text-xs font-bold">No raised hands</span>';
-      return;
-    }
-    raisedHands.forEach((name, identity) => {
-      const chip = document.createElement("span");
-      chip.className = "px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 text-xs font-bold";
-      chip.textContent = `${name || identity}`;
-      raisedHandsList.appendChild(chip);
+  const addVideoTrack = (track, participant, source) => {
+    upsertParticipant(participant);
+    const sid = track.sid || `${participant.identity}:${source}`;
+    videoTracks.set(sid, {
+      track,
+      identity: participant.identity,
+      source: normalizeSource(source),
+      isLocal: room.localParticipant && participant.identity === room.localParticipant.identity,
     });
+    rerender();
   };
 
-  const createVideoWrapper = (label) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "relative rounded-xl overflow-hidden border border-slate-700/50 bg-black cursor-pointer";
-    const footer = document.createElement("div");
-    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/75 text-white text-[11px] font-bold";
-    footer.textContent = label;
-    wrapper.appendChild(footer);
-    return wrapper;
-  };
-
-  const createAvatarWrapper = (label) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "relative rounded-xl overflow-hidden border border-slate-500/30 dark:border-slate-700/60 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-800 dark:to-slate-900 h-28 sm:h-32 flex items-center justify-center cursor-pointer";
-    const avatar = document.createElement("div");
-    avatar.className = "size-14 rounded-full bg-orange-500 text-white font-black text-2xl flex items-center justify-center";
-    avatar.textContent = initialsFromLabel(label);
-    wrapper.appendChild(avatar);
-    const footer = document.createElement("div");
-    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/75 text-white text-[11px] font-bold";
-    footer.textContent = label;
-    wrapper.appendChild(footer);
-    return wrapper;
-  };
-
-  const setMainVideo = (key) => {
-    if (!videoTiles.has(key) || mainVideoKey === key) return;
-    mainStage.innerHTML = "";
-    const tile = videoTiles.get(key);
-    const container = document.createElement("div");
-    container.className = "relative w-full h-full rounded-2xl overflow-hidden bg-black";
-    const media = tile.track.attach();
-    media.className = "w-full h-full object-cover bg-black";
-    media.muted = tile.isLocal;
-    media.autoplay = true;
-    media.playsInline = true;
-    media.setAttribute("playsinline", "true");
-    container.appendChild(media);
-    const footer = document.createElement("div");
-    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/75 text-white text-xs font-bold";
-    footer.textContent = tile.label;
-    container.appendChild(footer);
-    mainStage.appendChild(container);
-    if (previewStage) {
-      previewStage.innerHTML = "";
-      const previewLabel = document.createElement("div");
-      previewLabel.className = "w-full h-full flex items-center justify-center text-xs font-semibold text-slate-400";
-      previewLabel.textContent = "Main stage active";
-      previewStage.appendChild(previewLabel);
+  const removeTrack = (track) => {
+    for (const [sid, info] of videoTracks.entries()) {
+      if (track.sid && info.track.sid === track.sid) videoTracks.delete(sid);
     }
-    mainVideoKey = key;
-    syncThumbnailVisibility();
-  };
-
-  const setMainAvatar = (key, label) => {
-    mainStage.innerHTML = "";
-    const container = document.createElement("div");
-    container.className = "w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-black";
-    const avatar = document.createElement("div");
-    avatar.className = "size-24 sm:size-32 rounded-full bg-orange-500 text-white font-black text-4xl sm:text-5xl flex items-center justify-center shadow-2xl";
-    avatar.textContent = initialsFromLabel(label);
-    container.appendChild(avatar);
-    const footer = document.createElement("div");
-    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/75 text-white text-xs font-bold";
-    footer.textContent = label;
-    mainStage.appendChild(container);
-    mainStage.appendChild(footer);
-    mainVideoKey = key;
-    syncThumbnailVisibility();
-  };
-
-  const syncThumbnailVisibility = () => {
-    for (const [key, tile] of videoTiles.entries()) {
-      tile.wrapper.style.display = key === mainVideoKey ? "none" : "";
-    }
-    for (const [key, wrapper] of avatarTiles.entries()) {
-      wrapper.style.display = key === mainVideoKey ? "none" : "";
-    }
-  };
-
-  const attachVideoTrack = (track, identity, source = "camera") => {
-    const normalizedSource = normalizeTrackSource(source);
-    const key = `video:${normalizedSource}:${track.sid || identity}`;
-    if (videoTiles.has(key)) return;
-
-    const isLocal = identity === room.localParticipant.identity;
-    const baseLabel = makeIdentityLabel(identity);
-    const label = isScreenShareSource(normalizedSource) ? `${baseLabel} - Content` : baseLabel;
-    const wrapper = createVideoWrapper(label);
-    const media = track.attach();
-    media.className = "w-full h-28 sm:h-32 object-cover bg-black";
-    media.autoplay = true;
-    media.playsInline = true;
-    media.muted = isLocal;
-
-    wrapper.insertBefore(media, wrapper.firstChild);
-    wrapper.addEventListener("click", () => setMainVideo(key));
-    thumbStrip.appendChild(wrapper);
-
-    videoTiles.set(key, { wrapper, media, label, isLocal, identity, track, source: normalizedSource });
-    if (avatarTiles.has(`avatar:${identity}`)) {
-      avatarTiles.get(`avatar:${identity}`).remove();
-      avatarTiles.delete(`avatar:${identity}`);
-    }
-
-    const hasValidMain =
-      !!mainVideoKey && (videoTiles.has(mainVideoKey) || avatarTiles.has(mainVideoKey));
-
-    if (!hasValidMain) {
-      setMainVideo(key);
-    } else if (!isScreenShareSource(normalizedSource) && isProfessor && isLocal) {
-      setMainVideo(key);
-    } else if (!isScreenShareSource(normalizedSource) && !isProfessor && !isLocal) {
-      const currentMainTile = mainVideoKey ? videoTiles.get(mainVideoKey) : null;
-      const mainIsLocalVideo = !!(currentMainTile && currentMainTile.isLocal);
-      const mainIsLocalAvatar = mainVideoKey === `avatar:${room.localParticipant.identity}`;
-      const mainIsAnyAvatar = String(mainVideoKey || "").startsWith("avatar:");
-      if (mainIsLocalVideo || mainIsLocalAvatar || mainIsAnyAvatar) {
-        setMainVideo(key);
+    for (const [id, el] of audioEls.entries()) {
+      if (el.dataset.trackSid === (track.sid || "")) {
+        el.remove();
+        audioEls.delete(id);
       }
     }
-    syncThumbnailVisibility();
+    track.detach().forEach((el) => el.remove());
+    rerender();
   };
 
-  const attachAvatar = (identity, label) => {
-    const key = `avatar:${identity}`;
-    if (avatarTiles.has(key)) return;
-    const wrapper = createAvatarWrapper(label);
-    wrapper.addEventListener("click", () => setMainAvatar(key, label));
-    thumbStrip.appendChild(wrapper);
-    avatarTiles.set(key, wrapper);
-    if (!mainVideoKey) setMainAvatar(key, label);
-    syncThumbnailVisibility();
-  };
-
-  const removeAvatar = (identity) => {
-    const key = `avatar:${identity}`;
-    if (!avatarTiles.has(key)) return;
-    avatarTiles.get(key).remove();
-    avatarTiles.delete(key);
-    if (mainVideoKey === key) {
-      mainVideoKey = null;
-      const nextVideo = videoTiles.keys().next();
-      if (!nextVideo.done) setMainVideo(nextVideo.value);
-      else mainStage.innerHTML = "";
+  const addAudioTrack = (track, participant, source) => {
+    if (!participant || (room.localParticipant && participant.identity === room.localParticipant.identity)) return;
+    if (isScreenShare(source)) return;
+    upsertParticipant(participant);
+    const identity = participant.identity;
+    if (audioEls.has(identity)) {
+      audioEls.get(identity).remove();
+      audioEls.delete(identity);
     }
-    syncThumbnailVisibility();
-  };
-
-  const participantHasCameraVideo = (identity) =>
-    Array.from(videoTiles.values()).some((tile) => tile.identity === identity && !isScreenShareSource(tile.source));
-
-  const syncParticipantAvatarState = (identity) => {
-    if (!identity) return;
-    if (room.localParticipant && identity === room.localParticipant.identity) {
-      refreshLocalAvatarState();
-      return;
-    }
-    if (participantHasCameraVideo(identity)) {
-      removeAvatar(identity);
-    } else {
-      attachAvatar(identity, makeIdentityLabel(identity));
-    }
-  };
-
-  const attachAudioTrack = (track, identity, source = "microphone") => {
-    if (identity === room.localParticipant.identity) return;
-    if (isScreenShareSource(source)) return;
-    const key = `audio:${identity}`;
-
-    if (audioEls.has(key)) {
-      const existing = audioEls.get(key);
-      existing.remove();
-      audioEls.delete(key);
-    }
-
     const audioEl = track.attach();
     audioEl.autoplay = true;
     audioEl.playsInline = true;
     audioEl.muted = false;
-    audioEl.dataset.key = key;
     audioEl.dataset.trackSid = track.sid || "";
     audioSink.appendChild(audioEl);
-    audioEls.set(key, audioEl);
-    const playPromise = audioEl.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => setStatus("Tap Enable Sound", "warn"));
-    }
+    audioEls.set(identity, audioEl);
+    const p = audioEl.play();
+    if (p && typeof p.catch === "function") p.catch(() => setStatus("Tap Sound", "warn"));
   };
 
-  const detachTrack = (track) => {
-    for (const [k, tile] of videoTiles.entries()) {
-      if (tile.track?.sid && track.sid && tile.track.sid === track.sid) {
-        tile.wrapper.remove();
-        videoTiles.delete(k);
-        if (mainVideoKey === k) {
-          mainVideoKey = null;
-          const next = videoTiles.keys().next();
-          if (!next.done) setMainVideo(next.value);
-          else mainStage.innerHTML = "";
-        }
-        syncThumbnailVisibility();
-      }
-    }
+  const livekitUrl = normalizeLivekitUrl(rawLivekitUrl);
+  if (!livekitUrl || !livekitToken) {
+    setStatus("Config Error", "err");
+    showError("Missing live config.");
+    return;
+  }
 
-    for (const [k, audio] of audioEls.entries()) {
-      if ((audio.dataset.trackSid && audio.dataset.trackSid === (track.sid || "")) || k.includes(track.sid || "")) {
-        audio.remove();
-        audioEls.delete(k);
-      }
-    }
-
-    track.detach().forEach((el) => el.remove());
-  };
-
-  const renderExistingParticipantTracks = (participant) => {
-    participantLabels.set(participant.identity, participant.name || participant.identity);
-    participant.trackPublications.forEach((pub) => {
-      if (!pub.track) return;
-      if (pub.track.kind === "video") attachVideoTrack(pub.track, participant.identity, pub.source || "camera");
-      if (pub.track.kind === "audio") attachAudioTrack(pub.track, participant.identity, pub.source || "microphone");
-    });
-    syncParticipantAvatarState(participant.identity);
-  };
-
-  const attachLocalTracksNow = () => {
-    if (!room.localParticipant) return;
-    room.localParticipant.trackPublications.forEach((pub) => {
-      if (!pub.track) return;
-      if (pub.track.kind === "video") attachVideoTrack(pub.track, room.localParticipant.identity, pub.source || "camera");
-    });
-    refreshLocalAvatarState();
-  };
-
-  const applyLayoutMode = () => {
-    if (layoutMode === 0) {
-      thumbStrip.className = "mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3";
-    } else if (layoutMode === 1) {
-      thumbStrip.className = "mt-3 flex gap-3 overflow-x-auto pb-1";
-    } else {
-      thumbStrip.className = "mt-3 grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-6 gap-2";
-    }
-  };
-
-  const refreshLocalAvatarState = () => {
-    if (!room.localParticipant) return;
-    const localIdentity = room.localParticipant.identity;
-    const hasVideo = Array.from(videoTiles.values()).some((tile) => tile.identity === localIdentity);
-    if (!hasVideo) attachAvatar(localIdentity, "You");
-    else removeAvatar(localIdentity);
-  };
+  try { new URL(livekitUrl); }
+  catch {
+    setStatus("Invalid URL", "err");
+    showError(`Invalid LiveKit URL: ${livekitUrl}`);
+    return;
+  }
 
   room
-    .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-      participantLabels.set(participant.identity, participant.name || participant.identity);
-      if (track.kind === "video") attachVideoTrack(track, participant.identity, publication?.source || "camera");
-      if (track.kind === "audio") attachAudioTrack(track, participant.identity, publication?.source || "microphone");
-      syncParticipantAvatarState(participant.identity);
+    .on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      if (track.kind === "video") addVideoTrack(track, participant, pub?.source || "camera");
+      if (track.kind === "audio") addAudioTrack(track, participant, pub?.source || "microphone");
     })
-    .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-      detachTrack(track);
-      if (participant) syncParticipantAvatarState(participant.identity);
+    .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+      removeTrack(track);
     })
-    .on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
-      const track = publication?.track;
-      if (track?.kind === "video") attachVideoTrack(track, room.localParticipant.identity, publication?.source || "camera");
-      refreshLocalAvatarState();
-    })
-    .on(LivekitClient.RoomEvent.LocalTrackUnpublished, () => refreshLocalAvatarState())
-    .on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
-      if (!participant) return;
-      const identity = participant.identity;
-
-      for (const [k, tile] of videoTiles.entries()) {
-        if (tile.identity !== identity) continue;
-        tile.wrapper.remove();
-        videoTiles.delete(k);
+    .on(LivekitClient.RoomEvent.LocalTrackPublished, (pub) => {
+      if (pub?.track?.kind === "video") {
+        addVideoTrack(pub.track, room.localParticipant, pub?.source || "camera");
       }
-      for (const [k, audio] of audioEls.entries()) {
-        if (k === `audio:${identity}`) {
-          audio.remove();
-          audioEls.delete(k);
-        }
-      }
-      removeAvatar(identity);
-      raisedHands.delete(identity);
-      participantLabels.delete(identity);
-      renderRaisedHands();
-      if (mainVideoKey && !videoTiles.has(mainVideoKey) && !avatarTiles.has(mainVideoKey)) {
-        mainVideoKey = null;
-        const next = videoTiles.keys().next();
-        if (!next.done) setMainVideo(next.value);
-        else mainStage.innerHTML = "";
-      }
-      syncThumbnailVisibility();
     })
-    .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, () => renderSpeaking())
-    .on(LivekitClient.RoomEvent.Disconnected, () => setStatus("Disconnected", "err"))
+    .on(LivekitClient.RoomEvent.LocalTrackUnpublished, (pub) => {
+      if (pub?.track) removeTrack(pub.track);
+    })
+    .on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+      upsertParticipant(p);
+      rerender();
+    })
+    .on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
+      if (!p) return;
+      for (const [sid, info] of videoTracks.entries()) {
+        if (info.identity === p.identity) videoTracks.delete(sid);
+      }
+      if (audioEls.has(p.identity)) {
+        audioEls.get(p.identity).remove();
+        audioEls.delete(p.identity);
+      }
+      participantLabels.delete(p.identity);
+      participantRoles.delete(p.identity);
+      raisedHands.delete(p.identity);
+      speakingIds.delete(p.identity);
+      rerender();
+    })
+    .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, () => {
+      speakingIds.clear();
+      (room.activeSpeakers || []).forEach((p) => speakingIds.add(p.identity));
+      markPaneBorders();
+      if (rightMode === 2) renderRightPane();
+    })
     .on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
       try {
-        const message = JSON.parse(new TextDecoder().decode(payload));
-        if (!message || !message.type) return;
-        if (message.type === "raise_hand") {
-          raisedHands.set(participant?.identity || message.name || "student", message.name || participant?.identity || "student");
-          renderRaisedHands();
-        }
-        if (message.type === "hand_lowered") {
-          raisedHands.delete(participant?.identity || "");
-          renderRaisedHands();
-        }
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (!msg || !msg.type) return;
+        const id = participant?.identity || "";
+        if (msg.type === "raise_hand" && id) raisedHands.add(id);
+        if (msg.type === "hand_lowered" && id) raisedHands.delete(id);
+        markPaneBorders();
+        if (rightMode === 2) renderRightPane();
       } catch (_) {}
-    });
+    })
+    .on(LivekitClient.RoomEvent.Disconnected, () => setStatus("Disconnected", "err"));
 
   setStatus("Connecting", "warn");
-  renderSpeaking();
-  renderRaisedHands();
-  applyLayoutMode();
-
   room.connect(livekitUrl, livekitToken)
     .then(async () => {
       setStatus("Connected", "ok");
-      room.remoteParticipants.forEach((p) => renderExistingParticipantTracks(p));
+      upsertParticipant(room.localParticipant);
+      if (isProfessor) participantRoles.set(room.localParticipant.identity, "professor");
 
-      try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Microphone permission: ${e.message || e}`); }
+      room.remoteParticipants.forEach((p) => {
+        upsertParticipant(p);
+        p.trackPublications.forEach((pub) => {
+          if (!pub.track) return;
+          if (pub.track.kind === "video") addVideoTrack(pub.track, p, pub.source || "camera");
+          if (pub.track.kind === "audio") addAudioTrack(pub.track, p, pub.source || "microphone");
+        });
+      });
+
+      try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Mic permission: ${e.message || e}`); }
       try { await room.localParticipant.setCameraEnabled(true); } catch (e) { showError(`Camera permission: ${e.message || e}`); }
-
-      renderExistingParticipantTracks(room.localParticipant);
-      refreshLocalAvatarState();
       syncControlStates();
+      rerender();
 
       if (!isProfessor) {
         btnScreen.disabled = true;
@@ -682,41 +598,43 @@
       showError(`LiveKit connection failed: ${err?.message || err}`);
     });
 
+  rightPane.addEventListener("click", () => {
+    rightMode = (rightMode + 1) % 3;
+    renderRightPane();
+  });
+
+  btnCycleMode.addEventListener("click", () => {
+    rightMode = (rightMode + 1) % 3;
+    renderRightPane();
+  });
+
   btnAudio.addEventListener("click", async () => {
     try {
-      const enabled = room.localParticipant.isMicrophoneEnabled;
-      await room.localParticipant.setMicrophoneEnabled(!enabled);
+      const on = room.localParticipant.isMicrophoneEnabled;
+      await room.localParticipant.setMicrophoneEnabled(!on);
       syncControlStates();
-    } catch (err) {
-      showError(`Mic toggle failed: ${err?.message || err}`);
-    }
+    } catch (e) { showError(`Mic toggle failed: ${e.message || e}`); }
   });
 
   btnVideo.addEventListener("click", async () => {
     try {
-      const enabled = room.localParticipant.isCameraEnabled;
-      await room.localParticipant.setCameraEnabled(!enabled);
-      if (!enabled) setTimeout(() => attachLocalTracksNow(), 200);
-      refreshLocalAvatarState();
+      const on = room.localParticipant.isCameraEnabled;
+      await room.localParticipant.setCameraEnabled(!on);
       syncControlStates();
-    } catch (err) {
-      showError(`Camera toggle failed: ${err?.message || err}`);
-    }
+    } catch (e) { showError(`Camera toggle failed: ${e.message || e}`); }
   });
 
   btnScreen.addEventListener("click", async () => {
     if (!isProfessor) return;
     try {
-      const enabled = !!room.localParticipant.isScreenShareEnabled;
-      await room.localParticipant.setScreenShareEnabled(!enabled);
-      if (!enabled && !room.localParticipant.isCameraEnabled) {
+      const on = !!room.localParticipant.isScreenShareEnabled;
+      await room.localParticipant.setScreenShareEnabled(!on);
+      if (!on && !room.localParticipant.isCameraEnabled) {
         await room.localParticipant.setCameraEnabled(true);
       }
-      btnScreen.innerHTML = `<span class="material-symbols-outlined">${enabled ? "present_to_all" : "stop_screen_share"}</span>`;
+      btnScreen.innerHTML = `<span class="material-symbols-outlined">${on ? "present_to_all" : "stop_screen_share"}</span>`;
       syncControlStates();
-    } catch (err) {
-      showError(`Screen share failed: ${err?.message || err}`);
-    }
+    } catch (e) { showError(`Screen share failed: ${e.message || e}`); }
   });
 
   btnRaiseHand.addEventListener("click", async () => {
@@ -724,15 +642,12 @@
       const payload = JSON.stringify({ type: "raise_hand", name: selfName, ts: Date.now() });
       await room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: true });
       btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">waving_hand</span>';
-      setTimeout(() => { btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">front_hand</span>'; }, 2000);
-    } catch (err) {
-      showError(`Raise hand failed: ${err?.message || err}`);
-    }
+      setTimeout(() => { btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">front_hand</span>'; }, 1800);
+    } catch (e) { showError(`Raise hand failed: ${e.message || e}`); }
   });
 
-  btnEnableSound.addEventListener("click", async () => {
-    const audios = audioSink.querySelectorAll("audio");
-    for (const audio of audios) {
+  btnSound.addEventListener("click", async () => {
+    for (const audio of audioSink.querySelectorAll("audio")) {
       try {
         audio.muted = false;
         audio.volume = 1;
@@ -744,26 +659,21 @@
 
   btnFullscreen.addEventListener("click", async () => {
     if (!document.fullscreenElement) {
-      roomRoot.classList.add("fullscreen-mode");
+      roomRoot.classList.add("room-fullscreen");
       await roomRoot.requestFullscreen().catch(() => {});
       btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen_exit</span>';
     } else {
       await document.exitFullscreen().catch(() => {});
-      roomRoot.classList.remove("fullscreen-mode");
+      roomRoot.classList.remove("room-fullscreen");
       btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
     }
   });
 
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement) {
-      roomRoot.classList.remove("fullscreen-mode");
+      roomRoot.classList.remove("room-fullscreen");
       btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
     }
-  });
-
-  btnLayout.addEventListener("click", () => {
-    layoutMode = (layoutMode + 1) % 3;
-    applyLayoutMode();
   });
 
   window.addEventListener("beforeunload", () => {
