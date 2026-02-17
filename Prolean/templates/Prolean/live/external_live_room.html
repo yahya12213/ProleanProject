@@ -1,92 +1,183 @@
 {% extends 'Prolean/base.html' %}
 {% load static %}
 
-{% block title %}Live Session{% endblock %}
+{% block title %}Live Room{% endblock %}
 {% block main_class %}w-full max-w-none{% endblock %}
 {% block extra_css %}
 <style>
     #contact { display: none !important; }
-    .live-room-shell {
+
+    .live-room {
+        --lr-bg: radial-gradient(circle at 12% 14%, rgba(255, 107, 0, 0.18), transparent 42%),
+                 radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.18), transparent 36%),
+                 linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+        --lr-panel: rgba(255, 255, 255, 0.78);
+        --lr-panel-border: rgba(148, 163, 184, 0.3);
+        --lr-text: #0f172a;
+        --lr-muted: #475569;
+        --lr-stage: #020617;
+        --lr-chip: rgba(226, 232, 240, 0.85);
         min-height: calc(100vh - 80px);
-        background:
-            radial-gradient(circle at 10% 10%, rgba(255, 107, 0, 0.12), transparent 38%),
-            radial-gradient(circle at 90% 18%, rgba(14, 165, 233, 0.12), transparent 40%),
-            #0b0b0f;
+        background: var(--lr-bg);
+        color: var(--lr-text);
     }
-    .dark .live-room-shell {
-        background:
-            radial-gradient(circle at 10% 10%, rgba(255, 107, 0, 0.18), transparent 38%),
-            radial-gradient(circle at 90% 18%, rgba(14, 165, 233, 0.18), transparent 40%),
-            #060608;
+
+    .dark .live-room {
+        --lr-bg: radial-gradient(circle at 14% 12%, rgba(255, 107, 0, 0.22), transparent 42%),
+                 radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.2), transparent 36%),
+                 linear-gradient(180deg, #030712 0%, #0f172a 100%);
+        --lr-panel: rgba(15, 23, 42, 0.76);
+        --lr-panel-border: rgba(71, 85, 105, 0.5);
+        --lr-text: #e2e8f0;
+        --lr-muted: #94a3b8;
+        --lr-stage: #000000;
+        --lr-chip: rgba(30, 41, 59, 0.85);
+    }
+
+    .lr-panel {
+        background: var(--lr-panel);
+        border: 1px solid var(--lr-panel-border);
+        backdrop-filter: blur(10px);
+    }
+
+    .lr-status-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+        animation: livePulse 1.8s ease-out infinite;
+    }
+
+    @keyframes livePulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+        80% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    .lr-control {
+        border: 1px solid var(--lr-panel-border);
+        background: var(--lr-chip);
+        color: var(--lr-text);
+        transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+    }
+
+    .lr-control:hover {
+        transform: translateY(-1px);
+    }
+
+    .lr-control[data-state="off"] {
+        background: rgba(239, 68, 68, 0.18);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #ef4444;
+    }
+
+    .dark .lr-control[data-state="off"] {
+        background: rgba(248, 113, 113, 0.16);
+        color: #fca5a5;
+    }
+
+    .lr-stage {
+        background: var(--lr-stage);
+        min-height: 58vh;
+    }
+
+    .lr-chip {
+        background: var(--lr-chip);
+        color: var(--lr-text);
+        border: 1px solid var(--lr-panel-border);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="live-room-shell w-full px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
-    <div id="conn-error" class="hidden mb-3 px-4 py-3 rounded-xl border border-red-900 bg-red-950/70 text-red-200 text-sm font-semibold"></div>
+<div class="live-room w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-5">
+    <div class="max-w-[1700px] mx-auto space-y-4">
+        <div id="conn-error" class="hidden px-4 py-3 rounded-2xl border border-red-400/40 bg-red-500/10 text-red-700 dark:text-red-300 text-sm font-semibold"></div>
 
-    <div class="mb-3 rounded-2xl border border-emerald-700/40 bg-emerald-900/20 p-3 sm:p-4">
-        <div class="flex items-center justify-between gap-3 mb-2">
-            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">Live Activity</p>
-            <span id="speaking-count" class="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">0 Speaking</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="rounded-xl bg-neutral-900/70 border border-emerald-700/30 p-3">
-                <p class="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200 mb-2">Now Speaking</p>
-                <div id="speaking-list" class="flex flex-wrap gap-2"></div>
+        <header class="lr-panel rounded-3xl px-4 sm:px-6 py-4">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.22em] font-black text-orange-500">Live Classroom</p>
+                    <h1 class="text-2xl sm:text-3xl font-black tracking-tight">Interactive Session Room</h1>
+                    <p class="text-sm mt-1" style="color: var(--lr-muted);">Audio and camera start automatically for both students and professors.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span id="conn-badge" class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                        Connecting
+                    </span>
+                    <span class="lr-chip px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider">
+                        <span class="inline-flex items-center gap-2"><span class="lr-status-dot"></span>Live</span>
+                    </span>
+                    <span class="lr-chip px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider">
+                        Role: {{ live_role|default:"participant" }}
+                    </span>
+                    <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">logout</span>
+                            Leave
+                        </button>
+                    </form>
+                </div>
             </div>
-            <div class="rounded-xl bg-neutral-900/70 border border-emerald-700/30 p-3">
-                <p class="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200 mb-2">Raised Hands</p>
-                <div id="raised-hands-list" class="flex flex-wrap gap-2"></div>
-            </div>
-        </div>
-    </div>
+        </header>
 
-    <div class="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4">
-        <div class="xl:col-span-3 rounded-3xl border border-neutral-800 bg-neutral-950 p-3 sm:p-4 min-h-[74vh] sm:min-h-[84vh]">
-            <div id="main-stage" class="relative w-full h-[58vh] sm:h-[66vh] rounded-2xl overflow-hidden bg-black border border-neutral-800"></div>
-            <div id="thumb-strip" class="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
-            <div id="audio-sink" class="hidden"></div>
-        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
+            <section class="lr-panel rounded-3xl p-3 sm:p-4">
+                <div id="main-stage" class="lr-stage relative w-full rounded-2xl overflow-hidden border border-slate-700/50"></div>
+                <div id="thumb-strip" class="mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3"></div>
+                <div id="audio-sink" class="hidden"></div>
+            </section>
 
-        <div class="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4 sm:p-5">
-            <div class="flex items-center justify-between gap-2 mb-4">
-                <span id="conn-badge" class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-700">
-                    Connecting
-                </span>
-                <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="px-3 py-2 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors">
-                        <span class="material-symbols-outlined text-sm">logout</span>
-                    </button>
-                </form>
-            </div>
-            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-300 mb-4">Controls</p>
-            <div class="grid grid-cols-4 gap-2 sm:gap-3">
-                <button id="toggle-audio" title="Microphone" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">mic</span>
-                </button>
-                <button id="toggle-video" title="Camera" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">videocam</span>
-                </button>
-                <button id="toggle-screen" title="Share Screen (Professor)" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">present_to_all</span>
-                </button>
-                <button id="raise-hand" title="Raise Hand" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">front_hand</span>
-                </button>
-                <button id="enable-sound" title="Enable Sound" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">volume_up</span>
-                </button>
-                <button id="toggle-fullscreen" title="Fullscreen Stage" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">fullscreen</span>
-                </button>
-                <button id="cycle-layout" title="Switch View" class="aspect-square rounded-xl border border-neutral-700 text-white font-bold text-sm hover:bg-neutral-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined">dashboard</span>
-                </button>
-            </div>
-            <p class="text-xs text-neutral-300 mt-5">Tap icons: mic, camera, hand raise, fullscreen. Students can use camera and microphone.</p>
+            <aside class="space-y-4">
+                <section class="lr-panel rounded-3xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-black uppercase tracking-[0.16em]">Live Activity</h2>
+                        <span id="speaking-count" class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">0 Speaking</span>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="rounded-2xl p-3 border border-slate-400/25 dark:border-slate-700/60">
+                            <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Now Speaking</p>
+                            <div id="speaking-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <div class="rounded-2xl p-3 border border-slate-400/25 dark:border-slate-700/60">
+                            <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Raised Hands</p>
+                            <div id="raised-hands-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="lr-panel rounded-3xl p-4">
+                    <h2 class="text-sm font-black uppercase tracking-[0.16em] mb-3">Controls</h2>
+                    <div class="grid grid-cols-4 gap-2 sm:gap-3">
+                        <button id="toggle-audio" title="Microphone" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
+                            <span class="material-symbols-outlined">mic</span>
+                        </button>
+                        <button id="toggle-video" title="Camera" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
+                            <span class="material-symbols-outlined">videocam</span>
+                        </button>
+                        <button id="toggle-screen" title="Share Screen (Professor)" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined">present_to_all</span>
+                        </button>
+                        <button id="raise-hand" title="Raise Hand" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined">front_hand</span>
+                        </button>
+                        <button id="enable-sound" title="Enable Sound" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined">volume_up</span>
+                        </button>
+                        <button id="toggle-fullscreen" title="Fullscreen Stage" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined">fullscreen</span>
+                        </button>
+                        <button id="cycle-layout" title="Switch View" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined">dashboard</span>
+                        </button>
+                    </div>
+                    <p class="mt-4 text-xs" style="color: var(--lr-muted);">
+                        Main fixes: no local audio loopback and auto-enable mic/camera on room join.
+                    </p>
+                </section>
+            </aside>
         </div>
     </div>
 </div>
@@ -115,10 +206,10 @@
   const raisedHandsList = document.getElementById("raised-hands-list");
   const speakingCount = document.getElementById("speaking-count");
 
-  const videoTiles = new Map();  // key -> {wrapper, media, track, isLocal, label}
-  const audioEls = new Map();    // key -> element
-  const raisedHands = new Map(); // identity -> name
-  const avatarTiles = new Map(); // key -> avatar wrapper
+  const videoTiles = new Map();
+  const audioEls = new Map();
+  const raisedHands = new Map();
+  const avatarTiles = new Map();
   let mainVideoKey = null;
   let layoutMode = 0;
 
@@ -132,9 +223,9 @@
   const livekitUrl = normalizeLivekitUrl(rawLivekitUrl);
   if (!livekitUrl || !livekitToken) {
     badge.textContent = "Config Error";
-    badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    badge.className = "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300";
     if (errBox) {
-      errBox.textContent = `Missing live config. URL="${rawLivekitUrl || '-'}"`;
+      errBox.textContent = `Missing live config. URL="${rawLivekitUrl || "-"}"`;
       errBox.classList.remove("hidden");
     }
     return;
@@ -144,7 +235,7 @@
     new URL(livekitUrl);
   } catch {
     badge.textContent = "Invalid URL";
-    badge.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700";
+    badge.className = "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300";
     if (errBox) {
       errBox.textContent = `Invalid LiveKit URL: "${livekitUrl}"`;
       errBox.classList.remove("hidden");
@@ -167,11 +258,20 @@
   const setStatus = (label, state) => {
     badge.textContent = label;
     const classByState = {
-      ok: "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-700",
-      warn: "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-700",
-      err: "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-700",
+      ok: "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300",
+      warn: "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+      err: "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
     };
     badge.className = classByState[state] || classByState.warn;
+  };
+
+  const syncControlStates = () => {
+    const micOn = !!room.localParticipant?.isMicrophoneEnabled;
+    const camOn = !!room.localParticipant?.isCameraEnabled;
+    btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
+    btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
+    btnAudio.dataset.state = micOn ? "on" : "off";
+    btnVideo.dataset.state = camOn ? "on" : "off";
   };
 
   const makeIdentityLabel = (identity) => {
@@ -190,11 +290,11 @@
     const speakers = room.activeSpeakers || [];
     speakingList.innerHTML = "";
     if (!speakers.length) {
-      speakingList.innerHTML = '<span class="px-2 py-1 rounded-full bg-neutral-100 text-neutral-500 text-xs font-bold">No one speaking</span>';
+      speakingList.innerHTML = '<span class="px-2 py-1 rounded-full bg-slate-200/80 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 text-xs font-bold">No one speaking</span>';
     } else {
       speakers.forEach((p) => {
         const chip = document.createElement("span");
-        chip.className = "px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold";
+        chip.className = "px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-bold";
         chip.textContent = makeIdentityLabel(p.identity);
         speakingList.appendChild(chip);
       });
@@ -205,12 +305,12 @@
   const renderRaisedHands = () => {
     raisedHandsList.innerHTML = "";
     if (!raisedHands.size) {
-      raisedHandsList.innerHTML = '<span class="px-2 py-1 rounded-full bg-neutral-100 text-neutral-500 text-xs font-bold">No raised hands</span>';
+      raisedHandsList.innerHTML = '<span class="px-2 py-1 rounded-full bg-slate-200/80 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 text-xs font-bold">No raised hands</span>';
       return;
     }
     raisedHands.forEach((name, identity) => {
       const chip = document.createElement("span");
-      chip.className = "px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold";
+      chip.className = "px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 text-xs font-bold";
       chip.textContent = `${name || identity}`;
       raisedHandsList.appendChild(chip);
     });
@@ -218,9 +318,9 @@
 
   const createVideoWrapper = (label) => {
     const wrapper = document.createElement("div");
-    wrapper.className = "relative rounded-xl overflow-hidden border border-neutral-800 bg-black";
+    wrapper.className = "relative rounded-xl overflow-hidden border border-slate-700/50 bg-black cursor-pointer";
     const footer = document.createElement("div");
-    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/70 text-white text-[11px] font-bold";
+    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/75 text-white text-[11px] font-bold";
     footer.textContent = label;
     wrapper.appendChild(footer);
     return wrapper;
@@ -228,37 +328,36 @@
 
   const createAvatarWrapper = (label) => {
     const wrapper = document.createElement("div");
-    wrapper.className = "relative rounded-xl overflow-hidden border border-neutral-800 bg-gradient-to-br from-neutral-800 to-neutral-900 h-28 sm:h-32 flex items-center justify-center";
+    wrapper.className = "relative rounded-xl overflow-hidden border border-slate-500/30 dark:border-slate-700/60 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-800 dark:to-slate-900 h-28 sm:h-32 flex items-center justify-center cursor-pointer";
     const avatar = document.createElement("div");
     avatar.className = "size-14 rounded-full bg-orange-500 text-white font-black text-2xl flex items-center justify-center";
     avatar.textContent = initialsFromLabel(label);
     wrapper.appendChild(avatar);
     const footer = document.createElement("div");
-    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/70 text-white text-[11px] font-bold";
+    footer.className = "absolute left-2 bottom-2 px-2 py-1 rounded bg-black/75 text-white text-[11px] font-bold";
     footer.textContent = label;
     wrapper.appendChild(footer);
     return wrapper;
   };
 
   const setMainVideo = (key) => {
-    if (!videoTiles.has(key)) return;
-    if (mainVideoKey === key) return;
+    if (!videoTiles.has(key) || mainVideoKey === key) return;
     mainStage.innerHTML = "";
     const tile = videoTiles.get(key);
-    const cloned = document.createElement("div");
-    cloned.className = "relative w-full h-full rounded-2xl overflow-hidden bg-black";
+    const container = document.createElement("div");
+    container.className = "relative w-full h-full rounded-2xl overflow-hidden bg-black";
     const media = tile.track.attach();
     media.className = "w-full h-full object-cover bg-black";
     media.muted = tile.isLocal;
     media.autoplay = true;
     media.playsInline = true;
     media.setAttribute("playsinline", "true");
-    cloned.appendChild(media);
+    container.appendChild(media);
     const footer = document.createElement("div");
-    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/70 text-white text-xs font-bold";
+    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/75 text-white text-xs font-bold";
     footer.textContent = tile.label;
-    cloned.appendChild(footer);
-    mainStage.appendChild(cloned);
+    container.appendChild(footer);
+    mainStage.appendChild(container);
     mainVideoKey = key;
     syncThumbnailVisibility();
   };
@@ -266,13 +365,13 @@
   const setMainAvatar = (key, label) => {
     mainStage.innerHTML = "";
     const container = document.createElement("div");
-    container.className = "w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-900 to-neutral-800";
+    container.className = "w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-black";
     const avatar = document.createElement("div");
     avatar.className = "size-24 sm:size-32 rounded-full bg-orange-500 text-white font-black text-4xl sm:text-5xl flex items-center justify-center shadow-2xl";
     avatar.textContent = initialsFromLabel(label);
     container.appendChild(avatar);
     const footer = document.createElement("div");
-    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/70 text-white text-xs font-bold";
+    footer.className = "absolute left-3 bottom-3 px-3 py-1 rounded bg-black/75 text-white text-xs font-bold";
     footer.textContent = label;
     mainStage.appendChild(container);
     mainStage.appendChild(footer);
@@ -295,7 +394,7 @@
 
     const isLocal = identity === room.localParticipant.identity;
     const baseLabel = makeIdentityLabel(identity);
-    const label = source === "screen_share" ? `${baseLabel} · Content` : baseLabel;
+    const label = source === "screen_share" ? `${baseLabel} - Content` : baseLabel;
     const wrapper = createVideoWrapper(label);
     const media = track.attach();
     media.className = "w-full h-28 sm:h-32 object-cover bg-black";
@@ -327,7 +426,6 @@
     const key = `avatar:${identity}`;
     if (avatarTiles.has(key)) return;
     const wrapper = createAvatarWrapper(label);
-    wrapper.dataset.avatarKey = key;
     wrapper.addEventListener("click", () => setMainAvatar(key, label));
     thumbStrip.appendChild(wrapper);
     avatarTiles.set(key, wrapper);
@@ -350,6 +448,7 @@
   };
 
   const attachAudioTrack = (track, identity) => {
+    if (identity === room.localParticipant.identity) return;
     const key = `audio:${track.sid || identity}`;
     if (audioEls.has(key)) return;
 
@@ -371,14 +470,14 @@
       if (tile.track?.sid && track.sid && tile.track.sid === track.sid) {
         tile.wrapper.remove();
         videoTiles.delete(k);
-      if (mainVideoKey === k) {
-        mainVideoKey = null;
-        const next = videoTiles.keys().next();
-        if (!next.done) setMainVideo(next.value);
-        else mainStage.innerHTML = "";
+        if (mainVideoKey === k) {
+          mainVideoKey = null;
+          const next = videoTiles.keys().next();
+          if (!next.done) setMainVideo(next.value);
+          else mainStage.innerHTML = "";
+        }
+        syncThumbnailVisibility();
       }
-      syncThumbnailVisibility();
-    }
     }
 
     for (const [k, audio] of audioEls.entries()) {
@@ -404,18 +503,17 @@
     room.localParticipant.trackPublications.forEach((pub) => {
       if (!pub.track) return;
       if (pub.track.kind === "video") attachVideoTrack(pub.track, room.localParticipant.identity, pub.source || "camera");
-      if (pub.track.kind === "audio") attachAudioTrack(pub.track, room.localParticipant.identity);
     });
     refreshLocalAvatarState();
   };
 
   const applyLayoutMode = () => {
     if (layoutMode === 0) {
-      thumbStrip.className = "mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3";
+      thumbStrip.className = "mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3";
     } else if (layoutMode === 1) {
       thumbStrip.className = "mt-3 flex gap-3 overflow-x-auto pb-1";
     } else {
-      thumbStrip.className = "mt-3 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2";
+      thumbStrip.className = "mt-3 grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-6 gap-2";
     }
   };
 
@@ -440,7 +538,6 @@
     .on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
       const track = publication?.track;
       if (track?.kind === "video") attachVideoTrack(track, room.localParticipant.identity, publication?.source || "camera");
-      if (track?.kind === "audio") attachAudioTrack(track, room.localParticipant.identity);
       refreshLocalAvatarState();
     })
     .on(LivekitClient.RoomEvent.LocalTrackUnpublished, () => refreshLocalAvatarState())
@@ -471,15 +568,13 @@
       setStatus("Connected", "ok");
       room.remoteParticipants.forEach((p) => renderExistingParticipantTracks(p));
 
-      if (isProfessor) {
-        try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Microphone error: ${e.message || e}`); }
-        try { await room.localParticipant.setCameraEnabled(true); } catch (e) { showError(`Camera error: ${e.message || e}`); }
-        renderExistingParticipantTracks(room.localParticipant);
-      } else {
-        try { await room.localParticipant.setCameraEnabled(false); } catch (_) {}
-        try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Student microphone permission: ${e.message || e}`); }
-      }
+      try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Microphone permission: ${e.message || e}`); }
+      try { await room.localParticipant.setCameraEnabled(true); } catch (e) { showError(`Camera permission: ${e.message || e}`); }
+
+      renderExistingParticipantTracks(room.localParticipant);
       refreshLocalAvatarState();
+      syncControlStates();
+
       if (!isProfessor) {
         btnScreen.disabled = true;
         btnScreen.classList.add("opacity-50", "cursor-not-allowed");
@@ -494,7 +589,7 @@
     try {
       const enabled = room.localParticipant.isMicrophoneEnabled;
       await room.localParticipant.setMicrophoneEnabled(!enabled);
-      btnAudio.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'mic_off' : 'mic'}</span>`;
+      syncControlStates();
     } catch (err) {
       showError(`Mic toggle failed: ${err?.message || err}`);
     }
@@ -504,12 +599,9 @@
     try {
       const enabled = room.localParticipant.isCameraEnabled;
       await room.localParticipant.setCameraEnabled(!enabled);
-      btnVideo.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'videocam_off' : 'videocam'}</span>`;
-      if (!enabled) {
-        // Local publication may complete asynchronously; attach on next tick.
-        setTimeout(() => attachLocalTracksNow(), 200);
-      }
+      if (!enabled) setTimeout(() => attachLocalTracksNow(), 200);
       refreshLocalAvatarState();
+      syncControlStates();
     } catch (err) {
       showError(`Camera toggle failed: ${err?.message || err}`);
     }
@@ -520,7 +612,7 @@
     try {
       const enabled = !!room.localParticipant.isScreenShareEnabled;
       await room.localParticipant.setScreenShareEnabled(!enabled);
-      btnScreen.innerHTML = `<span class="material-symbols-outlined">${enabled ? 'present_to_all' : 'stop_screen_share'}</span>`;
+      btnScreen.innerHTML = `<span class="material-symbols-outlined">${enabled ? "present_to_all" : "stop_screen_share"}</span>`;
     } catch (err) {
       showError(`Screen share failed: ${err?.message || err}`);
     }
@@ -562,6 +654,10 @@
   btnLayout.addEventListener("click", () => {
     layoutMode = (layoutMode + 1) % 3;
     applyLayoutMode();
+  });
+
+  window.addEventListener("beforeunload", () => {
+    room.disconnect();
   });
 })();
 </script>
