@@ -210,3 +210,40 @@ Recent Entries
   - Students were not seeing themselves after enabling camera.
 - Validation:
   - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Refactor/Fix Live Rooms
+- Rebuilt both live-room templates (`external_live_room.html` + `live_session.html`) with full responsive redesign and dark/light theme support.
+- Enabled auto camera + microphone on join for both student and professor.
+- Added control-state sync and improved room fullscreen behavior.
+- Why:
+  - Requirement to modernize live UX and make media behavior automatic and consistent.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Live Audio + Presence
+- Fixed self-echo and duplicated voice playback paths:
+  - local participant audio is never attached to sink
+  - remote audio is deduped per participant
+  - screen-share audio source is ignored to prevent duplicate paths
+- Added robust avatar fallback when participant camera is disabled.
+- Why:
+  - Users reported repeated voice and missing identity fallback when camera is off.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Screen Share + Stage Selection
+- Prevented professor camera from being lost/black when enabling screen share by forcing camera enabled on share start.
+- Updated student main-stage promotion logic:
+  - remove brittle `prof_` identity dependency
+  - promote any remote camera over avatar/stale main state
+- Why:
+  - Students were not consistently seeing professor camera stream on the main stage.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Upstream Resilience
+- Added retry/backoff in `external_live_room` join flow for transient upstream failures (`502/503/504`, bad gateway patterns).
+- Why:
+  - Start-live join sometimes failed immediately due to short upstream readiness lag.
+- Validation:
+  - Django system check passed.
