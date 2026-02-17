@@ -2528,6 +2528,19 @@ def external_live_room(request, session_id):
         if not livekit_url or not room_name:
             raise ContractError("LiveKit configuration is incomplete on authority backend.")
 
+        professor_identity_hint = ""
+        professor_name_hint = ""
+        for key in ("professor_identity", "presenter_identity", "host_identity", "owner_identity"):
+            value = str((payload.get(key) if isinstance(payload, dict) else "") or (live.get(key) if isinstance(live, dict) else "") or "").strip()
+            if value:
+                professor_identity_hint = value
+                break
+        for key in ("professor_name", "presenter_name", "host_name", "owner_name"):
+            value = str((payload.get(key) if isinstance(payload, dict) else "") or (live.get(key) if isinstance(live, dict) else "") or "").strip()
+            if value:
+                professor_name_hint = value
+                break
+
         return render(request, 'Prolean/live/external_live_room.html', {
             "session_id": str(session_id),
             "live_state": live,
@@ -2535,6 +2548,8 @@ def external_live_room(request, session_id):
             "livekit_token": join_token.strip(),
             "room_name": room_name,
             "live_role": str(role),
+            "professor_identity_hint": professor_identity_hint,
+            "professor_name_hint": professor_name_hint,
         })
     except Exception as exc:
         messages.error(request, f"Unable to join live: {exc}")

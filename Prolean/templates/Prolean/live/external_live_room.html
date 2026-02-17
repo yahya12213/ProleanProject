@@ -293,11 +293,24 @@
         display: none;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1100px) {
+        html, body {
+            overflow-y: auto;
+        }
+
         .presenter-room {
             height: 100dvh;
             max-height: 100dvh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
+
+        .room-shell {
+            min-height: 0;
+        }
+    }
+
+    @media (max-width: 900px) {
 
         .room-shell {
             padding: 8px;
@@ -447,8 +460,11 @@
 (() => {
   const rawLivekitUrl = "{{ livekit_url|escapejs }}";
   const livekitToken = "{{ livekit_token|escapejs }}";
-  const isProfessor = "{{ live_role|escapejs }}" === "professor";
+  const liveRole = String("{{ live_role|escapejs }}").toLowerCase();
+  const isProfessor = liveRole === "professor";
   const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
+  const professorIdentityHint = "{{ professor_identity_hint|default:''|escapejs }}";
+  const professorNameHint = "{{ professor_name_hint|default:''|escapejs }}";
 
   const roomRoot = document.getElementById("room-root");
   const leftPane = document.getElementById("left-pane");
@@ -588,7 +604,13 @@
     try {
       if (participant.metadata) {
         const meta = JSON.parse(participant.metadata);
-        if (meta && typeof meta.role === "string") return String(meta.role).toLowerCase();
+        const roleKeys = ["role", "user_role", "participant_role", "type"];
+        for (const key of roleKeys) {
+          if (meta && typeof meta[key] === "string") {
+            const value = String(meta[key]).toLowerCase();
+            if (value.includes("prof") || value.includes("teacher") || value.includes("instructor")) return "professor";
+          }
+        }
       }
     } catch (_) {}
     const identity = String(participant.identity || "").toLowerCase();
@@ -597,16 +619,42 @@
     return null;
   };
 
+  const sameText = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+
+  const resolveProfessorFromHints = () => {
+    if (professorIdentityHint) {
+      for (const id of participantLabels.keys()) {
+        if (sameText(id, professorIdentityHint)) return id;
+      }
+    }
+    if (professorNameHint) {
+      for (const [id, name] of participantLabels.entries()) {
+        if (sameText(name, professorNameHint)) return id;
+      }
+    }
+    return null;
+  };
+
   const resolveProfessorIdentity = () => {
     if (isProfessor && room.localParticipant) return room.localParticipant.identity;
 
+    const hinted = resolveProfessorFromHints();
+    if (hinted) return hinted;
+
     if (professorIdentity) {
-      const existingCam = pickTrack(professorIdentity, false);
-      if (existingCam) return professorIdentity;
+      const stillPresent = participantLabels.has(professorIdentity);
+      if (stillPresent) return professorIdentity;
     }
 
     for (const [id, role] of participantRoles.entries()) {
       if (role === "professor") return id;
+    }
+
+    for (const [id, name] of participantLabels.entries()) {
+      const idText = String(id || "").toLowerCase();
+      const nameText = String(name || "").toLowerCase();
+      if (idText.includes("prof") || idText.includes("teacher") || idText.includes("instructor")) return id;
+      if (nameText.includes("prof") || nameText.includes("teacher") || nameText.includes("instructor")) return id;
     }
 
     const screenOwners = new Set(
