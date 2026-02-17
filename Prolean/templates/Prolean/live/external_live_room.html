@@ -8,36 +8,33 @@
     #contact { display: none !important; }
 
     .live-room {
-        --lr-bg: radial-gradient(circle at 12% 14%, rgba(255, 107, 0, 0.18), transparent 42%),
-                 radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.18), transparent 36%),
-                 linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-        --lr-panel: rgba(255, 255, 255, 0.78);
-        --lr-panel-border: rgba(148, 163, 184, 0.3);
-        --lr-text: #0f172a;
-        --lr-muted: #475569;
-        --lr-stage: #020617;
-        --lr-chip: rgba(226, 232, 240, 0.85);
+        --lr-bg: linear-gradient(180deg, #121417 0%, #111317 100%);
+        --lr-panel: #17191d;
+        --lr-panel-soft: #1f2329;
+        --lr-panel-border: rgba(148, 163, 184, 0.22);
+        --lr-text: #e5e7eb;
+        --lr-muted: #9ca3af;
+        --lr-stage: #090b0f;
+        --lr-chip: #232933;
         min-height: calc(100vh - 80px);
         background: var(--lr-bg);
         color: var(--lr-text);
     }
 
     .dark .live-room {
-        --lr-bg: radial-gradient(circle at 14% 12%, rgba(255, 107, 0, 0.22), transparent 42%),
-                 radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.2), transparent 36%),
-                 linear-gradient(180deg, #030712 0%, #0f172a 100%);
-        --lr-panel: rgba(15, 23, 42, 0.76);
-        --lr-panel-border: rgba(71, 85, 105, 0.5);
-        --lr-text: #e2e8f0;
-        --lr-muted: #94a3b8;
-        --lr-stage: #000000;
-        --lr-chip: rgba(30, 41, 59, 0.85);
+        --lr-bg: linear-gradient(180deg, #121417 0%, #111317 100%);
+        --lr-panel: #17191d;
+        --lr-panel-soft: #1f2329;
+        --lr-panel-border: rgba(148, 163, 184, 0.22);
+        --lr-text: #e5e7eb;
+        --lr-muted: #9ca3af;
+        --lr-stage: #090b0f;
+        --lr-chip: #232933;
     }
 
     .lr-panel {
         background: var(--lr-panel);
         border: 1px solid var(--lr-panel-border);
-        backdrop-filter: blur(10px);
     }
 
     .lr-status-dot {
@@ -79,7 +76,8 @@
 
     .lr-stage {
         background: var(--lr-stage);
-        min-height: 58vh;
+        min-height: 62vh;
+        border: 1px solid var(--lr-panel-border);
     }
 
     .lr-chip {
@@ -88,11 +86,11 @@
         border: 1px solid var(--lr-panel-border);
     }
 
-    .live-room.fullscreen-mode header {
+    .live-room.fullscreen-mode #live-topbar {
         display: none;
     }
 
-    .live-room.fullscreen-mode aside {
+    .live-room.fullscreen-mode #presenter-side {
         display: none;
     }
 
@@ -101,7 +99,13 @@
     }
 
     .live-room.fullscreen-mode .lr-stage {
-        min-height: calc(100vh - 56px);
+        min-height: calc(100vh - 90px);
+    }
+
+    .lr-preview {
+        background: #090b0f;
+        border: 1px solid var(--lr-panel-border);
+        min-height: 220px;
     }
 </style>
 {% endblock %}
@@ -111,12 +115,12 @@
     <div class="max-w-[1700px] mx-auto space-y-4">
         <div id="conn-error" class="hidden px-4 py-3 rounded-2xl border border-red-400/40 bg-red-500/10 text-red-700 dark:text-red-300 text-sm font-semibold"></div>
 
-        <header class="lr-panel rounded-3xl px-4 sm:px-6 py-4">
-            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <header id="live-topbar" class="lr-panel rounded-2xl px-4 sm:px-6 py-3">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <p class="text-[10px] uppercase tracking-[0.22em] font-black text-orange-500">Live Classroom</p>
-                    <h1 class="text-2xl sm:text-3xl font-black tracking-tight">Interactive Session Room</h1>
-                    <p class="text-sm mt-1" style="color: var(--lr-muted);">Audio and camera start automatically for both students and professors.</p>
+                    <p class="text-[10px] uppercase tracking-[0.22em] font-black text-orange-500">Show Mode</p>
+                    <h1 class="text-lg sm:text-xl font-black tracking-tight">Presentation Live Room</h1>
+                    <p class="text-xs mt-1" style="color: var(--lr-muted);">Professor camera is prioritized on student stage.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                     <span id="conn-badge" class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
@@ -139,59 +143,55 @@
             </div>
         </header>
 
-        <div id="room-layout" class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
-            <section class="lr-panel rounded-3xl p-3 sm:p-4">
-                <div id="main-stage" class="lr-stage relative w-full rounded-2xl overflow-hidden border border-slate-700/50"></div>
+        <div id="room-layout" class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4">
+            <section class="lr-panel rounded-2xl p-3 sm:p-4">
+                <div id="main-stage" class="lr-stage relative w-full rounded-xl overflow-hidden"></div>
+
+                <div class="mt-3 grid grid-cols-7 gap-2">
+                    <button id="toggle-audio" title="Microphone" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
+                        <span class="material-symbols-outlined">mic</span>
+                    </button>
+                    <button id="toggle-video" title="Camera" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
+                        <span class="material-symbols-outlined">videocam</span>
+                    </button>
+                    <button id="toggle-screen" title="Share Screen (Professor)" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined">present_to_all</span>
+                    </button>
+                    <button id="raise-hand" title="Raise Hand" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined">front_hand</span>
+                    </button>
+                    <button id="enable-sound" title="Enable Sound" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined">volume_up</span>
+                    </button>
+                    <button id="toggle-fullscreen" title="Fullscreen" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined">fullscreen</span>
+                    </button>
+                    <button id="cycle-layout" title="Switch View" class="lr-control aspect-square rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined">dashboard</span>
+                    </button>
+                </div>
+
                 <div id="thumb-strip" class="mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3"></div>
                 <div id="audio-sink" class="hidden"></div>
             </section>
 
-            <aside class="space-y-4">
-                <section class="lr-panel rounded-3xl p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-black uppercase tracking-[0.16em]">Live Activity</h2>
-                        <span id="speaking-count" class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">0 Speaking</span>
+            <aside id="presenter-side" class="space-y-4">
+                <section class="lr-panel rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-sm font-semibold" style="color: var(--lr-muted);">Preview</p>
+                        <p class="text-sm font-semibold" style="color: var(--lr-muted);">Notes</p>
                     </div>
-                    <div class="space-y-3">
-                        <div class="rounded-2xl p-3 border border-slate-400/25 dark:border-slate-700/60">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Now Speaking</p>
-                            <div id="speaking-list" class="flex flex-wrap gap-2"></div>
+                    <div id="preview-stage" class="lr-preview rounded-lg overflow-hidden"></div>
+                    <div class="mt-4 rounded-lg p-3 border border-slate-400/25 dark:border-slate-700/60 min-h-[220px]" style="background: var(--lr-panel-soft);">
+                        <div class="flex items-center justify-between mb-2">
+                            <h2 class="text-sm font-black uppercase tracking-[0.16em]">Live Activity</h2>
+                            <span id="speaking-count" class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">0 Speaking</span>
                         </div>
-                        <div class="rounded-2xl p-3 border border-slate-400/25 dark:border-slate-700/60">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Raised Hands</p>
-                            <div id="raised-hands-list" class="flex flex-wrap gap-2"></div>
-                        </div>
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Now Speaking</p>
+                        <div id="speaking-list" class="flex flex-wrap gap-2 mb-3"></div>
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-black mb-2" style="color: var(--lr-muted);">Raised Hands</p>
+                        <div id="raised-hands-list" class="flex flex-wrap gap-2"></div>
                     </div>
-                </section>
-
-                <section class="lr-panel rounded-3xl p-4">
-                    <h2 class="text-sm font-black uppercase tracking-[0.16em] mb-3">Controls</h2>
-                    <div class="grid grid-cols-4 gap-2 sm:gap-3">
-                        <button id="toggle-audio" title="Microphone" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
-                            <span class="material-symbols-outlined">mic</span>
-                        </button>
-                        <button id="toggle-video" title="Camera" class="lr-control aspect-square rounded-xl flex items-center justify-center" data-state="on">
-                            <span class="material-symbols-outlined">videocam</span>
-                        </button>
-                        <button id="toggle-screen" title="Share Screen (Professor)" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined">present_to_all</span>
-                        </button>
-                        <button id="raise-hand" title="Raise Hand" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined">front_hand</span>
-                        </button>
-                        <button id="enable-sound" title="Enable Sound" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined">volume_up</span>
-                        </button>
-                        <button id="toggle-fullscreen" title="Fullscreen Stage" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined">fullscreen</span>
-                        </button>
-                        <button id="cycle-layout" title="Switch View" class="lr-control aspect-square rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined">dashboard</span>
-                        </button>
-                    </div>
-                    <p class="mt-4 text-xs" style="color: var(--lr-muted);">
-                        Main fixes: no local audio loopback and auto-enable mic/camera on room join.
-                    </p>
                 </section>
             </aside>
         </div>
@@ -209,6 +209,7 @@
   const mainStage = document.getElementById("main-stage");
   const roomRoot = document.getElementById("live-room-root");
   const thumbStrip = document.getElementById("thumb-strip");
+  const previewStage = document.getElementById("preview-stage");
   const audioSink = document.getElementById("audio-sink");
   const badge = document.getElementById("conn-badge");
   const btnAudio = document.getElementById("toggle-audio");
@@ -237,6 +238,14 @@
     if (/^wss?:\/\//i.test(cleaned)) return cleaned;
     return `wss://${cleaned}`;
   };
+
+  const normalizeTrackSource = (source) => {
+    const text = String(source || "").toLowerCase();
+    if (!text || text === "unknown") return "camera";
+    return text;
+  };
+
+  const isScreenShareSource = (source) => normalizeTrackSource(source).startsWith("screen_share");
 
   const livekitUrl = normalizeLivekitUrl(rawLivekitUrl);
   if (!livekitUrl || !livekitToken) {
@@ -376,6 +385,13 @@
     footer.textContent = tile.label;
     container.appendChild(footer);
     mainStage.appendChild(container);
+    if (previewStage) {
+      previewStage.innerHTML = "";
+      const previewLabel = document.createElement("div");
+      previewLabel.className = "w-full h-full flex items-center justify-center text-xs font-semibold text-slate-400";
+      previewLabel.textContent = "Main stage active";
+      previewStage.appendChild(previewLabel);
+    }
     mainVideoKey = key;
     syncThumbnailVisibility();
   };
@@ -407,12 +423,13 @@
   };
 
   const attachVideoTrack = (track, identity, source = "camera") => {
-    const key = `video:${source}:${track.sid || identity}`;
+    const normalizedSource = normalizeTrackSource(source);
+    const key = `video:${normalizedSource}:${track.sid || identity}`;
     if (videoTiles.has(key)) return;
 
     const isLocal = identity === room.localParticipant.identity;
     const baseLabel = makeIdentityLabel(identity);
-    const label = source === "screen_share" ? `${baseLabel} - Content` : baseLabel;
+    const label = isScreenShareSource(normalizedSource) ? `${baseLabel} - Content` : baseLabel;
     const wrapper = createVideoWrapper(label);
     const media = track.attach();
     media.className = "w-full h-28 sm:h-32 object-cover bg-black";
@@ -424,7 +441,7 @@
     wrapper.addEventListener("click", () => setMainVideo(key));
     thumbStrip.appendChild(wrapper);
 
-    videoTiles.set(key, { wrapper, media, label, isLocal, identity, track, source });
+    videoTiles.set(key, { wrapper, media, label, isLocal, identity, track, source: normalizedSource });
     if (avatarTiles.has(`avatar:${identity}`)) {
       avatarTiles.get(`avatar:${identity}`).remove();
       avatarTiles.delete(`avatar:${identity}`);
@@ -435,9 +452,9 @@
 
     if (!hasValidMain) {
       setMainVideo(key);
-    } else if (source === "camera" && isProfessor && isLocal) {
+    } else if (!isScreenShareSource(normalizedSource) && isProfessor && isLocal) {
       setMainVideo(key);
-    } else if (source === "camera" && !isProfessor && !isLocal) {
+    } else if (!isScreenShareSource(normalizedSource) && !isProfessor && !isLocal) {
       const currentMainTile = mainVideoKey ? videoTiles.get(mainVideoKey) : null;
       const mainIsLocalVideo = !!(currentMainTile && currentMainTile.isLocal);
       const mainIsLocalAvatar = mainVideoKey === `avatar:${room.localParticipant.identity}`;
@@ -475,7 +492,7 @@
   };
 
   const participantHasCameraVideo = (identity) =>
-    Array.from(videoTiles.values()).some((tile) => tile.identity === identity && tile.source === "camera");
+    Array.from(videoTiles.values()).some((tile) => tile.identity === identity && !isScreenShareSource(tile.source));
 
   const syncParticipantAvatarState = (identity) => {
     if (!identity) return;
@@ -492,8 +509,7 @@
 
   const attachAudioTrack = (track, identity, source = "microphone") => {
     if (identity === room.localParticipant.identity) return;
-    const sourceText = String(source || "");
-    if (sourceText.includes("screen_share")) return;
+    if (isScreenShareSource(source)) return;
     const key = `audio:${identity}`;
 
     if (audioEls.has(key)) {
