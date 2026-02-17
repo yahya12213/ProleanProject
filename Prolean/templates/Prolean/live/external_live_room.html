@@ -183,8 +183,40 @@
         color: #fca5a5;
     }
 
+    .mode-btn {
+        height: 32px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: #202733;
+        color: #cbd5e1;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .mode-btn.active {
+        background: #f97316;
+        border-color: #fb923c;
+        color: #111827;
+    }
+
     .room-fullscreen .room-top {
         display: none;
+    }
+
+    .empty-students {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 18px;
+        font-weight: 700;
+        padding: 20px;
     }
 </style>
 {% endblock %}
@@ -224,6 +256,9 @@
         <button id="enable-sound" class="ctrl-btn" title="Enable Sound"><span class="material-symbols-outlined">volume_up</span></button>
         <button id="toggle-fullscreen" class="ctrl-btn" title="Fullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
         <button id="cycle-right-mode" class="ctrl-btn" title="Switch Right Screen"><span class="material-symbols-outlined">swap_horiz</span></button>
+        <button id="mode-screen" class="mode-btn" title="Screen only">Screen</button>
+        <button id="mode-split" class="mode-btn active" title="Screen + Students">Split</button>
+        <button id="mode-students" class="mode-btn" title="Students grid">Students</button>
         <div id="audio-sink" class="hidden"></div>
     </div>
 </div>
@@ -253,6 +288,9 @@
   const btnSound = document.getElementById("enable-sound");
   const btnFullscreen = document.getElementById("toggle-fullscreen");
   const btnCycleMode = document.getElementById("cycle-right-mode");
+  const btnModeScreen = document.getElementById("mode-screen");
+  const btnModeSplit = document.getElementById("mode-split");
+  const btnModeStudents = document.getElementById("mode-students");
 
   const participantLabels = new Map();
   const participantRoles = new Map();
@@ -305,10 +343,11 @@
     if (professorIdentity && speakingIds.has(professorIdentity)) leftPane.classList.add("speaker-border");
     if (professorIdentity && raisedHands.has(professorIdentity)) leftPane.classList.add("raised-border");
 
-    const rightIdentity =
-      rightMode === 1 ? (room.localParticipant ? room.localParticipant.identity : null) : null;
-    if (rightIdentity && speakingIds.has(rightIdentity)) rightPane.classList.add("speaker-border");
-    if (rightIdentity && raisedHands.has(rightIdentity)) rightPane.classList.add("raised-border");
+    const rightStudentIds = Array.from(participantLabels.keys()).filter((id) => !isProfessorLike(id));
+    const rightHasSpeaker = rightStudentIds.some((id) => speakingIds.has(id));
+    const rightHasRaised = rightStudentIds.some((id) => raisedHands.has(id));
+    if (rightHasSpeaker) rightPane.classList.add("speaker-border");
+    if (rightHasRaised) rightPane.classList.add("raised-border");
   };
 
   const getIdentityRole = (participant) => {
@@ -360,6 +399,17 @@
     return professorIdentity;
   };
 
+  const isProfessorLike = (identity) => {
+    if (!identity) return false;
+    if (identity === professorIdentity) return true;
+    const role = participantRoles.get(identity);
+    if (role === "professor") return true;
+    const idText = String(identity).toLowerCase();
+    if (idText.includes("prof") || idText.includes("teacher")) return true;
+    const hasScreen = Array.from(videoTracks.values()).some((v) => v.identity === identity && isScreenShare(v.source));
+    return hasScreen;
+  };
+
   const tracksByIdentity = (identity, wantScreen = false) =>
     Array.from(videoTracks.values()).filter((v) => v.identity === identity && (wantScreen ? isScreenShare(v.source) : !isScreenShare(v.source)));
 
@@ -405,17 +455,31 @@
     else renderAvatar(leftHost, label);
   };
 
-  const renderStudentsGrid = () => {
-    rightHost.innerHTML = "";
+  const getStudentEntries = () => {
+    const entries = [];
+    for (const [id, name] of participantLabels.entries()) {
+      if (isProfessorLike(id)) continue;
+      entries.push({ id, name });
+    }
+    return entries;
+  };
+
+  const renderStudentsInto = (host, compact = false) => {
+    host.innerHTML = "";
+    const students = getStudentEntries();
+    if (!students.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-students";
+      empty.textContent = "Waiting for students to join live";
+      host.appendChild(empty);
+      return;
+    }
+
     const grid = document.createElement("div");
     grid.className = "student-grid";
+    if (compact) grid.style.gridTemplateColumns = "repeat(1, minmax(0, 1fr))";
 
-    const entries = new Map();
-    for (const [id, name] of participantLabels.entries()) {
-      if (id === professorIdentity) continue;
-      entries.set(id, { id, name });
-    }
-    for (const student of entries.values()) {
+    for (const student of students) {
       const card = document.createElement("div");
       card.className = "student-card";
       if (raisedHands.has(student.id)) card.classList.add("raised-border");
@@ -444,8 +508,7 @@
       card.appendChild(footer);
       grid.appendChild(card);
     }
-
-    rightHost.appendChild(grid);
+    host.appendChild(grid);
   };
 
   const renderRightPane = () => {
@@ -455,7 +518,7 @@
       if (screen) renderTrack(rightHost, screen, "Screen Share");
       else renderAvatar(rightHost, "No Screen Share");
     } else if (rightMode === 1) {
-      rightTitle.textContent = "Professor Screen Share + Your Camera (Tap to Switch)";
+      rightTitle.textContent = "Professor Screen Share + Students (Tap to Switch)";
       rightHost.innerHTML = "";
       const split = document.createElement("div");
       split.className = "right-split";
@@ -468,25 +531,28 @@
       const screen = professorIdentity ? pickTrack(professorIdentity, true) : null;
       if (screen) renderTrack(top, screen, "The prof screen sharing");
       else renderAvatar(top, "No Screen Share");
-
-      const localId = room.localParticipant ? room.localParticipant.identity : null;
-      const localCam = localId ? pickTrack(localId, false) : null;
-      if (localCam) renderTrack(bottom, localCam, "The student video LIVE");
-      else renderAvatar(bottom, "The student video LIVE");
+      renderStudentsInto(bottom, true);
 
       split.appendChild(top);
       split.appendChild(bottom);
       rightHost.appendChild(split);
     } else {
       rightTitle.textContent = "Students Grid (Tap to Switch)";
-      renderStudentsGrid();
+      renderStudentsInto(rightHost, false);
     }
+    syncModeButtons();
     markPaneBorders();
   };
 
   const rerender = () => {
     renderLeftPane();
     renderRightPane();
+  };
+
+  const syncModeButtons = () => {
+    btnModeScreen.classList.toggle("active", rightMode === 0);
+    btnModeSplit.classList.toggle("active", rightMode === 1);
+    btnModeStudents.classList.toggle("active", rightMode === 2);
   };
 
   const room = new LivekitClient.Room({
@@ -664,6 +730,21 @@
 
   btnCycleMode.addEventListener("click", () => {
     rightMode = (rightMode + 1) % 3;
+    renderRightPane();
+  });
+
+  btnModeScreen.addEventListener("click", () => {
+    rightMode = 0;
+    renderRightPane();
+  });
+
+  btnModeSplit.addEventListener("click", () => {
+    rightMode = 1;
+    renderRightPane();
+  });
+
+  btnModeStudents.addEventListener("click", () => {
+    rightMode = 2;
     renderRightPane();
   });
 
