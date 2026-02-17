@@ -262,3 +262,11 @@ Recent Entries
   - Make live room easier to use and adjustable for non-technical users while preserving clear student/professor spaces.
 - Validation:
   - Django system check passed.
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Layout Stability + Drag Resize
+- Fixed split-mode student section so its height stays fixed when students join; student media now fits inside the reserved area with internal overflow handling.
+- Added a real draggable divider bar between left and right panes for direct screen-size adjustment.
+- Kept width preference persistence in local storage after drag.
+- Why:
+  - Student panel was growing unexpectedly and resizing had to be more direct/visual.
+- Validation:
+  - Django system check passed.
