@@ -434,8 +434,13 @@
       setMainVideo(key);
     } else if (source === "camera" && isProfessor && isLocal) {
       setMainVideo(key);
-    } else if (source === "camera" && !isProfessor && !isLocal && String(identity).startsWith("prof_")) {
-      setMainVideo(key);
+    } else if (source === "camera" && !isProfessor && !isLocal) {
+      const currentMainTile = mainVideoKey ? videoTiles.get(mainVideoKey) : null;
+      const mainIsLocalVideo = !!(currentMainTile && currentMainTile.isLocal);
+      const mainIsLocalAvatar = mainVideoKey === `avatar:${room.localParticipant.identity}`;
+      if (mainIsLocalVideo || mainIsLocalAvatar) {
+        setMainVideo(key);
+      }
     }
     syncThumbnailVisibility();
   };
