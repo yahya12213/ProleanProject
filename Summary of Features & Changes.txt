@@ -247,3 +247,18 @@ Recent Entries
   - Start-live join sometimes failed immediately due to short upstream readiness lag.
 - Validation:
   - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Feature/Live Layout Customization
+- Added student-focused "Layout Studio" controls in external live room:
+  - swap left/right panes
+  - adjust right pane width
+  - adjust students grid columns
+  - adjust student tile size
+  - reset layout to defaults
+- Added explicit mode buttons (`Screen`, `Split`, `Students`) with active state.
+- Saved layout preferences in browser local storage for persistence.
+- Updated right pane behavior to keep student space reserved for students only with empty-state message when no student is connected.
+- Why:
+  - Make live room easier to use and adjustable for non-technical users while preserving clear student/professor spaces.
+- Validation:
+  - Django system check passed.

@@ -22,7 +22,7 @@
 
     .room-shell {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(320px, 28%);
+        grid-template-columns: minmax(0, 1fr) minmax(320px, var(--right-pane-width, 28%));
         gap: 14px;
         min-height: calc(100vh - 64px);
         padding: 12px;
@@ -126,7 +126,7 @@
 
     .student-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(var(--student-grid-cols, 2), minmax(0, 1fr));
         gap: 8px;
         padding: 40px 8px 8px;
         height: 100%;
@@ -134,7 +134,7 @@
     }
 
     .student-card {
-        min-height: 120px;
+        min-height: var(--student-tile-min-h, 120px);
         border: 1px solid rgba(148, 163, 184, 0.28);
         border-radius: 10px;
         overflow: hidden;
@@ -202,8 +202,55 @@
         color: #111827;
     }
 
+    .layout-panel {
+        margin-left: auto;
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: #1b212b;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 10px;
+        padding: 8px;
+    }
+
+    .layout-panel.open {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .layout-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #cbd5e1;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .layout-item input[type="range"] {
+        width: 88px;
+    }
+
+    .layout-item .value {
+        min-width: 26px;
+        text-align: right;
+        color: #f8fafc;
+    }
+
     .room-fullscreen .room-top {
         display: none;
+    }
+
+    .presenter-room.swapped .room-shell {
+        grid-template-columns: minmax(320px, var(--right-pane-width, 28%)) minmax(0, 1fr);
+    }
+
+    .presenter-room.swapped #left-pane {
+        order: 2;
+    }
+
+    .presenter-room.swapped #right-pane {
+        order: 1;
     }
 
     .empty-students {
@@ -259,6 +306,29 @@
         <button id="mode-screen" class="mode-btn" title="Screen only">Screen</button>
         <button id="mode-split" class="mode-btn active" title="Screen + Students">Split</button>
         <button id="mode-students" class="mode-btn" title="Students grid">Students</button>
+        <button id="toggle-layout-panel" class="mode-btn" title="Customize layout">Layout</button>
+        <div id="layout-panel" class="layout-panel">
+            <label class="layout-item">
+                <input id="swap-panes" type="checkbox" />
+                <span>Swap</span>
+            </label>
+            <label class="layout-item">
+                <span>Right</span>
+                <input id="right-width" type="range" min="24" max="45" value="28" />
+                <span id="right-width-value" class="value">28%</span>
+            </label>
+            <label class="layout-item">
+                <span>Cols</span>
+                <input id="grid-cols" type="range" min="1" max="4" value="2" />
+                <span id="grid-cols-value" class="value">2</span>
+            </label>
+            <label class="layout-item">
+                <span>Tile</span>
+                <input id="tile-size" type="range" min="100" max="220" value="120" />
+                <span id="tile-size-value" class="value">120</span>
+            </label>
+            <button id="reset-layout" class="mode-btn" type="button">Reset</button>
+        </div>
         <div id="audio-sink" class="hidden"></div>
     </div>
 </div>
@@ -291,6 +361,16 @@
   const btnModeScreen = document.getElementById("mode-screen");
   const btnModeSplit = document.getElementById("mode-split");
   const btnModeStudents = document.getElementById("mode-students");
+  const btnToggleLayoutPanel = document.getElementById("toggle-layout-panel");
+  const layoutPanel = document.getElementById("layout-panel");
+  const swapPanesInput = document.getElementById("swap-panes");
+  const rightWidthInput = document.getElementById("right-width");
+  const gridColsInput = document.getElementById("grid-cols");
+  const tileSizeInput = document.getElementById("tile-size");
+  const rightWidthValue = document.getElementById("right-width-value");
+  const gridColsValue = document.getElementById("grid-cols-value");
+  const tileSizeValue = document.getElementById("tile-size-value");
+  const btnResetLayout = document.getElementById("reset-layout");
 
   const participantLabels = new Map();
   const participantRoles = new Map();
@@ -303,6 +383,14 @@
   const joinOrder = new Map();
   let joinCounter = 0;
   let rightMode = 1; // 0 screen share only, 1 split (screen+self), 2 students grid
+  const layoutStorageKey = "prolean_live_layout_v1";
+  const defaultLayoutPrefs = {
+    swapped: false,
+    rightWidth: 28,
+    gridCols: 2,
+    tileMinHeight: 120,
+  };
+  let layoutPrefs = { ...defaultLayoutPrefs };
 
   const normalizeLivekitUrl = (value) => {
     const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
@@ -334,6 +422,40 @@
   const showError = (message) => {
     connError.textContent = message;
     connError.classList.remove("hidden");
+  };
+
+  const applyLayoutPrefs = () => {
+    roomRoot.classList.toggle("swapped", !!layoutPrefs.swapped);
+    roomRoot.style.setProperty("--right-pane-width", `${layoutPrefs.rightWidth}%`);
+    roomRoot.style.setProperty("--student-grid-cols", String(layoutPrefs.gridCols));
+    roomRoot.style.setProperty("--student-tile-min-h", `${layoutPrefs.tileMinHeight}px`);
+    rightWidthValue.textContent = `${layoutPrefs.rightWidth}%`;
+    gridColsValue.textContent = String(layoutPrefs.gridCols);
+    tileSizeValue.textContent = String(layoutPrefs.tileMinHeight);
+    swapPanesInput.checked = !!layoutPrefs.swapped;
+    rightWidthInput.value = String(layoutPrefs.rightWidth);
+    gridColsInput.value = String(layoutPrefs.gridCols);
+    tileSizeInput.value = String(layoutPrefs.tileMinHeight);
+  };
+
+  const persistLayoutPrefs = () => {
+    try {
+      localStorage.setItem(layoutStorageKey, JSON.stringify(layoutPrefs));
+    } catch (_) {}
+  };
+
+  const loadLayoutPrefs = () => {
+    try {
+      const raw = localStorage.getItem(layoutStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      layoutPrefs = {
+        swapped: !!parsed.swapped,
+        rightWidth: Math.min(45, Math.max(24, Number(parsed.rightWidth || 28))),
+        gridCols: Math.min(4, Math.max(1, Number(parsed.gridCols || 2))),
+        tileMinHeight: Math.min(220, Math.max(100, Number(parsed.tileMinHeight || 120))),
+      };
+    } catch (_) {}
   };
 
   const markPaneBorders = () => {
@@ -716,6 +838,8 @@
       if (!isProfessor) {
         btnScreen.disabled = true;
         btnScreen.classList.add("opacity-50", "cursor-not-allowed");
+      } else {
+        btnToggleLayoutPanel.classList.add("hidden");
       }
     })
     .catch((err) => {
@@ -745,6 +869,43 @@
 
   btnModeStudents.addEventListener("click", () => {
     rightMode = 2;
+    renderRightPane();
+  });
+
+  btnToggleLayoutPanel.addEventListener("click", () => {
+    layoutPanel.classList.toggle("open");
+    btnToggleLayoutPanel.classList.toggle("active", layoutPanel.classList.contains("open"));
+  });
+
+  swapPanesInput.addEventListener("change", () => {
+    layoutPrefs.swapped = swapPanesInput.checked;
+    applyLayoutPrefs();
+    persistLayoutPrefs();
+  });
+
+  rightWidthInput.addEventListener("input", () => {
+    layoutPrefs.rightWidth = Number(rightWidthInput.value);
+    applyLayoutPrefs();
+  });
+  rightWidthInput.addEventListener("change", persistLayoutPrefs);
+
+  gridColsInput.addEventListener("input", () => {
+    layoutPrefs.gridCols = Number(gridColsInput.value);
+    applyLayoutPrefs();
+    renderRightPane();
+  });
+  gridColsInput.addEventListener("change", persistLayoutPrefs);
+
+  tileSizeInput.addEventListener("input", () => {
+    layoutPrefs.tileMinHeight = Number(tileSizeInput.value);
+    applyLayoutPrefs();
+  });
+  tileSizeInput.addEventListener("change", persistLayoutPrefs);
+
+  btnResetLayout.addEventListener("click", () => {
+    layoutPrefs = { ...defaultLayoutPrefs };
+    applyLayoutPrefs();
+    persistLayoutPrefs();
     renderRightPane();
   });
 
@@ -819,6 +980,9 @@
   window.addEventListener("beforeunload", () => {
     room.disconnect();
   });
+
+  loadLayoutPrefs();
+  applyLayoutPrefs();
 })();
 </script>
 {% endblock %}
