@@ -168,14 +168,15 @@ class ManagementContractClient:
             return data
         raise ContractError("Unexpected students-with-sessions payload (expected list).")
 
-    def list_sessions_formation(self, *, bearer_token: str) -> list[dict[str, Any]]:
+    def list_sessions_formation(self, *, bearer_token: str | None = None) -> list[dict[str, Any]]:
         """
         List sessions visible to the current authenticated user.
         """
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
+        resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/sessions-formation"
-        data = self._request("GET", endpoint, bearer_token=bearer_token)
+        data = self._request("GET", endpoint, bearer_token=resolved)
         if isinstance(data, dict) and isinstance(data.get("sessions"), list):
             return data["sessions"]
         if isinstance(data, list):

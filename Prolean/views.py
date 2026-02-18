@@ -2357,10 +2357,88 @@ def professor_dashboard(request):
             status = str(sess.get("status") or sess.get("statut") or "").strip().lower()
             return status in {"ongoing", "en_cours", "active", "live", "started"}
 
+        def _norm(value) -> str:
+            return str(value or "").strip().lower()
+
+        def _extract_session_professor_candidates(sess: dict) -> set[str]:
+            values: set[str] = set()
+            if not isinstance(sess, dict):
+                return values
+            direct_keys = (
+                "professor_id", "professeur_id", "teacher_id", "instructor_id",
+                "professor_name", "professeur_name", "teacher_name", "instructor_name",
+                "professor_username", "professeur_username", "teacher_username", "instructor_username",
+                "professor_cin", "professeur_cin", "teacher_cin", "instructor_cin",
+            )
+            for key in direct_keys:
+                val = _norm(sess.get(key))
+                if val:
+                    values.add(val)
+            nested_keys = ("professor", "professeur", "teacher", "instructor", "user")
+            for key in nested_keys:
+                obj = sess.get(key)
+                if isinstance(obj, dict):
+                    for nkey in ("id", "name", "full_name", "username", "cin", "cin_or_passport", "email"):
+                        val = _norm(obj.get(nkey))
+                        if val:
+                            values.add(val)
+            for list_key in ("professors", "professeurs", "teachers", "instructors", "assigned_professors"):
+                arr = sess.get(list_key)
+                if isinstance(arr, list):
+                    for item in arr:
+                        if isinstance(item, dict):
+                            for nkey in ("id", "name", "full_name", "username", "cin", "cin_or_passport", "email"):
+                                val = _norm(item.get(nkey))
+                                if val:
+                                    values.add(val)
+                        else:
+                            val = _norm(item)
+                            if val:
+                                values.add(val)
+            return values
+
+        def _resolve_sessions_without_relogin(initial_sessions: list[dict]) -> list[dict]:
+            sessions = initial_sessions if isinstance(initial_sessions, list) else []
+            if sessions:
+                return sessions
+            try:
+                me = _retry_external_call(lambda: mgmt.get_current_user(token.strip()), attempts=2)
+            except Exception:
+                me = {}
+            candidate_ids = {
+                _norm(getattr(request.user, "username", "")),
+                _norm(getattr(request.user, "email", "")),
+                _norm(getattr(request.user, "get_full_name", lambda: "")()),
+            }
+            profile = getattr(request.user, "profile", None)
+            if profile:
+                candidate_ids.add(_norm(getattr(profile, "full_name", "")))
+                candidate_ids.add(_norm(getattr(profile, "cin_or_passport", "")))
+            if isinstance(me, dict):
+                for key in ("id", "username", "cin", "cin_or_passport", "full_name", "name", "email"):
+                    candidate_ids.add(_norm(me.get(key)))
+                nested_user = me.get("user")
+                if isinstance(nested_user, dict):
+                    for key in ("id", "username", "cin", "cin_or_passport", "full_name", "name", "email"):
+                        candidate_ids.add(_norm(nested_user.get(key)))
+            candidate_ids.discard("")
+            if not candidate_ids:
+                return sessions
+            all_sessions = _retry_external_call(lambda: mgmt.list_sessions_formation(), attempts=3)
+            if not isinstance(all_sessions, list):
+                return sessions
+            matched = []
+            for sess in all_sessions:
+                prof_values = _extract_session_professor_candidates(sess)
+                if prof_values.intersection(candidate_ids):
+                    matched.append(sess)
+            return matched
+
         try:
             sessions = _retry_external_call(lambda: mgmt.list_my_professor_sessions(bearer_token=token.strip()))
             if not isinstance(sessions, list):
                 sessions = []
+            sessions = _resolve_sessions_without_relogin(sessions)
             selected_session_id = request.GET.get('session_id')
             selected_session = None
             if selected_session_id:
