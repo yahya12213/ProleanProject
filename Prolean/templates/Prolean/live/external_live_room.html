@@ -352,6 +352,17 @@
         .room-shell {
             padding: 8px;
             gap: 8px;
+            grid-template-rows: minmax(260px, 58dvh) minmax(180px, 34dvh);
+            overflow-y: auto;
+        }
+
+        .pane {
+            border-radius: 10px;
+        }
+
+        .pane-title {
+            font-size: 10px;
+            padding: 3px 7px;
         }
 
         .controls-bar {
@@ -359,6 +370,10 @@
             gap: 6px;
             overflow-x: auto;
             flex-wrap: nowrap;
+            position: sticky;
+            bottom: 0;
+            z-index: 9;
+            backdrop-filter: blur(6px);
         }
 
         .ctrl-btn {
@@ -370,6 +385,11 @@
         .mode-btn {
             height: 30px;
             padding: 0 8px;
+            flex: 0 0 auto;
+        }
+
+        .layout-panel {
+            min-width: max-content;
         }
     }
 
@@ -498,6 +518,7 @@
   const agoraAppId = "{{ agora_app_id|escapejs }}";
   const agoraChannel = "{{ agora_channel|escapejs }}";
   const agoraToken = "{{ agora_token|escapejs }}";
+  const agoraScreenToken = "{{ agora_screen_token|default:''|escapejs }}";
   const agoraUid = Number("{{ agora_uid|escapejs }}");
   const professorUidHint = Number("{{ professor_uid_hint|default:'1'|escapejs }}") || 1;
   const liveRole = String("{{ live_role|escapejs }}").toLowerCase();
@@ -877,7 +898,7 @@
     try {
       const screenUid = professorUidHint + SCREEN_UID_OFFSET;
       screenClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-      await screenClient.join(agoraAppId, agoraChannel, agoraToken, screenUid);
+      await screenClient.join(agoraAppId, agoraChannel, (agoraScreenToken || agoraToken), screenUid);
       const st = await AgoraRTC.createScreenVideoTrack();
       localScreenTrack = Array.isArray(st) ? st[0] : st;
       await screenClient.publish([localScreenTrack]);
@@ -886,7 +907,12 @@
       btnScreen.innerHTML = '<span class="material-symbols-outlined">stop_screen_share</span>';
       rerender();
     } catch (e) {
-      showError(`Screen share failed: ${e.message || e}`);
+      const msg = String(e?.message || e || "");
+      if (/not supported|permission|denied|mobile|ios|android/i.test(msg)) {
+        showError("Screen share is not supported on this browser/device. Use desktop Chrome/Edge for screen sharing.");
+      } else {
+        showError(`Screen share failed: ${msg}`);
+      }
       stopScreenShare();
     }
   };

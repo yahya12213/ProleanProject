@@ -2738,6 +2738,16 @@ def external_live_room(request, session_id):
             1,  # publisher (host) for both professor and students (students can share camera)
             expiry,
         )
+        agora_screen_token = ""
+        if is_professor:
+            agora_screen_token = RtcTokenBuilder.buildTokenWithUid(
+                app_id,
+                app_certificate,
+                room_name,
+                1001,
+                1,
+                expiry,
+            )
 
         professor_identity_hint, professor_name_hint = _extract_professor_hints(payload if isinstance(payload, dict) else {})
         if (not professor_identity_hint or not professor_name_hint) and isinstance(live, dict):
@@ -2763,6 +2773,7 @@ def external_live_room(request, session_id):
             "agora_app_id": app_id,
             "agora_channel": room_name,
             "agora_token": agora_token,
+            "agora_screen_token": agora_screen_token,
             "agora_uid": int(agora_uid),
             "professor_uid_hint": 1,
             "live_role": str(role),

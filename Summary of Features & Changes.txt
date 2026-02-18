@@ -296,3 +296,12 @@ Recent Entries
   - User requested migration to Agora while keeping the same UI and live-room behavior.
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Agora Screen Share + Mobile Live Layout
+- Fixed Agora screen sharing join flow by issuing and using a dedicated screen-share token (`UID 1001`) for professor screen publish.
+- Updated external live room mobile layout for better usability:
+  - stabilized pane heights for phone screens
+  - sticky bottom controls bar with clearer compact controls
+  - improved small-screen readability for pane labels
+- Added clearer screen-share failure message on unsupported browsers/devices.
+- Validation:
+  - Django system check passed.
