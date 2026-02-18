@@ -70,7 +70,7 @@
 
     .room-shell {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 10px minmax(320px, var(--right-pane-width, 28%));
+        grid-template-columns: minmax(0, calc(100% - var(--right-pane-width, 28%))) 10px minmax(0, var(--right-pane-width, 28%));
         grid-template-areas: "left resize right";
         gap: 14px;
         flex: 1 1 auto;
@@ -203,7 +203,8 @@
         padding: 40px 8px 8px;
         height: 100%;
         min-height: 0;
-        overflow: auto;
+        overflow: hidden;
+        align-items: stretch;
     }
 
     .student-grid.compact {
@@ -217,6 +218,7 @@
 
     .student-card {
         min-height: var(--student-tile-min-h, 120px);
+        height: 100%;
         border: 1px solid var(--panel-border);
         border-radius: 10px;
         overflow: hidden;
@@ -394,7 +396,7 @@
     }
 
     .presenter-room.swapped .room-shell {
-        grid-template-columns: minmax(320px, var(--right-pane-width, 28%)) 10px minmax(0, 1fr);
+        grid-template-columns: minmax(0, var(--right-pane-width, 28%)) 10px minmax(0, calc(100% - var(--right-pane-width, 28%)));
         grid-template-areas: "right resize left";
     }
 
@@ -493,7 +495,7 @@
             </label>
             <label class="layout-item">
                 <span>Right</span>
-                <input id="right-width" type="range" min="24" max="45" value="28" />
+                <input id="right-width" type="range" min="0" max="100" value="28" />
                 <span id="right-width-value" class="value">28%</span>
             </label>
             <label class="layout-item">
@@ -638,7 +640,7 @@
       const parsed = JSON.parse(raw);
       layoutPrefs = {
         swapped: !!parsed.swapped,
-        rightWidth: Math.min(45, Math.max(24, Number(parsed.rightWidth || 28))),
+        rightWidth: Math.min(100, Math.max(0, Number(parsed.rightWidth || 28))),
         gridCols: Math.min(4, Math.max(1, Number(parsed.gridCols || 2))),
         tileMinHeight: Math.min(220, Math.max(100, Number(parsed.tileMinHeight || 120))),
       };
@@ -751,9 +753,16 @@
     const grid = document.createElement("div");
     grid.className = "student-grid";
     if (compact) grid.classList.add("compact");
+    const total = students.length;
+    const cols = compact ? Math.min(2, Math.ceil(Math.sqrt(total))) : Math.ceil(Math.sqrt(total));
+    const rows = Math.ceil(total / Math.max(cols, 1));
+    grid.style.gridTemplateColumns = `repeat(${Math.max(cols, 1)}, minmax(0, 1fr))`;
+    grid.style.gridTemplateRows = `repeat(${Math.max(rows, 1)}, minmax(0, 1fr))`;
+    grid.style.gridAutoRows = "minmax(0, 1fr)";
     for (const student of students) {
       const card = document.createElement("div");
       card.className = "student-card";
+      card.style.minHeight = "0";
       if (raisedHands.has(student.id)) card.classList.add("raised-border");
       else if (speakingIds.has(student.id)) card.classList.add("speaker-border");
       const cam = pickTrack(student.id, false);
@@ -951,7 +960,7 @@
   tileSizeInput.addEventListener("change", persistLayoutPrefs);
   btnResetLayout.addEventListener("click", () => { layoutPrefs = { ...defaultLayoutPrefs }; applyLayoutPrefs(); persistLayoutPrefs(); renderRightPane(); });
 
-  const clampRightPaneWidth = (next) => Math.min(45, Math.max(24, Number(next || 28)));
+  const clampRightPaneWidth = (next) => Math.min(100, Math.max(0, Number(next || 28)));
   const setRightPaneWidthFromPointer = (clientX) => {
     if (window.matchMedia("(max-width: 1100px)").matches) return;
     const shellRect = roomRoot.querySelector(".room-shell").getBoundingClientRect();

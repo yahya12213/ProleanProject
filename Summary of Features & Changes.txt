@@ -305,3 +305,12 @@ Recent Entries
 - Added clearer screen-share failure message on unsupported browsers/devices.
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Live Room Divider Range + Student Grid Equalization
+- Extended live-room horizontal divider range to full extremes (`0%` to `100%`) for left/right pane allocation.
+- Updated right pane width persistence/loading and drag clamping to the new full range.
+- Updated multi-student rendering so student tiles divide space equally:
+  - dynamic equal rows/columns based on participant count
+  - each student camera fits the assigned tile frame
+  - removed card minimum-height pressure during equalized rendering
+- Validation:
+  - Django system check passed.
