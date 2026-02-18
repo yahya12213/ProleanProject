@@ -14,9 +14,11 @@ from django.db.utils import OperationalError, ProgrammingError
 import json
 import re
 import requests
+import time
 from datetime import datetime, timedelta
 from time import sleep
 import logging
+from django.conf import settings
 from django.db.models import Avg, Count, Sum  # Add this line
 from .models import (
     Training, City, ContactRequest, CurrencyRate,
@@ -88,6 +90,7 @@ logger = logging.getLogger(__name__)
 from Prolean.integration.client import ManagementContractClient
 from Prolean.integration.exceptions import ContractError, UpstreamUnavailable
 from Prolean.integration.trainings import to_external_training
+from agora_token_builder import RtcTokenBuilder
 
 # ========== RATE LIMITING & THREAT DETECTION ==========
 
@@ -2697,14 +2700,39 @@ def external_live_room(request, session_id):
             raise last_exc
 
         live = payload.get("live") if isinstance(payload, dict) else None
-        join_token = payload.get("token") if isinstance(payload, dict) else None
         role = payload.get("role") if isinstance(payload, dict) else "student"
-        if not isinstance(live, dict) or not isinstance(join_token, str) or not join_token.strip():
+        if not isinstance(live, dict):
             raise ContractError("Invalid live join payload.")
-        livekit_url = str(live.get("livekit_url") or "").strip()
-        room_name = str(live.get("room_name") or "").strip()
-        if not livekit_url or not room_name:
-            raise ContractError("LiveKit configuration is incomplete on authority backend.")
+        room_name = str(live.get("room_name") or f"session_{session_id}").strip()
+        if not room_name:
+            room_name = f"session_{session_id}"
+
+        app_id = str(getattr(settings, "AGORA_APP_ID", "") or "").strip()
+        app_certificate = str(getattr(settings, "AGORA_APP_CERTIFICATE", "") or "").strip()
+        if not app_id or not app_certificate:
+            raise ContractError("Agora configuration is missing on backend.")
+
+        role_text = str(role or "").strip().lower()
+        is_professor = role_text == "professor"
+        # Fixed UID strategy to make role detection deterministic in the client:
+        # professor camera uid = 1, professor screen-share uid = 1001.
+        if is_professor:
+            agora_uid = 1
+        else:
+            base_uid = int(getattr(request.user, "id", 0) or 0)
+            agora_uid = 10000 + base_uid
+            if agora_uid in (1, 1001):
+                agora_uid += 10000
+
+        expiry = int(time.time()) + int(getattr(settings, "AGORA_TOKEN_EXPIRY_SECONDS", 3600) or 3600)
+        agora_token = RtcTokenBuilder.buildTokenWithUid(
+            app_id,
+            app_certificate,
+            room_name,
+            int(agora_uid),
+            1,  # publisher (host) for both professor and students (students can share camera)
+            expiry,
+        )
 
         professor_identity_hint, professor_name_hint = _extract_professor_hints(payload if isinstance(payload, dict) else {})
         if (not professor_identity_hint or not professor_name_hint) and isinstance(live, dict):
@@ -2727,9 +2755,11 @@ def external_live_room(request, session_id):
         return render(request, 'Prolean/live/external_live_room.html', {
             "session_id": str(session_id),
             "live_state": live,
-            "livekit_url": livekit_url,
-            "livekit_token": join_token.strip(),
-            "room_name": room_name,
+            "agora_app_id": app_id,
+            "agora_channel": room_name,
+            "agora_token": agora_token,
+            "agora_uid": int(agora_uid),
+            "professor_uid_hint": 1,
             "live_role": str(role),
             "professor_identity_hint": professor_identity_hint,
             "professor_name_hint": professor_name_hint,

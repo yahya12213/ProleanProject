@@ -281,3 +281,18 @@ Recent Entries
   - Deliver a complete dashboard visual upgrade and fix the recurring issue where professor camera could fail to render for students while screen share still appeared.
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Migration/Live Provider Switch to Agora
+- Switched `external_live_room` transport from LiveKit client to Agora Web SDK while preserving the custom presenter UI layout and controls.
+- Added server-side Agora token generation using app-level credentials from environment variables:
+  - `AGORA_APP_ID`
+  - `AGORA_APP_CERTIFICATE`
+  - `AGORA_TOKEN_EXPIRY_SECONDS`
+- Implemented deterministic UID strategy for reliable professor stream mapping:
+  - professor camera UID = `1`
+  - professor screen share UID = `1001`
+  - students receive stable generated UIDs
+- Added dependency `agora-token-builder==1.0.0` for token creation.
+- Why:
+  - User requested migration to Agora while keeping the same UI and live-room behavior.
+- Validation:
+  - Django system check passed.

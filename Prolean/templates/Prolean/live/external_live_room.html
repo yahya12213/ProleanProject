@@ -492,16 +492,18 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 <script>
 (() => {
-  const rawLivekitUrl = "{{ livekit_url|escapejs }}";
-  const livekitToken = "{{ livekit_token|escapejs }}";
+  const agoraAppId = "{{ agora_app_id|escapejs }}";
+  const agoraChannel = "{{ agora_channel|escapejs }}";
+  const agoraToken = "{{ agora_token|escapejs }}";
+  const agoraUid = Number("{{ agora_uid|escapejs }}");
+  const professorUidHint = Number("{{ professor_uid_hint|default:'1'|escapejs }}") || 1;
   const liveRole = String("{{ live_role|escapejs }}").toLowerCase();
   const isProfessor = liveRole === "professor";
   const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
-  const professorIdentityHint = "{{ professor_identity_hint|default:''|escapejs }}";
-  const professorNameHint = "{{ professor_name_hint|default:''|escapejs }}";
+  const professorNameHint = "{{ professor_name_hint|default:'Professor'|escapejs }}";
 
   const roomRoot = document.getElementById("room-root");
   const leftPane = document.getElementById("left-pane");
@@ -512,7 +514,6 @@
   const rightTitle = document.getElementById("right-title");
   const connBadge = document.getElementById("conn-badge");
   const connError = document.getElementById("conn-error");
-  const audioSink = document.getElementById("audio-sink");
 
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
@@ -534,44 +535,31 @@
   const gridColsValue = document.getElementById("grid-cols-value");
   const tileSizeValue = document.getElementById("tile-size-value");
   const btnResetLayout = document.getElementById("reset-layout");
-  let isResizing = false;
+
   let themeObserver = null;
+  let isResizing = false;
+  let rightMode = 1;
+  const SCREEN_UID_OFFSET = 1000;
 
   const participantLabels = new Map();
-  const participantRoles = new Map();
-  const videoTracks = new Map(); // sid -> {track, identity, source, isLocal}
-  const audioEls = new Map(); // identity -> audioEl
-  const raisedHands = new Set();
+  const videoTracks = new Map();
+  const audioTracks = new Map();
   const speakingIds = new Set();
+  const raisedHands = new Set();
+  let professorIdentity = String(professorUidHint);
+  let localMicTrack = null;
+  let localCamTrack = null;
+  let localScreenTrack = null;
+  let screenClient = null;
 
-  let professorIdentity = null;
-  const joinOrder = new Map();
-  let joinCounter = 0;
-  let rightMode = 1; // 0 screen share only, 1 split (screen+self), 2 students grid
+  const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
   const layoutStorageKey = "prolean_live_layout_v1";
-  const defaultLayoutPrefs = {
-    swapped: false,
-    rightWidth: 28,
-    gridCols: 2,
-    tileMinHeight: 120,
-  };
+  const defaultLayoutPrefs = { swapped: false, rightWidth: 28, gridCols: 2, tileMinHeight: 120 };
   let layoutPrefs = { ...defaultLayoutPrefs };
 
-  const normalizeLivekitUrl = (value) => {
-    const cleaned = String(value || "").trim().replace(/^['"]|['"]$/g, "");
-    if (!cleaned) return "";
-    if (/^wss?:\/\//i.test(cleaned)) return cleaned;
-    return `wss://${cleaned}`;
-  };
-
-  const normalizeSource = (source) => {
-    const text = String(source || "").toLowerCase();
-    if (!text || text === "unknown") return "camera";
-    return text;
-  };
-
+  const normalizeSource = (source) => String(source || "camera");
   const isScreenShare = (source) => normalizeSource(source).startsWith("screen_share");
-
   const initials = (label) => (String(label || "U").trim()[0] || "U").toUpperCase();
 
   const setStatus = (txt, kind = "warn") => {
@@ -583,7 +571,6 @@
     connBadge.className = `px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${style}`;
     connBadge.textContent = txt;
   };
-
   const showError = (message) => {
     connError.textContent = message;
     connError.classList.remove("hidden");
@@ -599,23 +586,13 @@
     if (bodyTheme === "dark" || rootTheme === "dark" || classDark) return "dark";
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   };
-
-  const applyUiTheme = () => {
-    roomRoot.dataset.uiTheme = detectUiTheme();
-  };
-
+  const applyUiTheme = () => { roomRoot.dataset.uiTheme = detectUiTheme(); };
   const bindThemeSync = () => {
     applyUiTheme();
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", applyUiTheme);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(applyUiTheme);
-    }
+    if (typeof media.addEventListener === "function") media.addEventListener("change", applyUiTheme);
     themeObserver = new MutationObserver(applyUiTheme);
-    if (document.body) {
-      themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
-    }
+    if (document.body) themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
   };
 
@@ -632,13 +609,7 @@
     gridColsInput.value = String(layoutPrefs.gridCols);
     tileSizeInput.value = String(layoutPrefs.tileMinHeight);
   };
-
-  const persistLayoutPrefs = () => {
-    try {
-      localStorage.setItem(layoutStorageKey, JSON.stringify(layoutPrefs));
-    } catch (_) {}
-  };
-
+  const persistLayoutPrefs = () => { try { localStorage.setItem(layoutStorageKey, JSON.stringify(layoutPrefs)); } catch (_) {} };
   const loadLayoutPrefs = () => {
     try {
       const raw = localStorage.getItem(layoutStorageKey);
@@ -653,118 +624,44 @@
     } catch (_) {}
   };
 
-  const markPaneBorders = () => {
-    leftPane.classList.remove("speaker-border", "raised-border");
-    rightPane.classList.remove("speaker-border", "raised-border");
-
-    if (professorIdentity && speakingIds.has(professorIdentity)) leftPane.classList.add("speaker-border");
-    if (professorIdentity && raisedHands.has(professorIdentity)) leftPane.classList.add("raised-border");
-
-    const rightStudentIds = Array.from(participantLabels.keys()).filter((id) => !isProfessorLike(id));
-    const rightHasSpeaker = rightStudentIds.some((id) => speakingIds.has(id));
-    const rightHasRaised = rightStudentIds.some((id) => raisedHands.has(id));
-    if (rightHasSpeaker) rightPane.classList.add("speaker-border");
-    if (rightHasRaised) rightPane.classList.add("raised-border");
+  const syncControlStates = () => {
+    const micOn = !!localMicTrack && !localMicTrack.muted;
+    const camOn = !!localCamTrack && !localCamTrack.muted;
+    btnAudio.dataset.state = micOn ? "on" : "off";
+    btnVideo.dataset.state = camOn ? "on" : "off";
+    btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
+    btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
   };
 
-  const getIdentityRole = (participant) => {
-    if (!participant) return null;
-    try {
-      if (participant.metadata) {
-        const meta = JSON.parse(participant.metadata);
-        const roleKeys = ["role", "user_role", "participant_role", "type"];
-        for (const key of roleKeys) {
-          if (meta && typeof meta[key] === "string") {
-            const value = String(meta[key]).toLowerCase();
-            if (value.includes("prof") || value.includes("teacher") || value.includes("instructor")) return "professor";
-          }
-        }
-      }
-    } catch (_) {}
-    const identity = String(participant.identity || "").toLowerCase();
-    if (identity.includes("prof")) return "professor";
-    if (identity.includes("teacher")) return "professor";
-    return null;
+  const addVideoTrack = (identity, track, source, isLocal = false) => {
+    const key = `${identity}:${source}`;
+    videoTracks.set(key, { track, identity: String(identity), source: normalizeSource(source), isLocal });
   };
-
-  const sameText = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
-
-  const resolveProfessorFromHints = () => {
-    if (professorIdentityHint) {
-      for (const id of participantLabels.keys()) {
-        if (sameText(id, professorIdentityHint)) return id;
+  const removeVideoTracksByIdentity = (identity) => {
+    for (const [key, item] of videoTracks.entries()) {
+      if (String(item.identity) === String(identity)) {
+        try { item.track.stop(); } catch (_) {}
+        videoTracks.delete(key);
       }
     }
-    if (professorNameHint) {
-      for (const [id, name] of participantLabels.entries()) {
-        if (sameText(name, professorNameHint)) return id;
-      }
-    }
-    return null;
+  };
+  const pickTrack = (identity, wantScreen = false) => {
+    const id = String(identity);
+    const entries = Array.from(videoTracks.values()).filter((v) => String(v.identity) === id && (wantScreen ? isScreenShare(v.source) : !isScreenShare(v.source)));
+    return entries.length ? entries[entries.length - 1] : null;
   };
 
   const resolveProfessorIdentity = () => {
-    if (isProfessor && room.localParticipant) return room.localParticipant.identity;
-
-    const hinted = resolveProfessorFromHints();
-    if (hinted) return hinted;
-
-    if (professorIdentity) {
-      const stillPresent = participantLabels.has(professorIdentity);
-      if (stillPresent) return professorIdentity;
-    }
-
-    for (const [id, role] of participantRoles.entries()) {
-      if (role === "professor") return id;
-    }
-
-    for (const [id, name] of participantLabels.entries()) {
-      const idText = String(id || "").toLowerCase();
-      const nameText = String(name || "").toLowerCase();
-      if (idText.includes("prof") || idText.includes("teacher") || idText.includes("instructor")) return id;
-      if (nameText.includes("prof") || nameText.includes("teacher") || nameText.includes("instructor")) return id;
-    }
-
-    const screenOwners = new Set(
-      Array.from(videoTracks.values())
-        .filter((v) => !v.isLocal && isScreenShare(v.source))
-        .map((v) => v.identity)
-    );
-    for (const id of screenOwners) {
-      if (pickTrack(id, false)) return id;
-    }
-
-    const cameraOwners = Array.from(new Set(
-      Array.from(videoTracks.values())
-        .filter((v) => !v.isLocal && !isScreenShare(v.source))
-        .map((v) => v.identity)
-    ));
-    cameraOwners.sort((a, b) => (joinOrder.get(a) || 999999) - (joinOrder.get(b) || 999999));
-    if (cameraOwners.length) return cameraOwners[0];
-
-    for (const { identity, source, isLocal } of videoTracks.values()) {
-      if (!isLocal && !isScreenShare(source)) return identity;
-    }
-    return professorIdentity;
+    if (isProfessor) return String(agoraUid);
+    if (participantLabels.has(String(professorUidHint))) return String(professorUidHint);
+    if (participantLabels.has("1")) return "1";
+    return String(professorUidHint);
   };
-
   const isProfessorLike = (identity) => {
-    if (!identity) return false;
-    if (identity === professorIdentity) return true;
-    const role = participantRoles.get(identity);
-    if (role === "professor") return true;
-    const idText = String(identity).toLowerCase();
-    if (idText.includes("prof") || idText.includes("teacher")) return true;
-    const hasScreen = Array.from(videoTracks.values()).some((v) => v.identity === identity && isScreenShare(v.source));
-    return hasScreen;
-  };
-
-  const tracksByIdentity = (identity, wantScreen = false) =>
-    Array.from(videoTracks.values()).filter((v) => v.identity === identity && (wantScreen ? isScreenShare(v.source) : !isScreenShare(v.source)));
-
-  const pickTrack = (identity, wantScreen = false) => {
-    const arr = tracksByIdentity(identity, wantScreen);
-    return arr.length ? arr[arr.length - 1] : null;
+    const id = String(identity);
+    if (id === String(resolveProfessorIdentity())) return true;
+    if (id === String(professorUidHint + SCREEN_UID_OFFSET)) return true;
+    return false;
   };
 
   const renderAvatar = (host, label) => {
@@ -781,40 +678,45 @@
     wrap.appendChild(footer);
     host.appendChild(wrap);
   };
-
   const renderTrack = (host, data, label) => {
     host.innerHTML = "";
-    const media = data.track.attach();
-    media.autoplay = true;
-    media.playsInline = true;
-    media.muted = true;
-    media.setAttribute("playsinline", "true");
-    const p = media.play();
-    if (p && typeof p.catch === "function") p.catch(() => {});
+    const media = document.createElement("div");
+    media.style.width = "100%";
+    media.style.height = "100%";
+    host.appendChild(media);
+    data.track.play(media, { fit: "cover" });
     const footer = document.createElement("div");
     footer.className = "student-label";
     footer.textContent = label;
-    host.appendChild(media);
     host.appendChild(footer);
+  };
+
+  const markPaneBorders = () => {
+    leftPane.classList.remove("speaker-border", "raised-border");
+    rightPane.classList.remove("speaker-border", "raised-border");
+    const prof = resolveProfessorIdentity();
+    if (speakingIds.has(prof)) leftPane.classList.add("speaker-border");
+    if (raisedHands.has(prof)) leftPane.classList.add("raised-border");
+    const studentIds = Array.from(participantLabels.keys()).filter((id) => !isProfessorLike(id));
+    if (studentIds.some((id) => speakingIds.has(id))) rightPane.classList.add("speaker-border");
+    if (studentIds.some((id) => raisedHands.has(id))) rightPane.classList.add("raised-border");
   };
 
   const renderLeftPane = () => {
     professorIdentity = resolveProfessorIdentity();
-    const label = participantLabels.get(professorIdentity) || "Professor";
-    const profCam = professorIdentity ? pickTrack(professorIdentity, false) : null;
+    const label = participantLabels.get(professorIdentity) || professorNameHint || "Professor";
+    const profCam = pickTrack(professorIdentity, false);
     if (profCam) renderTrack(leftHost, profCam, label);
     else renderAvatar(leftHost, label);
   };
-
   const getStudentEntries = () => {
-    const entries = [];
+    const rows = [];
     for (const [id, name] of participantLabels.entries()) {
       if (isProfessorLike(id)) continue;
-      entries.push({ id, name });
+      rows.push({ id, name });
     }
-    return entries;
+    return rows;
   };
-
   const renderStudentsInto = (host, compact = false) => {
     host.innerHTML = "";
     const students = getStudentEntries();
@@ -825,27 +727,21 @@
       host.appendChild(empty);
       return;
     }
-
     const grid = document.createElement("div");
     grid.className = "student-grid";
     if (compact) grid.classList.add("compact");
-
     for (const student of students) {
       const card = document.createElement("div");
       card.className = "student-card";
       if (raisedHands.has(student.id)) card.classList.add("raised-border");
       else if (speakingIds.has(student.id)) card.classList.add("speaker-border");
-
       const cam = pickTrack(student.id, false);
       if (cam) {
-        const media = cam.track.attach();
-        media.autoplay = true;
-        media.playsInline = true;
-        media.muted = true;
-        media.setAttribute("playsinline", "true");
-        const p = media.play();
-        if (p && typeof p.catch === "function") p.catch(() => {});
+        const media = document.createElement("div");
+        media.style.width = "100%";
+        media.style.height = "100%";
         card.appendChild(media);
+        cam.track.play(media, { fit: "cover" });
       } else {
         const av = document.createElement("div");
         av.className = "avatar-host";
@@ -863,11 +759,15 @@
     }
     host.appendChild(grid);
   };
-
+  const syncModeButtons = () => {
+    btnModeScreen.classList.toggle("active", rightMode === 0);
+    btnModeSplit.classList.toggle("active", rightMode === 1);
+    btnModeStudents.classList.toggle("active", rightMode === 2);
+  };
   const renderRightPane = () => {
     if (rightMode === 0) {
       rightTitle.textContent = "Professor Screen Share (Tap to Switch)";
-      const screen = professorIdentity ? pickTrack(professorIdentity, true) : null;
+      const screen = pickTrack(resolveProfessorIdentity(), true);
       if (screen) renderTrack(rightHost, screen, "Screen Share");
       else renderAvatar(rightHost, "No Screen Share");
     } else if (rightMode === 1) {
@@ -875,17 +775,14 @@
       rightHost.innerHTML = "";
       const split = document.createElement("div");
       split.className = "right-split";
-
       const top = document.createElement("div");
       top.className = "right-split-top";
       const bottom = document.createElement("div");
       bottom.className = "right-split-bottom";
-
-      const screen = professorIdentity ? pickTrack(professorIdentity, true) : null;
+      const screen = pickTrack(resolveProfessorIdentity(), true);
       if (screen) renderTrack(top, screen, "The prof screen sharing");
       else renderAvatar(top, "No Screen Share");
       renderStudentsInto(bottom, true);
-
       split.appendChild(top);
       split.appendChild(bottom);
       rightHost.appendChild(split);
@@ -896,173 +793,40 @@
     syncModeButtons();
     markPaneBorders();
   };
+  const rerender = () => { renderLeftPane(); renderRightPane(); };
 
-  const rerender = () => {
-    renderLeftPane();
-    renderRightPane();
-  };
-
-  const syncModeButtons = () => {
-    btnModeScreen.classList.toggle("active", rightMode === 0);
-    btnModeSplit.classList.toggle("active", rightMode === 1);
-    btnModeStudents.classList.toggle("active", rightMode === 2);
-  };
-
-  const room = new LivekitClient.Room({
-    adaptiveStream: true,
-    dynacast: true,
-    stopLocalTrackOnUnpublish: true,
-  });
-
-  const syncControlStates = () => {
-    const micOn = !!room.localParticipant?.isMicrophoneEnabled;
-    const camOn = !!room.localParticipant?.isCameraEnabled;
-    btnAudio.dataset.state = micOn ? "on" : "off";
-    btnVideo.dataset.state = camOn ? "on" : "off";
-    btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
-    btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
-  };
-
-  const upsertParticipant = (participant) => {
-    if (!participant) return;
-    participantLabels.set(participant.identity, participant.name || participant.identity);
-    if (!joinOrder.has(participant.identity)) joinOrder.set(participant.identity, ++joinCounter);
-    const role = getIdentityRole(participant);
-    if (role) participantRoles.set(participant.identity, role);
-  };
-
-  const addVideoTrack = (track, participant, source) => {
-    upsertParticipant(participant);
-    const sid = track.sid || `${participant.identity}:${source}`;
-    videoTracks.set(sid, {
-      track,
-      identity: participant.identity,
-      source: normalizeSource(source),
-      isLocal: room.localParticipant && participant.identity === room.localParticipant.identity,
-    });
-    rerender();
-  };
-
-  const removeTrack = (track) => {
-    for (const [sid, info] of videoTracks.entries()) {
-      if (track.sid && info.track.sid === track.sid) videoTracks.delete(sid);
-    }
-    for (const [id, el] of audioEls.entries()) {
-      if (el.dataset.trackSid === (track.sid || "")) {
-        el.remove();
-        audioEls.delete(id);
-      }
-    }
-    track.detach().forEach((el) => el.remove());
-    rerender();
-  };
-
-  const addAudioTrack = (track, participant, source) => {
-    if (!participant || (room.localParticipant && participant.identity === room.localParticipant.identity)) return;
-    if (isScreenShare(source)) return;
-    upsertParticipant(participant);
-    const identity = participant.identity;
-    if (audioEls.has(identity)) {
-      audioEls.get(identity).remove();
-      audioEls.delete(identity);
-    }
-    const audioEl = track.attach();
-    audioEl.autoplay = true;
-    audioEl.playsInline = true;
-    audioEl.muted = false;
-    audioEl.dataset.trackSid = track.sid || "";
-    audioSink.appendChild(audioEl);
-    audioEls.set(identity, audioEl);
-    const p = audioEl.play();
-    if (p && typeof p.catch === "function") p.catch(() => setStatus("Tap Sound", "warn"));
-  };
-
-  const livekitUrl = normalizeLivekitUrl(rawLivekitUrl);
-  if (!livekitUrl || !livekitToken) {
-    setStatus("Config Error", "err");
-    showError("Missing live config.");
-    return;
-  }
-
-  try { new URL(livekitUrl); }
-  catch {
-    setStatus("Invalid URL", "err");
-    showError(`Invalid LiveKit URL: ${livekitUrl}`);
-    return;
-  }
-
-  room
-    .on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
-      if (track.kind === "video") addVideoTrack(track, participant, pub?.source || "camera");
-      if (track.kind === "audio") addAudioTrack(track, participant, pub?.source || "microphone");
-    })
-    .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
-      removeTrack(track);
-    })
-    .on(LivekitClient.RoomEvent.LocalTrackPublished, (pub) => {
-      if (pub?.track?.kind === "video") {
-        addVideoTrack(pub.track, room.localParticipant, pub?.source || "camera");
-      }
-    })
-    .on(LivekitClient.RoomEvent.LocalTrackUnpublished, (pub) => {
-      if (pub?.track) removeTrack(pub.track);
-    })
-    .on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
-      upsertParticipant(p);
+  const subscribeUser = async (user, mediaType) => {
+    await mainClient.subscribe(user, mediaType);
+    const uid = String(user.uid);
+    if (!participantLabels.has(uid)) participantLabels.set(uid, `Student ${uid}`);
+    if (mediaType === "video" && user.videoTrack) {
+      const source = Number(user.uid) === (professorUidHint + SCREEN_UID_OFFSET) ? "screen_share" : "camera";
+      const identity = source === "screen_share" ? String(professorUidHint) : uid;
+      addVideoTrack(identity, user.videoTrack, source, false);
       rerender();
-    })
-    .on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
-      if (!p) return;
-      for (const [sid, info] of videoTracks.entries()) {
-        if (info.identity === p.identity) videoTracks.delete(sid);
-      }
-      if (audioEls.has(p.identity)) {
-        audioEls.get(p.identity).remove();
-        audioEls.delete(p.identity);
-      }
-      participantLabels.delete(p.identity);
-      participantRoles.delete(p.identity);
-      raisedHands.delete(p.identity);
-      speakingIds.delete(p.identity);
-      rerender();
-    })
-    .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, () => {
-      speakingIds.clear();
-      (room.activeSpeakers || []).forEach((p) => speakingIds.add(p.identity));
-      markPaneBorders();
-      if (rightMode === 2) renderRightPane();
-    })
-    .on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
-      try {
-        const msg = JSON.parse(new TextDecoder().decode(payload));
-        if (!msg || !msg.type) return;
-        const id = participant?.identity || "";
-        if (msg.type === "raise_hand" && id) raisedHands.add(id);
-        if (msg.type === "hand_lowered" && id) raisedHands.delete(id);
-        markPaneBorders();
-        if (rightMode === 2) renderRightPane();
-      } catch (_) {}
-    })
-    .on(LivekitClient.RoomEvent.Disconnected, () => setStatus("Disconnected", "err"));
+    }
+    if (mediaType === "audio" && user.audioTrack) {
+      audioTracks.set(uid, user.audioTrack);
+      try { user.audioTrack.play(); } catch (_) {}
+    }
+  };
 
-  setStatus("Connecting", "warn");
-  room.connect(livekitUrl, livekitToken)
-    .then(async () => {
+  const connectAgora = async () => {
+    if (!agoraAppId || !agoraChannel || !agoraToken) {
+      setStatus("Config Error", "err");
+      showError("Agora config missing.");
+      return;
+    }
+    setStatus("Connecting", "warn");
+    try {
+      participantLabels.set(String(agoraUid), selfName || (isProfessor ? "Professor" : "You"));
+      await mainClient.join(agoraAppId, agoraChannel, agoraToken, agoraUid);
+      mainClient.enableAudioVolumeIndicator();
+      localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      localCamTrack = await AgoraRTC.createCameraVideoTrack();
+      await mainClient.publish([localMicTrack, localCamTrack]);
+      addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
       setStatus("Connected", "ok");
-      upsertParticipant(room.localParticipant);
-      if (isProfessor) participantRoles.set(room.localParticipant.identity, "professor");
-
-      room.remoteParticipants.forEach((p) => {
-        upsertParticipant(p);
-        p.trackPublications.forEach((pub) => {
-          if (!pub.track) return;
-          if (pub.track.kind === "video") addVideoTrack(pub.track, p, pub.source || "camera");
-          if (pub.track.kind === "audio") addAudioTrack(pub.track, p, pub.source || "microphone");
-        });
-      });
-
-      try { await room.localParticipant.setMicrophoneEnabled(true); } catch (e) { showError(`Mic permission: ${e.message || e}`); }
-      try { await room.localParticipant.setCameraEnabled(true); } catch (e) { showError(`Camera permission: ${e.message || e}`); }
       syncControlStates();
       rerender();
 
@@ -1072,76 +836,96 @@
       } else {
         btnToggleLayoutPanel.classList.add("hidden");
       }
-    })
-    .catch((err) => {
+    } catch (err) {
       setStatus("Connection Failed", "err");
-      showError(`LiveKit connection failed: ${err?.message || err}`);
+      showError(`Agora connection failed: ${err?.message || err}`);
+    }
+  };
+
+  mainClient.on("user-published", async (user, mediaType) => {
+    await subscribeUser(user, mediaType);
+  });
+  mainClient.on("user-unpublished", (user, mediaType) => {
+    const uid = String(user.uid);
+    if (mediaType === "video") {
+      removeVideoTracksByIdentity(uid);
+      if (Number(user.uid) === (professorUidHint + SCREEN_UID_OFFSET)) removeVideoTracksByIdentity(String(professorUidHint));
+    }
+    if (mediaType === "audio") audioTracks.delete(uid);
+    rerender();
+  });
+  mainClient.on("user-left", (user) => {
+    const uid = String(user.uid);
+    removeVideoTracksByIdentity(uid);
+    audioTracks.delete(uid);
+    participantLabels.delete(uid);
+    speakingIds.delete(uid);
+    raisedHands.delete(uid);
+    rerender();
+  });
+  mainClient.on("volume-indicator", (volumes) => {
+    speakingIds.clear();
+    volumes.forEach((v) => {
+      if ((v.level || 0) > 5) speakingIds.add(String(v.uid));
     });
-
-  rightPane.addEventListener("click", () => {
-    rightMode = (rightMode + 1) % 3;
-    renderRightPane();
+    markPaneBorders();
+    if (rightMode === 2) renderRightPane();
   });
 
-  btnCycleMode.addEventListener("click", () => {
-    rightMode = (rightMode + 1) % 3;
-    renderRightPane();
-  });
+  const startScreenShare = async () => {
+    if (!isProfessor || localScreenTrack) return;
+    try {
+      const screenUid = professorUidHint + SCREEN_UID_OFFSET;
+      screenClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      await screenClient.join(agoraAppId, agoraChannel, agoraToken, screenUid);
+      const st = await AgoraRTC.createScreenVideoTrack();
+      localScreenTrack = Array.isArray(st) ? st[0] : st;
+      await screenClient.publish([localScreenTrack]);
+      addVideoTrack(String(professorUidHint), localScreenTrack, "screen_share", true);
+      localScreenTrack.on("track-ended", stopScreenShare);
+      btnScreen.innerHTML = '<span class="material-symbols-outlined">stop_screen_share</span>';
+      rerender();
+    } catch (e) {
+      showError(`Screen share failed: ${e.message || e}`);
+      stopScreenShare();
+    }
+  };
+  const stopScreenShare = async () => {
+    try {
+      if (localScreenTrack) {
+        localScreenTrack.stop();
+        localScreenTrack.close();
+      }
+      if (screenClient) await screenClient.leave();
+    } catch (_) {}
+    localScreenTrack = null;
+    screenClient = null;
+    removeVideoTracksByIdentity(String(professorUidHint));
+    if (localCamTrack) addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
+    btnScreen.innerHTML = '<span class="material-symbols-outlined">present_to_all</span>';
+    rerender();
+  };
 
-  btnModeScreen.addEventListener("click", () => {
-    rightMode = 0;
-    renderRightPane();
-  });
-
-  btnModeSplit.addEventListener("click", () => {
-    rightMode = 1;
-    renderRightPane();
-  });
-
-  btnModeStudents.addEventListener("click", () => {
-    rightMode = 2;
-    renderRightPane();
-  });
+  rightPane.addEventListener("click", () => { rightMode = (rightMode + 1) % 3; renderRightPane(); });
+  btnCycleMode.addEventListener("click", () => { rightMode = (rightMode + 1) % 3; renderRightPane(); });
+  btnModeScreen.addEventListener("click", () => { rightMode = 0; renderRightPane(); });
+  btnModeSplit.addEventListener("click", () => { rightMode = 1; renderRightPane(); });
+  btnModeStudents.addEventListener("click", () => { rightMode = 2; renderRightPane(); });
 
   btnToggleLayoutPanel.addEventListener("click", () => {
     layoutPanel.classList.toggle("open");
     btnToggleLayoutPanel.classList.toggle("active", layoutPanel.classList.contains("open"));
   });
-
-  swapPanesInput.addEventListener("change", () => {
-    layoutPrefs.swapped = swapPanesInput.checked;
-    applyLayoutPrefs();
-    persistLayoutPrefs();
-  });
-
-  rightWidthInput.addEventListener("input", () => {
-    layoutPrefs.rightWidth = Number(rightWidthInput.value);
-    applyLayoutPrefs();
-  });
+  swapPanesInput.addEventListener("change", () => { layoutPrefs.swapped = swapPanesInput.checked; applyLayoutPrefs(); persistLayoutPrefs(); });
+  rightWidthInput.addEventListener("input", () => { layoutPrefs.rightWidth = Number(rightWidthInput.value); applyLayoutPrefs(); });
   rightWidthInput.addEventListener("change", persistLayoutPrefs);
-
-  gridColsInput.addEventListener("input", () => {
-    layoutPrefs.gridCols = Number(gridColsInput.value);
-    applyLayoutPrefs();
-    renderRightPane();
-  });
+  gridColsInput.addEventListener("input", () => { layoutPrefs.gridCols = Number(gridColsInput.value); applyLayoutPrefs(); renderRightPane(); });
   gridColsInput.addEventListener("change", persistLayoutPrefs);
-
-  tileSizeInput.addEventListener("input", () => {
-    layoutPrefs.tileMinHeight = Number(tileSizeInput.value);
-    applyLayoutPrefs();
-  });
+  tileSizeInput.addEventListener("input", () => { layoutPrefs.tileMinHeight = Number(tileSizeInput.value); applyLayoutPrefs(); });
   tileSizeInput.addEventListener("change", persistLayoutPrefs);
-
-  btnResetLayout.addEventListener("click", () => {
-    layoutPrefs = { ...defaultLayoutPrefs };
-    applyLayoutPrefs();
-    persistLayoutPrefs();
-    renderRightPane();
-  });
+  btnResetLayout.addEventListener("click", () => { layoutPrefs = { ...defaultLayoutPrefs }; applyLayoutPrefs(); persistLayoutPrefs(); renderRightPane(); });
 
   const clampRightPaneWidth = (next) => Math.min(45, Math.max(24, Number(next || 28)));
-
   const setRightPaneWidthFromPointer = (clientX) => {
     if (window.matchMedia("(max-width: 1100px)").matches) return;
     const shellRect = roomRoot.querySelector(".room-shell").getBoundingClientRect();
@@ -1151,7 +935,6 @@
     layoutPrefs.rightWidth = clampRightPaneWidth(rightPercent);
     applyLayoutPrefs();
   };
-
   paneResizer.addEventListener("pointerdown", (event) => {
     if (window.matchMedia("(max-width: 1100px)").matches) return;
     isResizing = true;
@@ -1159,68 +942,38 @@
     paneResizer.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
-
-  paneResizer.addEventListener("pointermove", (event) => {
-    if (!isResizing) return;
-    setRightPaneWidthFromPointer(event.clientX);
-  });
-
-  const stopResizing = () => {
-    if (!isResizing) return;
-    isResizing = false;
-    paneResizer.classList.remove("dragging");
-    persistLayoutPrefs();
-  };
-
+  paneResizer.addEventListener("pointermove", (event) => { if (isResizing) setRightPaneWidthFromPointer(event.clientX); });
+  const stopResizing = () => { if (isResizing) { isResizing = false; paneResizer.classList.remove("dragging"); persistLayoutPrefs(); } };
   paneResizer.addEventListener("pointerup", stopResizing);
   paneResizer.addEventListener("pointercancel", stopResizing);
 
   btnAudio.addEventListener("click", async () => {
-    try {
-      const on = room.localParticipant.isMicrophoneEnabled;
-      await room.localParticipant.setMicrophoneEnabled(!on);
-      syncControlStates();
-    } catch (e) { showError(`Mic toggle failed: ${e.message || e}`); }
+    if (!localMicTrack) return;
+    await localMicTrack.setMuted(!localMicTrack.muted);
+    syncControlStates();
   });
-
   btnVideo.addEventListener("click", async () => {
-    try {
-      const on = room.localParticipant.isCameraEnabled;
-      await room.localParticipant.setCameraEnabled(!on);
-      syncControlStates();
-    } catch (e) { showError(`Camera toggle failed: ${e.message || e}`); }
+    if (!localCamTrack) return;
+    await localCamTrack.setMuted(!localCamTrack.muted);
+    syncControlStates();
+    rerender();
   });
-
   btnScreen.addEventListener("click", async () => {
     if (!isProfessor) return;
-    try {
-      const on = !!room.localParticipant.isScreenShareEnabled;
-      await room.localParticipant.setScreenShareEnabled(!on);
-      if (!on && !room.localParticipant.isCameraEnabled) {
-        await room.localParticipant.setCameraEnabled(true);
-      }
-      btnScreen.innerHTML = `<span class="material-symbols-outlined">${on ? "present_to_all" : "stop_screen_share"}</span>`;
-      syncControlStates();
-    } catch (e) { showError(`Screen share failed: ${e.message || e}`); }
+    if (localScreenTrack) await stopScreenShare();
+    else await startScreenShare();
   });
-
   btnRaiseHand.addEventListener("click", async () => {
-    try {
-      const payload = JSON.stringify({ type: "raise_hand", name: selfName, ts: Date.now() });
-      await room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: true });
-      btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">waving_hand</span>';
-      setTimeout(() => { btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">front_hand</span>'; }, 1800);
-    } catch (e) { showError(`Raise hand failed: ${e.message || e}`); }
+    const id = String(agoraUid);
+    if (raisedHands.has(id)) raisedHands.delete(id);
+    else raisedHands.add(id);
+    btnRaiseHand.innerHTML = raisedHands.has(id)
+      ? '<span class="material-symbols-outlined">waving_hand</span>'
+      : '<span class="material-symbols-outlined">front_hand</span>';
+    markPaneBorders();
   });
-
-  btnSound.addEventListener("click", async () => {
-    for (const audio of audioSink.querySelectorAll("audio")) {
-      try {
-        audio.muted = false;
-        audio.volume = 1;
-        await audio.play();
-      } catch (_) {}
-    }
+  btnSound.addEventListener("click", () => {
+    audioTracks.forEach((track) => { try { track.play(); } catch (_) {} });
     setStatus("Connected", "ok");
   });
 
@@ -1235,7 +988,6 @@
       btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
     }
   });
-
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement) {
       roomRoot.classList.remove("room-fullscreen");
@@ -1243,14 +995,19 @@
     }
   });
 
-  window.addEventListener("beforeunload", () => {
+  window.addEventListener("beforeunload", async () => {
     if (themeObserver) themeObserver.disconnect();
-    room.disconnect();
+    try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
+    try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
+    try { await stopScreenShare(); } catch (_) {}
+    try { await mainClient.leave(); } catch (_) {}
   });
 
   bindThemeSync();
   loadLayoutPrefs();
   applyLayoutPrefs();
+  connectAgora();
 })();
 </script>
 {% endblock %}
+
