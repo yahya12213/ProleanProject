@@ -13,6 +13,7 @@ class ExternalAuthorityGuardMiddleware:
 
     SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
     SKIP_PREFIXES = ("/admin/", "/static/", "/media/")
+    SKIP_MUTATION_PATHS = ("/logout/",)
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -21,6 +22,12 @@ class ExternalAuthorityGuardMiddleware:
     def __call__(self, request):
         if request.path.startswith(self.SKIP_PREFIXES):
             return self.get_response(request)
+
+        if request.method not in self.SAFE_METHODS:
+            if request.path in self.SKIP_MUTATION_PATHS:
+                return self.get_response(request)
+            if request.path.startswith("/external/live/") and request.path.endswith("/leave/"):
+                return self.get_response(request)
 
         if request.user.is_authenticated and request.method not in self.SAFE_METHODS:
             subject_id = getattr(request.user, "username", "") or str(request.user.id)
