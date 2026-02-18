@@ -2709,8 +2709,13 @@ def external_live_room(request, session_id):
 
         app_id = str(getattr(settings, "AGORA_APP_ID", "") or "").strip()
         app_certificate = str(getattr(settings, "AGORA_APP_CERTIFICATE", "") or "").strip()
-        if not app_id or not app_certificate:
-            raise ContractError("Agora configuration is missing on backend.")
+        missing = []
+        if not app_id:
+            missing.append("AGORA_APP_ID")
+        if not app_certificate:
+            missing.append("AGORA_APP_CERTIFICATE")
+        if missing:
+            raise ContractError(f"Agora configuration is missing on backend ({', '.join(missing)}).")
 
         role_text = str(role or "").strip().lower()
         is_professor = role_text == "professor"

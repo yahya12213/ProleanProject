@@ -259,6 +259,18 @@ PROLEAN_STRICT_AUTHORITY_MODE = os.getenv('PROLEAN_STRICT_AUTHORITY_MODE', 'fals
 PROLEAN_READ_ONLY_ON_OUTAGE = os.getenv('PROLEAN_READ_ONLY_ON_OUTAGE', 'true').lower() == 'true'
 
 # Agora (live streaming provider)
-AGORA_APP_ID = os.getenv('AGORA_APP_ID', '')
-AGORA_APP_CERTIFICATE = os.getenv('AGORA_APP_CERTIFICATE', '')
+# Support multiple env key variants to avoid deployment misconfiguration.
+AGORA_APP_ID = (
+    os.getenv('AGORA_APP_ID')
+    or os.getenv('AGORA_APPID')
+    or os.getenv('APP_ID')
+    or ''
+)
+AGORA_APP_CERTIFICATE = (
+    os.getenv('AGORA_APP_CERTIFICATE')
+    or os.getenv('AGORA_PRIMARY_CERTIFICATE')
+    or os.getenv('AGORA_CERTIFICATE')
+    or os.getenv('PRIMARY_CERTIFICATE')
+    or ''
+)
 AGORA_TOKEN_EXPIRY_SECONDS = int(os.getenv('AGORA_TOKEN_EXPIRY_SECONDS', '3600'))
