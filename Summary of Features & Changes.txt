@@ -314,3 +314,11 @@ Recent Entries
   - removed card minimum-height pressure during equalized rendering
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Agora Frame Fill in Live Room
+- Fixed live video fit-to-frame behavior in presenter room:
+  - Agora video containers now use absolute full-frame slots (`inset: 0`) inside each video host/card
+  - compact student grid removed extra top padding so stream uses full assigned tile space
+- Why:
+  - Some streams were rendering with visible unused gaps instead of occupying the full allocated frame.
+- Validation:
+  - Django system check passed.

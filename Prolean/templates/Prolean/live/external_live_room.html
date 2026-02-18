@@ -166,6 +166,7 @@
         background: var(--media-bg);
         flex: 1;
         min-height: 0;
+        position: relative;
     }
 
     .video-host video {
@@ -210,6 +211,7 @@
     .student-grid.compact {
         grid-template-columns: repeat(1, minmax(0, 1fr));
         grid-auto-rows: minmax(0, 1fr);
+        padding: 8px;
     }
 
     .student-grid.compact .student-card {
@@ -224,6 +226,13 @@
         overflow: hidden;
         position: relative;
         background: var(--media-bg);
+    }
+
+    .agora-video-slot {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
     }
 
     .student-card video {
@@ -704,8 +713,7 @@
   const renderTrack = (host, data, label) => {
     host.innerHTML = "";
     const media = document.createElement("div");
-    media.style.width = "100%";
-    media.style.height = "100%";
+    media.className = "agora-video-slot";
     host.appendChild(media);
     data.track.play(media, { fit: "cover" });
     const footer = document.createElement("div");
@@ -768,8 +776,7 @@
       const cam = pickTrack(student.id, false);
       if (cam) {
         const media = document.createElement("div");
-        media.style.width = "100%";
-        media.style.height = "100%";
+        media.className = "agora-video-slot";
         card.appendChild(media);
         cam.track.play(media, { fit: "cover" });
       } else {
