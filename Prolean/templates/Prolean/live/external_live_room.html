@@ -787,8 +787,10 @@
     const media = data.track.attach();
     media.autoplay = true;
     media.playsInline = true;
-    media.muted = !!data.isLocal;
+    media.muted = true;
     media.setAttribute("playsinline", "true");
+    const p = media.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
     const footer = document.createElement("div");
     footer.className = "student-label";
     footer.textContent = label;
@@ -839,8 +841,10 @@
         const media = cam.track.attach();
         media.autoplay = true;
         media.playsInline = true;
-        media.muted = cam.isLocal;
+        media.muted = true;
         media.setAttribute("playsinline", "true");
+        const p = media.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
         card.appendChild(media);
       } else {
         const av = document.createElement("div");

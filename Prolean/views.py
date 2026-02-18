@@ -2639,6 +2639,42 @@ def external_live_room(request, session_id):
             )
             return any(tok in msg for tok in transient_tokens)
 
+        def _norm(value) -> str:
+            return str(value or "").strip()
+
+        def _extract_professor_hints(source: dict) -> tuple[str, str]:
+            if not isinstance(source, dict):
+                return "", ""
+            identity = ""
+            name = ""
+            identity_keys = (
+                "professor_identity", "presenter_identity", "host_identity", "owner_identity",
+                "professor_username", "presenter_username", "host_username", "owner_username",
+                "professor_cin", "presenter_cin", "host_cin", "owner_cin",
+            )
+            name_keys = ("professor_name", "presenter_name", "host_name", "owner_name")
+            for key in identity_keys:
+                value = _norm(source.get(key))
+                if value:
+                    identity = value
+                    break
+            for key in name_keys:
+                value = _norm(source.get(key))
+                if value:
+                    name = value
+                    break
+            nested = source.get("professor") or source.get("presenter") or source.get("host") or source.get("owner")
+            if isinstance(nested, dict):
+                if not identity:
+                    for key in ("username", "cin", "cin_or_passport", "id"):
+                        value = _norm(nested.get(key))
+                        if value:
+                            identity = value
+                            break
+                if not name:
+                    name = _norm(nested.get("full_name") or nested.get("name"))
+            return identity, name
+
         payload = None
         last_exc = None
         for attempt in range(6):
@@ -2670,18 +2706,23 @@ def external_live_room(request, session_id):
         if not livekit_url or not room_name:
             raise ContractError("LiveKit configuration is incomplete on authority backend.")
 
-        professor_identity_hint = ""
-        professor_name_hint = ""
-        for key in ("professor_identity", "presenter_identity", "host_identity", "owner_identity"):
-            value = str((payload.get(key) if isinstance(payload, dict) else "") or (live.get(key) if isinstance(live, dict) else "") or "").strip()
-            if value:
-                professor_identity_hint = value
-                break
-        for key in ("professor_name", "presenter_name", "host_name", "owner_name"):
-            value = str((payload.get(key) if isinstance(payload, dict) else "") or (live.get(key) if isinstance(live, dict) else "") or "").strip()
-            if value:
-                professor_name_hint = value
-                break
+        professor_identity_hint, professor_name_hint = _extract_professor_hints(payload if isinstance(payload, dict) else {})
+        if (not professor_identity_hint or not professor_name_hint) and isinstance(live, dict):
+            p2, n2 = _extract_professor_hints(live)
+            if not professor_identity_hint:
+                professor_identity_hint = p2
+            if not professor_name_hint:
+                professor_name_hint = n2
+        if not professor_identity_hint or not professor_name_hint:
+            try:
+                detail = mgmt.get_session_formation_detail(str(session_id), bearer_token=token.strip())
+                p3, n3 = _extract_professor_hints(detail if isinstance(detail, dict) else {})
+                if not professor_identity_hint:
+                    professor_identity_hint = p3
+                if not professor_name_hint:
+                    professor_name_hint = n3
+            except Exception:
+                pass
 
         return render(request, 'Prolean/live/external_live_room.html', {
             "session_id": str(session_id),

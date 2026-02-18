@@ -270,3 +270,14 @@ Recent Entries
   - Student panel was growing unexpectedly and resizing had to be more direct/visual.
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Feature/Fix Dashboard UX + Live Camera Reliability
+- Rebuilt the external professor dashboard UI with a new operations-center layout:
+  - new hero status strip, session rail, control deck, and refreshed student cards
+  - kept all existing actions (`Start & Join`, `Pause`, `End`, `Open Live Room`) wired to current endpoints
+- Improved live stream camera reliability for students:
+  - forced rendered video elements to stay muted (audio remains handled via dedicated audio tracks) to avoid mobile autoplay black-screen behavior
+  - enriched professor identity hints by also deriving from session detail payload when join payload does not include presenter info
+- Why:
+  - Deliver a complete dashboard visual upgrade and fix the recurring issue where professor camera could fail to render for students while screen share still appeared.
+- Validation:
+  - Django system check passed.
