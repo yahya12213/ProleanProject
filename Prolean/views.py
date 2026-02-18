@@ -2323,18 +2323,57 @@ def professor_dashboard(request):
     token = request.session.get("barka_token")
     mgmt = ManagementContractClient()
     if mgmt.is_configured() and isinstance(token, str) and token.strip():
+        def _is_transient_external_error(exc: Exception) -> bool:
+            msg = str(exc).lower()
+            transient_tokens = (
+                "502", "503", "504", "595",
+                "bad gateway", "temporarily unavailable", "upstream",
+                "timeout", "timed out", "connection reset",
+            )
+            return any(tok in msg for tok in transient_tokens)
+
+        def _retry_external_call(callable_fn, attempts: int = 5):
+            last_exc = None
+            for attempt in range(attempts):
+                try:
+                    return callable_fn()
+                except UpstreamUnavailable as exc:
+                    last_exc = exc
+                    if attempt >= attempts - 1:
+                        raise
+                    sleep(0.5 * (attempt + 1))
+                except ContractError as exc:
+                    if (not _is_transient_external_error(exc)) or attempt >= attempts - 1:
+                        raise
+                    last_exc = exc
+                    sleep(0.5 * (attempt + 1))
+            if last_exc:
+                raise last_exc
+            return None
+
+        def _is_live_like_session(sess: dict) -> bool:
+            if not isinstance(sess, dict):
+                return False
+            status = str(sess.get("status") or sess.get("statut") or "").strip().lower()
+            return status in {"ongoing", "en_cours", "active", "live", "started"}
+
         try:
-            sessions = mgmt.list_my_professor_sessions(bearer_token=token.strip())
+            sessions = _retry_external_call(lambda: mgmt.list_my_professor_sessions(bearer_token=token.strip()))
+            if not isinstance(sessions, list):
+                sessions = []
             selected_session_id = request.GET.get('session_id')
             selected_session = None
             if selected_session_id:
                 selected_session = next((s for s in sessions if str(s.get("id")) == str(selected_session_id)), None)
             if not selected_session and sessions:
-                selected_session = sessions[0]
+                selected_session = next((s for s in sessions if _is_live_like_session(s)), None) or sessions[0]
 
             selected_students = []
             if selected_session and selected_session.get("id"):
-                details = mgmt.get_my_professor_session_detail(str(selected_session.get("id")), bearer_token=token.strip())
+                details = _retry_external_call(
+                    lambda: mgmt.get_my_professor_session_detail(str(selected_session.get("id")), bearer_token=token.strip()),
+                    attempts=4,
+                )
                 selected_students = details.get("etudiants") if isinstance(details, dict) else []
                 if not isinstance(selected_students, list):
                     selected_students = []
@@ -2363,7 +2402,24 @@ def professor_dashboard(request):
             }
             return render(request, 'Prolean/professor/dashboard.html', context)
         except Exception as exc:
-            logger.warning("External professor dashboard fallback to local mode: %s", exc)
+            logger.warning("External professor dashboard unavailable: %s", exc)
+            context = {
+                'external_professor_mode': True,
+                'external_sessions': [],
+                'external_selected_session': None,
+                'external_students': [],
+                'external_live_state': None,
+                'external_error': str(exc),
+                'students_count': 0,
+                'all_sessions': [],
+                'selected_session': None,
+                'recent_comments': [],
+                'active_streams': [],
+                'notifications': [],
+                'upcoming_sessions': [],
+                'active_sessions': [],
+            }
+            return render(request, 'Prolean/professor/dashboard.html', context)
 
     prof_profile = get_object_or_404(ProfessorProfile, profile=request.user.profile)
     
@@ -2496,21 +2552,29 @@ def external_live_room(request, session_id):
         return redirect('Prolean:dashboard')
 
     try:
+        def _is_transient_external_error(exc: Exception) -> bool:
+            msg = str(exc).lower()
+            transient_tokens = (
+                "502", "503", "504", "595",
+                "bad gateway", "temporarily unavailable", "upstream",
+                "timeout", "timed out", "connection reset",
+            )
+            return any(tok in msg for tok in transient_tokens)
+
         payload = None
         last_exc = None
-        for attempt in range(4):
+        for attempt in range(6):
             try:
                 payload = mgmt.join_session_live(str(session_id), bearer_token=token.strip())
                 break
             except UpstreamUnavailable as exc:
                 last_exc = exc
-                if attempt >= 3:
+                if attempt >= 5:
                     raise
                 sleep(0.6 * (attempt + 1))
             except ContractError as exc:
-                msg = str(exc).lower()
-                is_transient = any(token in msg for token in ("502", "503", "504", "bad gateway", "temporarily unavailable", "upstream"))
-                if not is_transient or attempt >= 3:
+                is_transient = _is_transient_external_error(exc)
+                if not is_transient or attempt >= 5:
                     raise
                 last_exc = exc
                 sleep(0.6 * (attempt + 1))
