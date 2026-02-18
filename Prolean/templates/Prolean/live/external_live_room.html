@@ -719,7 +719,7 @@
     const media = document.createElement("div");
     media.className = "agora-video-slot";
     host.appendChild(media);
-    data.track.play(media, { fit: "contain" });
+    data.track.play(media, { fit: "cover" });
     const footer = document.createElement("div");
     footer.className = "student-label";
     footer.textContent = label;
@@ -782,7 +782,7 @@
         const media = document.createElement("div");
         media.className = "agora-video-slot";
         card.appendChild(media);
-        cam.track.play(media, { fit: "contain" });
+        cam.track.play(media, { fit: "cover" });
       } else {
         const av = document.createElement("div");
         av.className = "avatar-host";

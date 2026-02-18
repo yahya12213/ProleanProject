@@ -329,3 +329,8 @@ Recent Entries
 - Improved video slot container behavior to center and fully adapt inside resized frames.
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: UX/Fit Mode Update
+- Updated live stream fit mode from `contain` to `cover` in presenter room to avoid blank/letterboxed space inside video frames.
+- Kept responsive panel reflow behavior from previous fix.
+- Validation:
+  - Django system check passed.
