@@ -322,3 +322,10 @@ Recent Entries
   - Some streams were rendering with visible unused gaps instead of occupying the full allocated frame.
 - Validation:
   - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Resizable Panel Video Reflow + Aspect Ratio
+- Removed fixed-height pressure from main/side panes so containers can flex vertically with layout changes.
+- Updated Agora playback fit mode from `cover` to `contain` to preserve stream aspect ratio and prevent clipping.
+- Added re-render triggers on right-pane width drag/slider updates and window resize so live video recalculates to the new frame dimensions.
+- Improved video slot container behavior to center and fully adapt inside resized frames.
+- Validation:
+  - Django system check passed.
