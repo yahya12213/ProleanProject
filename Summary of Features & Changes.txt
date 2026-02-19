@@ -380,3 +380,20 @@ Recent Entries
   - The switcher changed language state but many templates were still hardcoded in one language, making it appear non-functional.
 - Validation:
   - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Redesign Language Switcher + Full Dashboard Visual Overhaul
+- Fixed language switcher reliability by replacing JS-dependent language links with direct Django `set_language` POST forms (desktop + mobile).
+- Removed obsolete language-switch JS hooks from header to avoid silent failures.
+- Completely redesigned professor dashboard (`Prolean/templates/Prolean/professor/dashboard.html`):
+  - new command-center hero
+  - stronger KPI blocks
+  - rebuilt external/live control workspace
+  - cleaner student presence cards
+  - redesigned local-mode live + broadcast layout
+- Completely redesigned student dashboard (`Prolean/templates/Prolean/dashboard/dashboard.html`):
+  - new learning cockpit hero
+  - KPI strip and session/live modules
+  - rewritten announcements panel
+  - new training card grid for both external assignments and local formations
+- Preserved existing backend actions/routes and data bindings for live controls, notifications, and training links.
+- Validation:
+  - Django system check passed.
