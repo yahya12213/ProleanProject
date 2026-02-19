@@ -1,11 +1,11 @@
 ﻿{% load i18n %}
 {% get_current_language as CURRENT_LANGUAGE %}
-<!-- templates/Prolean/partials/header.html - FIXED Z-INDEX & EVENT PROPAGATION -->
-<header class="sticky top-0 z-50 w-full bg-white/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800" style="height: var(--site-header-height, 80px);">
-    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
-        <div class="flex items-center gap-6 lg:gap-10">
-            <!-- Logo -->
-            <a class="flex items-center gap-2 group" href="{% url 'Prolean:home' %}">
+<!-- templates/Prolean/partials/header.html -->
+<header class="sticky top-0 z-50 w-full prolean-header" style="height: var(--site-header-height, 80px);">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4 lg:gap-6 min-w-0">
+            <!-- Brand -->
+            <a class="flex items-center gap-3 min-w-0" href="{% url 'Prolean:home' %}">
                 <img 
                     src="https://i.ibb.co/M53HQ07b/cropped-PROLEAN-LOGO.png" 
                     alt="Prolean Centre Logo" 
@@ -13,29 +13,34 @@
                     loading="eager"
                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMTIwIDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0xMCAyMEg0MFYzMEgxMFYyMFoiIGZpbGw9IiNGRjZCMDAiLz48cGF0aCBkPSJNNDAgMTBINzBWMzBINDBWMTBaIiBmaWxsPSIjNEE0QTRBIi8+PHRleHQgeD0iMTA1IiB5PSIyNSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjMTQxNDE0IiBmb250LXdlaWdodD0iYm9sZCI+UFJPTEVBTjwvdGV4dD48L3N2Zz4='"
                 >
+                <div class="hidden sm:block min-w-0">
+                    <div class="text-sm font-black tracking-tight text-slate-900 dark:text-white leading-none">Prolean</div>
+                    <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-none truncate">Centre de Formation</div>
+                </div>
             </a>
             
             <!-- Desktop Navigation -->
             <nav class="hidden lg:flex items-center gap-6 2xl:gap-8">
-                <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if request.path == '/' %}active-nav{% endif %}" 
+                <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if request.path == '/' %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
                    href="{% url 'Prolean:home' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</a>
-                <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/formations/' in request.path %}active-nav{% endif %}" 
+                <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if '/formations/' in request.path %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
                    href="{% url 'Prolean:training_catalog' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„ØªÙƒÙˆÙŠÙ†Ø§Øª{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</a>
-                <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/migration/' in request.path %}active-nav{% endif %}" 
+                <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if '/migration/' in request.path %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
                    href="{% url 'Prolean:migration_services' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</a>
-                <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/centres-contact/' in request.path %}active-nav{% endif %}" 
+                <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if '/centres-contact/' in request.path %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
                    href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
             </nav>
         </div>
         
         <!-- Desktop buttons -->
-        <div class="hidden lg:flex items-center gap-3 lg:gap-6">
+        <div class="hidden lg:flex items-center gap-2">
             
             <!-- Currency Switcher -->
             <div class="relative group currency-selector">
-                <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-accent-green/10 dark:hover:bg-accent-green/20 transition-colors text-sm font-bold active-currency">
+                <button class="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-sm font-black inline-flex items-center gap-2 active-currency">
+                    <span class="material-symbols-outlined text-[18px] leading-none text-slate-600 dark:text-slate-300">currency_exchange</span>
                     <span class="current-currency">MAD</span>
-                    <span class="material-symbols-outlined text-base leading-none">expand_more</span>
+                    <span class="material-symbols-outlined text-base leading-none text-slate-500 dark:text-slate-400">expand_more</span>
                 </button>
                 <div class="absolute right-0 top-full mt-1 hidden group-hover:block bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-xl p-2 min-w-[150px] z-50 currency-dropdown
                             before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
@@ -67,7 +72,7 @@
             </div>
             
             <!-- Theme Toggle -->
-            <button class="size-10 flex items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" onclick="toggleTheme()">
+            <button class="size-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-200" onclick="toggleTheme()">
                 <span id="theme-icon" class="material-symbols-outlined">light_mode</span>
             </button>
             
@@ -165,9 +170,9 @@
         </div>
 
         <!-- Mobile Menu Button -->
-        <button id="mobile-menu-button" class="lg:hidden size-10 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-            <span id="menu-icon" class="material-symbols-outlined">menu</span>
-        </button>
+            <button id="mobile-menu-button" class="lg:hidden size-10 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                <span id="menu-icon" class="material-symbols-outlined">menu</span>
+            </button>
     </div>
 
     <!-- Mobile Menu Overlay -->
@@ -183,10 +188,22 @@
             </div>
             
             <div class="mobile-menu-body">
-                <a class="mobile-menu-link {% if request.path == '/' %}active-nav{% endif %}" href="{% url 'Prolean:home' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</a>
-                <a class="mobile-menu-link {% if '/formations/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:training_catalog' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„ØªÙƒÙˆÙŠÙ†Ø§Øª{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</a>
-                <a class="mobile-menu-link {% if '/migration/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:migration_services' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</a>
-                <a class="mobile-menu-link {% if '/centres-contact/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
+                <a class="mobile-menu-link {% if request.path == '/' %}active-nav{% endif %}" href="{% url 'Prolean:home' %}">
+                    <span class="material-symbols-outlined">home</span>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</span>
+                </a>
+                <a class="mobile-menu-link {% if '/formations/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:training_catalog' %}">
+                    <span class="material-symbols-outlined">school</span>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„ØªÙƒÙˆÙŠÙ†Ø§Øª{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</span>
+                </a>
+                <a class="mobile-menu-link {% if '/migration/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:migration_services' %}">
+                    <span class="material-symbols-outlined">flight_takeoff</span>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</span>
+                </a>
+                <a class="mobile-menu-link {% if '/centres-contact/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:contact_centers' %}">
+                    <span class="material-symbols-outlined">support_agent</span>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</span>
+                </a>
 
                 <div class="mobile-menu-settings">
                     <!-- Mobile Currency Switcher -->
@@ -267,7 +284,7 @@
                     
                     <!-- Mobile Contact Button -->
                     <a class="mobile-menu-contact-button mt-4" href="#contact">
-                        <span class="icon-contact">âœ‰</span>
+                        <span class="material-symbols-outlined">mail</span>
                         Nous contacter
                     </a>
                 </div>
@@ -277,6 +294,36 @@
 </header>
 <!-- Inline CSS for mobile menu -->
 <style>
+    /* Header (site-wide) */
+    .prolean-header {
+        position: sticky;
+        top: 0;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.25);
+    }
+    .dark .prolean-header {
+        background: rgba(2, 6, 23, 0.72);
+        border-bottom-color: rgba(51, 65, 85, 0.65);
+        box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
+    }
+    .prolean-header::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #ff6b00, #0ea5e9, #6366f1);
+        opacity: 0.85;
+        pointer-events: none;
+    }
+    .prolean-header .active-nav {
+        border-bottom: 0 !important;
+    }
+
     /* Mobile menu overlay - SITS BEHIND MENU */
     .mobile-menu-overlay {
         display: none;
@@ -319,7 +366,10 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: white;
+        background:
+            radial-gradient(600px 180px at 15% 0%, rgba(255, 107, 0, 0.18), transparent 55%),
+            radial-gradient(520px 200px at 85% 20%, rgba(14, 165, 233, 0.14), transparent 55%),
+            linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,0.96));
         box-shadow: 2px 0 20px rgba(0, 0, 0, 0.15);
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -328,7 +378,10 @@
     }
     
     .dark .mobile-menu-content {
-        background: #1e293b;
+        background:
+            radial-gradient(700px 220px at 12% 0%, rgba(255, 107, 0, 0.22), transparent 58%),
+            radial-gradient(600px 220px at 90% 20%, rgba(99, 102, 241, 0.18), transparent 60%),
+            linear-gradient(180deg, rgba(2,6,23,0.92), rgba(15,23,42,0.86));
     }
     
     .mobile-menu.open .mobile-menu-content {
@@ -338,13 +391,14 @@
     /* Mobile menu header */
     .mobile-menu-header {
         display: flex;
-        justify-content: flex-end;
-        padding: 1rem;
-        border-bottom: 1px solid #e5e7eb;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.9rem 1rem;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
     }
     
     .dark .mobile-menu-header {
-        border-bottom-color: #374151;
+        border-bottom-color: rgba(51, 65, 85, 0.65);
     }
     
     .mobile-menu-close {
@@ -380,27 +434,36 @@
     }
     
     .mobile-menu-link {
-        display: block;
-        padding: 1rem;
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: #374151;
-        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.9rem 1rem;
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+        border-radius: 14px;
         transition: all 0.2s;
         margin-bottom: 0.5rem;
+        border: 1px solid rgba(226, 232, 240, 0.85);
+        background: rgba(255, 255, 255, 0.7);
     }
     
     .dark .mobile-menu-link {
-        color: #d1d5db;
+        color: #e2e8f0;
+        border-color: rgba(51, 65, 85, 0.65);
+        background: rgba(15, 23, 42, 0.45);
     }
     
     .mobile-menu-link:hover {
-        background: #f3f4f6;
-        color: #FF6B00;
+        transform: translateY(-1px);
+        background: rgba(241, 245, 249, 0.9);
+        border-color: rgba(255, 107, 0, 0.55);
+        color: #111827;
     }
     
     .dark .mobile-menu-link:hover {
-        background: #374151;
+        background: rgba(15, 23, 42, 0.7);
+        border-color: rgba(99, 102, 241, 0.55);
         color: #fff;
     }
     
