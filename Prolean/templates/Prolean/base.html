@@ -1,7 +1,8 @@
 <!-- templates/Prolean/base.html - FIXED MOBILE MENU -->
 <!DOCTYPE html>
-{% load static %}
-<html class="light" lang="fr" dir="ltr">
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
+<html class="light" lang="{{ CURRENT_LANGUAGE|default:'fr' }}" dir="{% if CURRENT_LANGUAGE == 'ar' %}rtl{% else %}ltr{% endif %}">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
@@ -741,6 +742,36 @@
             setInterval(checkUpdates, pollInterval);
             // Initial check
             setTimeout(checkUpdates, 2000); 
+            {% endif %}
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if user.is_authenticated %}
+            const heartbeatUrl = '{% url "Prolean:presence_heartbeat" %}';
+            const heartbeatInterval = 45000;
+
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return '';
+            }
+
+            function sendPresenceHeartbeat() {
+                fetch(heartbeatUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        path: window.location.pathname
+                    })
+                }).catch(() => {});
+            }
+
+            sendPresenceHeartbeat();
+            setInterval(sendPresenceHeartbeat, heartbeatInterval);
             {% endif %}
         });
         

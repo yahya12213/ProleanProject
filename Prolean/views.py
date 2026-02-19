@@ -35,6 +35,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.urls import reverse
 from .context_processors import get_client_ip, get_location_from_ip
+from .presence import touch_user_presence, get_online_students
 import uuid
 
 from Prolean import models
@@ -91,6 +92,75 @@ from Prolean.integration.client import ManagementContractClient
 from Prolean.integration.exceptions import ContractError, UpstreamUnavailable
 from Prolean.integration.trainings import to_external_training
 from agora_token_builder import RtcTokenBuilder
+
+
+def _norm_identifier(value) -> str:
+    return str(value or "").strip().lower()
+
+
+def _extract_external_student_identifiers(student_row: dict) -> set[str]:
+    if not isinstance(student_row, dict):
+        return set()
+    identifiers = set()
+    for key in (
+        "student_email", "email", "username",
+        "student_phone", "phone",
+        "student_name", "full_name", "name",
+        "cin", "cin_or_passport",
+    ):
+        normalized = _norm_identifier(student_row.get(key))
+        if normalized:
+            identifiers.add(normalized)
+    return identifiers
+
+
+def _build_online_student_lookup() -> dict[str, dict]:
+    online_by_user_id = get_online_students()
+    if not online_by_user_id:
+        return {}
+    try:
+        users = User.objects.filter(id__in=list(online_by_user_id.keys())).select_related("profile", "profile__student_profile")
+    except Exception:
+        return {}
+    lookup: dict[str, dict] = {}
+    for user in users:
+        profile = getattr(user, "profile", None)
+        if not profile or str(getattr(profile, "role", "")).upper() != "STUDENT":
+            continue
+        payload = online_by_user_id.get(user.id, {})
+        values = [
+            user.username,
+            user.email,
+            getattr(profile, "full_name", ""),
+            getattr(profile, "phone_number", ""),
+            getattr(profile, "cin_or_passport", ""),
+        ]
+        for value in values:
+            normalized = _norm_identifier(value)
+            if normalized:
+                lookup[normalized] = payload
+    return lookup
+
+
+def _enrich_external_students_with_presence(external_students: list[dict]) -> tuple[list[dict], int]:
+    online_lookup = _build_online_student_lookup()
+    online_count = 0
+    enriched: list[dict] = []
+    for row in external_students if isinstance(external_students, list) else []:
+        entry = dict(row) if isinstance(row, dict) else {"student_name": str(row)}
+        identifiers = _extract_external_student_identifiers(entry)
+        online_payload = None
+        for ident in identifiers:
+            if ident in online_lookup:
+                online_payload = online_lookup[ident]
+                break
+        is_online = isinstance(online_payload, dict)
+        entry["is_online_web"] = is_online
+        entry["online_age_seconds"] = int(online_payload.get("age_seconds", 0)) if is_online else None
+        if is_online:
+            online_count += 1
+        enriched.append(entry)
+    return enriched, online_count
 
 # ========== RATE LIMITING & THREAT DETECTION ==========
 
@@ -2062,6 +2132,7 @@ def classroom(request, training_slug, video_id=None):
 def check_updates_ajax(request):
     """API endpoint for long-polling/updates (notifications and live status)"""
     profile = request.user.profile
+    touch_user_presence(request.user, path=request.path)
     now = timezone.now()
     
     # 1. Notifications
@@ -2458,6 +2529,7 @@ def professor_dashboard(request):
                 selected_students = details.get("etudiants") if isinstance(details, dict) else []
                 if not isinstance(selected_students, list):
                     selected_students = []
+            selected_students, online_students_count = _enrich_external_students_with_presence(selected_students)
 
             external_live_state = None
             if selected_session and selected_session.get("id"):
@@ -2471,6 +2543,7 @@ def professor_dashboard(request):
                 'external_sessions': sessions if isinstance(sessions, list) else [],
                 'external_selected_session': selected_session,
                 'external_students': selected_students,
+                'online_students_count': online_students_count,
                 'external_live_state': external_live_state if isinstance(external_live_state, dict) else None,
                 'students_count': len(selected_students),
                 'all_sessions': [],
@@ -2489,6 +2562,7 @@ def professor_dashboard(request):
                 'external_sessions': [],
                 'external_selected_session': None,
                 'external_students': [],
+                'online_students_count': 0,
                 'external_live_state': None,
                 'external_error': str(exc),
                 'students_count': 0,
@@ -2526,6 +2600,7 @@ def professor_dashboard(request):
             
     # Scoped Data
     students_count = 0
+    online_students_count = 0
     recent_questions = []
     active_streams = []
     upcoming_sessions = all_sessions.filter(start_date__gt=timezone.now().date())
@@ -2534,6 +2609,10 @@ def professor_dashboard(request):
     if selected_session:
         # Students in THIS session
         students_count = selected_session.students.count()
+        online_now = get_online_students()
+        if online_now:
+            selected_user_ids = selected_session.students.values_list("profile__user_id", flat=True)
+            online_students_count = sum(1 for user_id in selected_user_ids if int(user_id) in online_now)
         
         # Comments on THIS session's topics (scoped to session)
         recent_questions = Question.objects.filter(
@@ -2560,6 +2639,7 @@ def professor_dashboard(request):
         'all_sessions': all_sessions,
         'selected_session': selected_session,
         'students_count': students_count,
+        'online_students_count': online_students_count,
         'recent_comments': recent_questions,
         'active_streams': active_streams,
         'trainings': Training.objects.filter(sessions__professor=prof_profile).distinct(),
@@ -2622,6 +2702,111 @@ def external_professor_live_end(request, session_id):
     except Exception as exc:
         messages.error(request, f"Unable to end live: {exc}")
     return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_send_session_notification(request, session_id):
+    """
+    Professor broadcast to students of an external (Barka) session.
+    Creates local Notification rows for all matched local student accounts.
+    """
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
+        messages.error(request, "Broadcast unavailable: external authority token is missing.")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    title = str(request.POST.get("title", "") or "").strip()
+    body = str(request.POST.get("message", "") or "").strip()
+    notif_type = str(request.POST.get("type", "info") or "info").strip().lower()
+    if notif_type not in {"info", "success", "warning", "error"}:
+        notif_type = "info"
+
+    if not title or not body:
+        messages.error(request, "Title and message are required.")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    try:
+        details = mgmt.get_my_professor_session_detail(str(session_id), bearer_token=token.strip())
+        external_students = details.get("etudiants") if isinstance(details, dict) else []
+        if not isinstance(external_students, list):
+            external_students = []
+    except Exception as exc:
+        messages.error(request, f"Unable to load session students: {exc}")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    all_students = Profile.objects.filter(role="STUDENT").select_related("user")
+    local_lookup: dict[str, User] = {}
+    for profile in all_students:
+        values = [
+            profile.user.username,
+            profile.user.email,
+            profile.full_name,
+            profile.phone_number,
+            profile.cin_or_passport,
+        ]
+        for value in values:
+            normalized = _norm_identifier(value)
+            if normalized and normalized not in local_lookup:
+                local_lookup[normalized] = profile.user
+
+    target_user_ids: set[int] = set()
+    unmatched_count = 0
+    for ext_student in external_students:
+        found = False
+        for ident in _extract_external_student_identifiers(ext_student):
+            user = local_lookup.get(ident)
+            if user:
+                target_user_ids.add(int(user.id))
+                found = True
+                break
+        if not found:
+            unmatched_count += 1
+
+    if not target_user_ids:
+        messages.warning(request, "No local student accounts matched this external session.")
+        return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+    link = reverse('Prolean:external_live_room', kwargs={'session_id': str(session_id)})
+    notifications = [
+        Notification(
+            user_id=user_id,
+            session=None,
+            title=title,
+            message=body,
+            notification_type=notif_type,
+            link=link,
+        )
+        for user_id in sorted(target_user_ids)
+    ]
+    Notification.objects.bulk_create(notifications)
+
+    if unmatched_count:
+        messages.warning(
+            request,
+            f"Broadcast sent to {len(notifications)} students. {unmatched_count} students could not be matched to local accounts.",
+        )
+    else:
+        messages.success(request, f"Broadcast sent to {len(notifications)} students.")
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@login_required
+@require_POST
+def presence_heartbeat(request):
+    """Keep user's online presence fresh for professor dashboards."""
+    payload = {}
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    touch_user_presence(
+        request.user,
+        path=str(payload.get("path") or request.path or "")[:255],
+        session_id=str(payload.get("session_id") or "")[:64],
+    )
+    return JsonResponse({"status": "success"})
 
 
 @login_required
@@ -2767,6 +2952,7 @@ def external_live_room(request, session_id):
             except Exception:
                 pass
 
+        touch_user_presence(request.user, path=request.path, session_id=str(session_id))
         return render(request, 'Prolean/live/external_live_room.html', {
             "session_id": str(session_id),
             "live_state": live,
@@ -3033,10 +3219,11 @@ def mark_notification_read(request, notification_id):
 def send_session_notification(request, session_id):
     """Professor sends a notification to all students in a session"""
     session = get_object_or_404(Session, id=session_id, professor__profile=request.user.profile)
+    back_url = f"{reverse('Prolean:professor_dashboard')}?session_id={session.id}"
     
     if session.status == 'COMPLETED':
         messages.error(request, "Cette session est terminée. Vous ne pouvez plus envoyer de notifications.")
-        return redirect('Prolean:manage_sessions')
+        return redirect(back_url)
     
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -3061,9 +3248,9 @@ def send_session_notification(request, session_id):
             else:
                 messages.warning(request, "Aucun étudiant n'est inscrit dans cette session.")
                 
-        return redirect('Prolean:manage_sessions')
+        return redirect(back_url)
     
-    return redirect('Prolean:manage_sessions')
+    return redirect(back_url)
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 

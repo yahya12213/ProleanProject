@@ -61,6 +61,10 @@
                     <p class="text-2xl font-black text-white">{{ students_count }}</p>
                 </div>
                 <div class="rounded-2xl bg-white/10 border border-white/20 px-4 py-3 text-center">
+                    <p class="text-[10px] uppercase tracking-widest text-white/70 font-black">Online Web</p>
+                    <p class="text-2xl font-black text-emerald-200">{{ online_students_count|default:0 }}</p>
+                </div>
+                <div class="rounded-2xl bg-white/10 border border-white/20 px-4 py-3 text-center">
                     <p class="text-[10px] uppercase tracking-widest text-white/70 font-black">Live</p>
                     {% if external_live_state and external_live_state.status == 'live' %}
                     <p class="text-sm font-black text-red-200 uppercase">On Air</p>
@@ -103,6 +107,10 @@
                     {{ students_count }} Students On Session
                 </span>
                 <span class="studio-pill">
+                    <span class="material-symbols-outlined text-sm">wifi</span>
+                    {{ online_students_count|default:0 }} Online On Website
+                </span>
+                <span class="studio-pill">
                     <span class="material-symbols-outlined text-sm">radio_button_checked</span>
                     {% if external_live_state and external_live_state.status == 'live' %}Live{% elif external_live_state and external_live_state.status == 'paused' %}Paused{% else %}Offline{% endif %}
                 </span>
@@ -140,6 +148,15 @@
                 </button>
             </form>
 
+            <form method="post" action="{% url 'Prolean:external_send_session_notification' external_selected_session.id %}" class="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-2xl border border-prof p-3 bg-surface-hover">
+                {% csrf_token %}
+                <input type="text" name="title" required placeholder="Broadcast title" class="md:col-span-1 px-3 py-2 rounded-xl border border-prof bg-white text-xs">
+                <input type="text" name="message" required placeholder="Message to all students in this session" class="md:col-span-2 px-3 py-2 rounded-xl border border-prof bg-white text-xs">
+                <button type="submit" class="md:col-span-1 px-4 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-wider hover:opacity-90">
+                    Diffuse Message
+                </button>
+            </form>
+
             <div class="flex items-center justify-between">
                 <h4 class="text-sm font-black uppercase tracking-widest" style="color: var(--prof-text-main);">Students In Session</h4>
                 <span class="text-xs font-bold opacity-70" style="color: var(--prof-text-muted);">{{ students_count }} connected profile{{ students_count|pluralize }}</span>
@@ -149,7 +166,11 @@
                 <article class="rounded-2xl border border-prof bg-surface-hover p-4 hover:-translate-y-0.5 transition-transform">
                     <div class="flex items-center justify-between gap-2">
                         <p class="font-black text-sm" style="color: var(--prof-text-main);">{{ st.student_name|default:"Etudiant" }}</p>
-                        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Available</span>
+                        {% if st.is_online_web %}
+                        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Online</span>
+                        {% else %}
+                        <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">Offline</span>
+                        {% endif %}
                     </div>
                     <p class="text-xs opacity-75 mt-1" style="color: var(--prof-text-muted);">{{ st.student_email|default:"-" }}</p>
                     <p class="text-xs opacity-75" style="color: var(--prof-text-muted);">{{ st.student_phone|default:"-" }}</p>

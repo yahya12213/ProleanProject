@@ -1,3 +1,5 @@
+{% load i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
 <!-- templates/Prolean/partials/header.html - FIXED Z-INDEX & EVENT PROPAGATION -->
 <header class="sticky top-0 z-50 w-full bg-white/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800">
     <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
@@ -31,19 +33,19 @@
             <!-- Language Switcher -->
             <div class="relative group">
                 <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-accent-green/10 dark:hover:bg-accent-green/20 transition-colors text-sm font-bold">
-                    <span>🇫🇷 FR</span>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}AR{% elif CURRENT_LANGUAGE == 'en' %}EN{% else %}FR{% endif %}</span>
                     <span class="icon-arrow">▼</span>
                 </button>
                 <div class="absolute right-0 top-full mt-1 hidden group-hover:block bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-xl p-2 min-w-[120px] z-50 
                             before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
-                    <a class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" href="#">
-                        <span>🇫🇷</span> Français
+                    <a class="js-set-language flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-lang="fr" href="#">
+                        FR Français
                     </a>
-                    <a class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg font-arabic text-right" href="#">
-                        <span>🇲🇦</span> العربية
+                    <a class="js-set-language flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg font-arabic text-right" data-lang="ar" href="#">
+                        AR العربية
                     </a>
-                    <a class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" href="#">
-                        <span>🇬🇧</span> English
+                    <a class="js-set-language flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-lang="en" href="#">
+                        EN English
                     </a>
                 </div>
             </div>
@@ -210,20 +212,20 @@
                     <div class="mobile-menu-dropdown">
                         <button id="mobile-language-button" class="mobile-menu-dropdown-button">
                             <span class="flex items-center gap-2">
-                                <span>🇫🇷</span>
-                                <span>Français</span>
+                                <span>{% if CURRENT_LANGUAGE == 'ar' %}AR{% elif CURRENT_LANGUAGE == 'en' %}EN{% else %}FR{% endif %}</span>
+                                <span>{% if CURRENT_LANGUAGE == 'ar' %}العربية{% elif CURRENT_LANGUAGE == 'en' %}English{% else %}Français{% endif %}</span>
                             </span>
                             <span class="icon-arrow">▼</span>
                         </button>
                         <div id="mobile-language-menu" class="mobile-menu-dropdown-content">
-                            <a class="mobile-menu-dropdown-item" href="#">
-                                <span>🇫🇷</span> Français
+                            <a class="js-set-language mobile-menu-dropdown-item" data-lang="fr" href="#">
+                                FR Français
                             </a>
-                            <a class="mobile-menu-dropdown-item font-arabic text-right" href="#">
-                                <span>🇲🇦</span> العربية
+                            <a class="js-set-language mobile-menu-dropdown-item font-arabic text-right" data-lang="ar" href="#">
+                                AR العربية
                             </a>
-                            <a class="mobile-menu-dropdown-item" href="#">
-                                <span>🇬🇧</span> English
+                            <a class="js-set-language mobile-menu-dropdown-item" data-lang="en" href="#">
+                                EN English
                             </a>
                         </div>
                     </div>
@@ -314,6 +316,11 @@
         </div>
     </div>
 </header>
+<form id="language-switch-form" action="{% url 'set_language' %}" method="post" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input id="language-switch-code" type="hidden" name="language" value="{{ CURRENT_LANGUAGE|default:'fr' }}">
+</form>
 
 <!-- Inline CSS for mobile menu -->
 <style>
@@ -726,6 +733,21 @@
                 }
             });
         }
+
+        function initLanguageSwitcher() {
+            const form = document.getElementById('language-switch-form');
+            const input = document.getElementById('language-switch-code');
+            if (!form || !input) return;
+            document.querySelectorAll('.js-set-language').forEach((item) => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const lang = String(this.getAttribute('data-lang') || '').toLowerCase();
+                    if (!lang) return;
+                    input.value = lang;
+                    form.submit();
+                });
+            });
+        }
         
         // Toggle mobile menu
         function toggleMobileMenu() {
@@ -848,6 +870,7 @@
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
                 initMobileMenu();
+                initLanguageSwitcher();
                 
                 // Replace icons with Material Icons
                 if (document.fonts && document.fonts.ready) {
@@ -860,6 +883,7 @@
             });
         } else {
             initMobileMenu();
+            initLanguageSwitcher();
             setTimeout(replaceIconsWithMaterial, 100);
         }
         

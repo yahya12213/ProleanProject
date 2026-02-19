@@ -352,3 +352,22 @@ Recent Entries
   - Give professors immediate awareness of student activity and make the dashboard/studio easier to read and operate.
 - Validation:
   - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Restore/Feature Messages + Presence + i18n + GeoIP Accuracy
+- Restored professor-to-students message diffusion with external session support:
+  - Added new endpoint `external_send_session_notification` for Barka sessions.
+  - Broadcast now maps external students to local student accounts using multiple identifiers (email, username, phone, name, CIN).
+  - Local session notification flow now redirects back to professor dashboard context.
+- Implemented online presence tracking:
+  - Added cache-based presence service (`Prolean/presence.py`) with heartbeat TTL logic.
+  - Added `api/presence/heartbeat/` endpoint and front-end periodic heartbeat from authenticated pages.
+  - Professor dashboard now shows online-on-website student count and online/offline state on external student cards.
+- Implemented multilingual auto-detection (FR/EN/AR):
+  - Enabled Django `LocaleMiddleware` and custom `AutoLanguageMiddleware`.
+  - Added `LANGUAGES` + `LOCALE_PATHS` + dynamic HTML `lang`/`dir` in base template.
+  - Activated real language switcher in header/mobile menus via Django `set_language` endpoint.
+- Improved city auto-detection precision:
+  - Reworked IP extraction for public/global address preference.
+  - Added multi-provider GeoIP fallback chain (`ipwho.is` -> `ipapi.co` -> `ip-api.com`).
+  - Added geo caching + richer location payload (`exact_city`, `region`, `timezone`, coordinates, source).
+- Validation:
+  - Django system check passed.

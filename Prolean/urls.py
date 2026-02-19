@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/training/<int:training_id>/reviews/", views.get_training_reviews, name="get_training_reviews"),
     path("api/review/helpful/", views.mark_review_helpful, name="mark_review_helpful"),
     path("api/dashboard/updates/", views.check_updates_ajax, name="check_updates_ajax"),
+    path("api/presence/heartbeat/", views.presence_heartbeat, name="presence_heartbeat"),
     
     # New endpoints - FIXED: removed slug parameter
     path('api/pre-subscribe/', views.create_pre_subscription, name='create_pre_subscription'),
@@ -65,6 +66,7 @@ urlpatterns = [
     path('external/professor/sessions/<str:session_id>/live/start/', views.external_professor_live_start, name='external_professor_live_start'),
     path('external/professor/sessions/<str:session_id>/live/pause/', views.external_professor_live_pause, name='external_professor_live_pause'),
     path('external/professor/sessions/<str:session_id>/live/end/', views.external_professor_live_end, name='external_professor_live_end'),
+    path('external/professor/sessions/<str:session_id>/notify/', views.external_send_session_notification, name='external_send_session_notification'),
     path('professor/students/', views.professor_students, name='professor_students'),
     path('professor/sessions/', views.professor_sessions, name='professor_sessions'),
     path('professor/sessions/manage/', views.professor_sessions, name='manage_sessions'), # Alias for compatibility

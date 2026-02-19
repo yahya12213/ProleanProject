@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 from urllib.parse import urlparse
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -95,6 +96,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
+    'Prolean.middleware.AutoLanguageMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -204,13 +207,24 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'fr'
+LANGUAGES = [
+    ('fr', _('French')),
+    ('en', _('English')),
+    ('ar', _('Arabic')),
+]
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Casablanca'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# Presence/Geo tuning
+PROLEAN_PRESENCE_TTL_SECONDS = _env_int("PROLEAN_PRESENCE_TTL_SECONDS", 120)
+PROLEAN_PRESENCE_INDEX_LIMIT = _env_int("PROLEAN_PRESENCE_INDEX_LIMIT", 3000)
+PROLEAN_GEOIP_CACHE_SECONDS = _env_int("PROLEAN_GEOIP_CACHE_SECONDS", 21600)
 
 
 # Static files (CSS, JavaScript, Images)

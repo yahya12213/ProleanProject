@@ -1,59 +1,155 @@
 # context_processors.py
+import ipaddress
 import requests
 from django.utils import timezone
 from django.conf import settings
+from django.core.cache import cache
 from .models import CurrencyRate
 
 def get_client_ip(request):
     """Get client IP address"""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    candidates = [p.strip() for p in x_forwarded_for.split(',') if p.strip()]
+    remote = str(request.META.get('REMOTE_ADDR', '') or '').strip()
+    if remote:
+        candidates.append(remote)
+    for raw in candidates:
+        try:
+            ip_obj = ipaddress.ip_address(raw)
+        except ValueError:
+            continue
+        # Keep first global/public address first, otherwise fallback later.
+        if ip_obj.is_global:
+            return str(ip_obj)
+    return remote or '127.0.0.1'
+
+
+def _normalize_city(city: str, district: str, region: str) -> str:
+    city_clean = str(city or '').strip()
+    district_clean = str(district or '').strip()
+    region_clean = str(region or '').strip()
+    if city_clean and district_clean and district_clean.lower() not in city_clean.lower():
+        return f"{city_clean} ({district_clean})"
+    if city_clean and region_clean and region_clean.lower() not in city_clean.lower():
+        return f"{city_clean}, {region_clean}"
+    if city_clean:
+        return city_clean
+    if district_clean:
+        return district_clean
+    if region_clean:
+        return region_clean
+    return "Casablanca"
+
+
+def _provider_ipwho(ip_address: str):
+    response = requests.get(f'https://ipwho.is/{ip_address}', timeout=3)
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    if not data.get('success'):
+        return None
+    city = str(data.get('city') or '').strip()
+    region = str(data.get('region') or '').strip()
+    country = str(data.get('country') or 'Maroc').strip()
+    country_code = str(data.get('country_code') or 'MA').strip()
+    district = str(data.get('district') or '').strip()
+    return {
+        'city': _normalize_city(city, district, region),
+        'exact_city': city or _normalize_city(city, district, region),
+        'region': region,
+        'country': country,
+        'countryCode': country_code,
+        'latitude': data.get('latitude'),
+        'longitude': data.get('longitude'),
+        'timezone': str(data.get('timezone', {}).get('id') or ''),
+        'source': 'ipwho.is',
+    }
+
+
+def _provider_ipapi(ip_address: str):
+    response = requests.get(f'https://ipapi.co/{ip_address}/json/', timeout=3)
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    if data.get('error'):
+        return None
+    city = str(data.get('city') or '').strip()
+    region = str(data.get('region') or '').strip()
+    country = str(data.get('country_name') or 'Maroc').strip()
+    country_code = str(data.get('country_code') or 'MA').strip()
+    return {
+        'city': _normalize_city(city, '', region),
+        'exact_city': city or _normalize_city(city, '', region),
+        'region': region,
+        'country': country,
+        'countryCode': country_code,
+        'latitude': data.get('latitude'),
+        'longitude': data.get('longitude'),
+        'timezone': str(data.get('timezone') or ''),
+        'source': 'ipapi.co',
+    }
+
+
+def _provider_ip_api(ip_address: str):
+    response = requests.get(
+        f'http://ip-api.com/json/{ip_address}?fields=status,country,countryCode,regionName,city,district,lat,lon,timezone',
+        timeout=3,
+    )
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    if data.get('status') != 'success':
+        return None
+    city = str(data.get('city') or '').strip()
+    region = str(data.get('regionName') or '').strip()
+    district = str(data.get('district') or '').strip()
+    return {
+        'city': _normalize_city(city, district, region),
+        'exact_city': city or _normalize_city(city, district, region),
+        'region': region,
+        'country': str(data.get('country') or 'Maroc').strip(),
+        'countryCode': str(data.get('countryCode') or 'MA').strip(),
+        'latitude': data.get('lat'),
+        'longitude': data.get('lon'),
+        'timezone': str(data.get('timezone') or ''),
+        'source': 'ip-api.com',
+    }
 
 def get_location_from_ip(ip_address):
-    """Get location from IP address using ip-api.com"""
+    """Get location from IP with multi-provider fallback and caching."""
     # Default fallback
-    default_location = {'city': 'Casablanca', 'country': 'Maroc', 'countryCode': 'MA'}
+    default_location = {
+        'city': 'Casablanca',
+        'exact_city': 'Casablanca',
+        'region': 'Casablanca-Settat',
+        'country': 'Maroc',
+        'countryCode': 'MA',
+        'latitude': None,
+        'longitude': None,
+        'timezone': 'Africa/Casablanca',
+        'source': 'fallback',
+    }
     
     # Localhost check
     if ip_address in ['127.0.0.1', 'localhost', '::1']:
         return default_location
-    
-    try:
-        # Use ip-api.com (free, reliable, no SSL for free plan)
-        # Using http because the free tier doesn't support https
-        response = requests.get(f'http://ip-api.com/json/{ip_address}', timeout=3)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('status') == 'success':
-                return {
-                    'city': data.get('city', 'Casablanca'),
-                    'country': data.get('country', 'Maroc'),
-                    'countryCode': data.get('countryCode', 'MA')
-                }
-    except Exception as e:
-        print(f"Location detection error: {e}")
-        pass
-    
-    # Fallback to ipapi.co if the first one fails
-    try:
-        response = requests.get(f'https://ipapi.co/{ip_address}/json/', timeout=3, verify=False)
-        if response.status_code == 200:
-            data = response.json()
-            if not data.get('error'):
-                return {
-                    'city': data.get('city', 'Casablanca'),
-                    'country': data.get('country_name', 'Maroc'),
-                    'countryCode': data.get('country_code', 'MA')
-                }
-    except Exception as e:
-        print(f"Fallback location detection error: {e}")
-        pass
-    
+
+    cache_key = f'geoip:{ip_address}'
+    cached = cache.get(cache_key)
+    if isinstance(cached, dict):
+        return cached
+
+    providers = (_provider_ipwho, _provider_ipapi, _provider_ip_api)
+    for provider in providers:
+        try:
+            resolved = provider(ip_address)
+            if resolved:
+                cache.set(cache_key, resolved, timeout=int(getattr(settings, 'PROLEAN_GEOIP_CACHE_SECONDS', 21600)))
+                return resolved
+        except Exception:
+            continue
+
+    cache.set(cache_key, default_location, timeout=300)
     return default_location
 
 def currency_rates(request):
