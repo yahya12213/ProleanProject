@@ -213,6 +213,10 @@ LANGUAGES = [
     ('en', _('English')),
     ('ar', _('Arabic')),
 ]
+
+# Messages
+# Use cookie storage so UI feedback does not depend on DB-backed sessions.
+MESSAGE_STORAGE = "django.contrib.messages.storage.cookie.CookieStorage"
 LOCALE_PATHS = [BASE_DIR / 'locale']
 
 TIME_ZONE = 'Africa/Casablanca'

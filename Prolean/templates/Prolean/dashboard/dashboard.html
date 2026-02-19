@@ -1,4 +1,4 @@
-﻿{% extends 'Prolean/dashboard/base_student.html' %}
+{% extends 'Prolean/dashboard/base_student.html' %}
 {% load static price_filters custom_filters i18n %}
 {% get_current_language as CURRENT_LANGUAGE %}
 
@@ -17,50 +17,224 @@
 
 {% block student_content %}
 <style>
-    .stu-grid { display:grid; gap:18px; }
-    .hero-shell {
-        border:1px solid var(--stu-border);
-        border-radius:24px;
-        padding:20px;
+    .stu-shell { display: grid; gap: 18px; }
+
+    .stu-hero {
+        border: 1px solid var(--stu-border);
+        border-radius: 26px;
+        padding: 18px;
         background:
-            radial-gradient(1200px 320px at -10% -40%, rgba(255,107,0,.22), transparent 42%),
-            radial-gradient(900px 240px at 120% -40%, rgba(14,165,233,.22), transparent 38%),
-            linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+            radial-gradient(1000px 280px at -10% -40%, rgba(255,107,0,.25), transparent 44%),
+            radial-gradient(900px 240px at 110% -30%, rgba(14,165,233,.22), transparent 42%),
+            linear-gradient(135deg, rgba(255,255,255,.8), rgba(255,255,255,.55));
+        backdrop-filter: blur(10px);
     }
-    .dark .hero-shell {
+    .dark .stu-hero {
         background:
-            radial-gradient(1200px 320px at -10% -40%, rgba(255,107,0,.22), transparent 42%),
-            radial-gradient(900px 240px at 120% -40%, rgba(14,165,233,.22), transparent 38%),
-            linear-gradient(135deg, #101827 0%, #0b1220 100%);
+            radial-gradient(1000px 280px at -10% -40%, rgba(255,107,0,.25), transparent 44%),
+            radial-gradient(900px 240px at 110% -30%, rgba(14,165,233,.22), transparent 42%),
+            linear-gradient(135deg, rgba(15,23,42,.72), rgba(2,6,23,.45));
     }
-    .kpi-row { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; }
-    .kpi-box { border:1px solid var(--stu-border); border-radius:14px; padding:10px; background:var(--stu-bg); }
-    .kpi-l { font-size:10px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--stu-text-muted); }
-    .kpi-v { font-size:22px; font-weight:900; color:var(--stu-text-main); }
 
-    .main-grid { display:grid; grid-template-columns: 1.6fr 1fr; gap:18px; }
-    .panelx { border:1px solid var(--stu-border); border-radius:20px; background:var(--stu-bg); padding:16px; }
-    .live-tile { border:1px solid #fecaca; background:linear-gradient(135deg,#fff1f2,#fff); border-radius:14px; padding:12px; }
-    .dark .live-tile { background:linear-gradient(135deg, rgba(127,29,29,.35), rgba(15,23,42,.35)); border-color: rgba(248,113,113,.35); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+    .kpi-card {
+        border: 1px solid var(--stu-border);
+        border-radius: 18px;
+        padding: 12px;
+        background: var(--stu-bg);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        transition: transform .18s ease, border-color .18s ease;
+    }
+    .kpi-card:hover { transform: translateY(-2px); border-color: rgba(255,107,0,.55); }
+    .kpi-ico {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        flex: 0 0 auto;
+    }
+    .kpi-ico.orange { background: linear-gradient(135deg, #ff6b00, #fb7185); }
+    .kpi-ico.blue { background: linear-gradient(135deg, #0ea5e9, #22c55e); }
+    .kpi-ico.violet { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+    .kpi-ico.slate { background: linear-gradient(135deg, #0f172a, #334155); }
+    .kpi-l { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--stu-text-muted); }
+    .kpi-v { font-size: 20px; font-weight: 900; color: var(--stu-text-main); line-height: 1.1; }
+    .kpi-s { font-size: 12px; font-weight: 700; color: var(--stu-text-muted); }
 
-    .training-grid { display:grid; gap:12px; grid-template-columns: repeat(3, minmax(0,1fr)); }
-    .training-card { border:1px solid var(--stu-border); border-radius:16px; overflow:hidden; background:var(--stu-bg); display:flex; flex-direction:column; }
-    .training-head { height:120px; background:linear-gradient(135deg,#ff6b00,#0ea5e9); display:flex; align-items:center; justify-content:center; color:#fff; }
+    .stu-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; }
+    .panel {
+        border: 1px solid var(--stu-border);
+        border-radius: 22px;
+        background: var(--stu-bg);
+        padding: 16px;
+    }
+    .panel-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .panel-title h3 { font-size: 14px; font-weight: 900; color: var(--stu-text-main); }
+    .pill {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: var(--stu-surface-hover);
+        color: var(--stu-text-muted);
+        border: 1px solid var(--stu-border);
+        white-space: nowrap;
+    }
+    .pill.live { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.25); color: #dc2626; }
+    .dark .pill.live { color: #fca5a5; }
 
-    .msg-item { border-top:1px solid var(--stu-border); padding:12px 2px; }
+    .quick-actions { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+    .qa {
+        border: 1px solid var(--stu-border);
+        border-radius: 18px;
+        padding: 12px;
+        background: var(--stu-surface);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        transition: transform .18s ease, border-color .18s ease;
+    }
+    .qa:hover { transform: translateY(-2px); border-color: rgba(14,165,233,.55); }
+    .qa .material-symbols-outlined { font-size: 22px; }
+    .qa b { display: block; font-size: 12px; font-weight: 900; color: var(--stu-text-main); }
+    .qa span { display: block; font-size: 11px; font-weight: 700; color: var(--stu-text-muted); }
+
+    .live-list { display: grid; gap: 10px; }
+    .live-card {
+        border: 1px solid rgba(248,113,113,.35);
+        background: linear-gradient(135deg, rgba(254,242,242,.85), rgba(255,255,255,.75));
+        border-radius: 18px;
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .dark .live-card {
+        background: linear-gradient(135deg, rgba(127,29,29,.22), rgba(15,23,42,.55));
+        border-color: rgba(248,113,113,.25);
+    }
+    .live-meta p { margin: 0; }
+    .live-name { font-size: 13px; font-weight: 900; color: var(--stu-text-main); }
+    .live-sub { font-size: 11px; font-weight: 700; color: var(--stu-text-muted); }
+    .btn-join {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #ef4444, #ff6b00);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .train-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .train-card {
+        border: 1px solid var(--stu-border);
+        border-radius: 20px;
+        overflow: hidden;
+        background: var(--stu-bg);
+        display: flex;
+        flex-direction: column;
+        transition: transform .18s ease, border-color .18s ease;
+    }
+    .train-card:hover { transform: translateY(-2px); border-color: rgba(255,107,0,.55); }
+    .train-top {
+        height: 130px;
+        background:
+            radial-gradient(700px 180px at 15% 0%, rgba(255,255,255,.45), transparent 55%),
+            linear-gradient(135deg, var(--stu-brand) 0%, var(--stu-brand-2) 60%, #22c55e 100%);
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 14px;
+        color: #fff;
+    }
+    .train-top .material-symbols-outlined { font-size: 30px; }
+    .tag {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(0,0,0,.25);
+        border: 1px solid rgba(255,255,255,.25);
+    }
+    .train-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; }
+    .train-body h4 { font-size: 13px; font-weight: 900; color: var(--stu-text-main); }
+    .train-body p { font-size: 11px; font-weight: 700; color: var(--stu-text-muted); margin: 0; }
+    .train-cta {
+        margin-top: auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #0ea5e9, #22c55e);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .msg-list { display: grid; gap: 10px; }
+    .msg {
+        border: 1px solid var(--stu-border);
+        border-radius: 18px;
+        padding: 12px;
+        background: var(--stu-surface);
+        display: grid;
+        grid-template-columns: 44px minmax(0,1fr);
+        gap: 10px;
+        align-items: start;
+    }
+    .msg .ico {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, rgba(255,107,0,.18), rgba(14,165,233,.18));
+        border: 1px solid rgba(148,163,184,.25);
+        color: var(--stu-text-main);
+    }
+    .msg h5 { font-size: 12px; font-weight: 900; color: var(--stu-text-main); margin: 0 0 2px; }
+    .msg p { font-size: 11px; font-weight: 700; color: var(--stu-text-muted); margin: 0; }
+    .msg small { display: block; margin-top: 6px; font-size: 10px; font-weight: 800; color: var(--stu-text-muted); }
 
     @media (max-width: 1180px) {
-        .kpi-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
-        .main-grid { grid-template-columns: 1fr; }
-        .training-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .stu-grid { grid-template-columns: 1fr; }
+        .train-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .quick-actions { grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
-    @media (max-width: 760px) {
-        .training-grid { grid-template-columns: 1fr; }
+    @media (max-width: 720px) {
+        .train-grid { grid-template-columns: 1fr; }
     }
 </style>
 
-{% if is_guest %}
-<div class="panelx text-center py-14">
+{% if not user.is_authenticated %}
+<div class="panel text-center py-14">
     <h3 class="text-2xl font-black mb-2" style="color:var(--stu-text-main);">{% if CURRENT_LANGUAGE == 'ar' %}الوصول مقيّد{% elif CURRENT_LANGUAGE == 'en' %}Restricted Access{% else %}Accès restreint{% endif %}</h3>
     <p class="text-sm font-semibold mb-6" style="color:var(--stu-text-muted);">{% if CURRENT_LANGUAGE == 'ar' %}سجّل الدخول للوصول إلى مساحتك.{% elif CURRENT_LANGUAGE == 'en' %}Sign in to access your dashboard.{% else %}Connectez-vous pour accéder à votre espace.{% endif %}</p>
     <div class="flex flex-wrap justify-center gap-3">
@@ -70,105 +244,250 @@
 </div>
 {% elif profile.status == 'ACTIVE' %}
 
-<div class="stu-grid">
-    <section class="hero-shell">
+<div class="stu-shell">
+    <section class="stu-hero">
         <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
             <div>
-                <p class="text-[10px] font-black uppercase tracking-[.2em]" style="color:var(--stu-text-muted);">Learning Cockpit</p>
-                <h2 class="text-2xl font-black" style="color:var(--stu-text-main);">{% if CURRENT_LANGUAGE == 'ar' %}نظرة فورية على دراستك{% elif CURRENT_LANGUAGE == 'en' %}Your Learning Overview{% else %}Vue instantanée de votre parcours{% endif %}</h2>
+                <p class="kpi-l mb-1">{% if CURRENT_LANGUAGE == 'ar' %}لوحة القيادة{% elif CURRENT_LANGUAGE == 'en' %}Cockpit{% else %}Cockpit{% endif %}</p>
+                <h3 class="text-xl font-black" style="color:var(--stu-text-main);">
+                    {% if CURRENT_LANGUAGE == 'ar' %}أكمل يومك بذكاء{% elif CURRENT_LANGUAGE == 'en' %}Make today count{% else %}Faites avancer votre journée{% endif %}
+                </h3>
             </div>
-            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700">{{ profile.get_status_display }}</span>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'Prolean:student_schedule' %}" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-wider dark:bg-slate-200 dark:text-slate-900 inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base">calendar_month</span>
+                    {% if CURRENT_LANGUAGE == 'ar' %}الجدول{% elif CURRENT_LANGUAGE == 'en' %}Schedule{% else %}Planning{% endif %}
+                </a>
+                <a href="{% url 'Prolean:student_profile' %}" class="px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-wider inline-flex items-center gap-2" style="border-color:var(--stu-border);color:var(--stu-text-main);">
+                    <span class="material-symbols-outlined text-base">person</span>
+                    {% if CURRENT_LANGUAGE == 'ar' %}الملف{% elif CURRENT_LANGUAGE == 'en' %}Profile{% else %}Profil{% endif %}
+                </a>
+            </div>
         </div>
-        <div class="kpi-row">
-            <div class="kpi-box"><p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}المدفوع{% elif CURRENT_LANGUAGE == 'en' %}Paid{% else %}Payé{% endif %}</p><p class="kpi-v" data-price-mad="{{ amount_paid|default:0 }}">{{ amount_paid|convert_price:request|format_currency:request.session.preferred_currency }}</p></div>
-            <div class="kpi-box"><p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}المتبقي{% elif CURRENT_LANGUAGE == 'en' %}Remaining{% else %}Restant{% endif %}</p><p class="kpi-v" data-price-mad="{{ amount_remaining|default:0 }}">{{ amount_remaining|convert_price:request|format_currency:request.session.preferred_currency }}</p></div>
-            <div class="kpi-box"><p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}التقدم{% elif CURRENT_LANGUAGE == 'en' %}Progress{% else %}Progression{% endif %}</p><p class="kpi-v">{{ watch_percentage }}%</p></div>
-            <div class="kpi-box"><p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}التكوينات{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</p><p class="kpi-v">{% if external_authority_mode and external_formations %}{{ external_formations|length }}{% else %}{{ my_formations.count }}{% endif %}</p></div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-ico orange"><span class="material-symbols-outlined">school</span></div>
+                <div class="min-w-0">
+                    <p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}التكوينات{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</p>
+                    <p class="kpi-v">{% if external_authority_mode and external_formations %}{{ external_formations|length }}{% else %}{{ active_count|default:0 }}{% endif %}</p>
+                    <p class="kpi-s">{% if CURRENT_LANGUAGE == 'ar' %}مفعّلة في حسابك{% elif CURRENT_LANGUAGE == 'en' %}Enabled for you{% else %}Actives pour vous{% endif %}</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-ico blue"><span class="material-symbols-outlined">monitoring</span></div>
+                <div class="min-w-0">
+                    <p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}التقدّم{% elif CURRENT_LANGUAGE == 'en' %}Progress{% else %}Progression{% endif %}</p>
+                    <p class="kpi-v">{{ watch_percentage|default:0 }}%</p>
+                    <p class="kpi-s">{% if CURRENT_LANGUAGE == 'ar' %}مشاهدة الدروس{% elif CURRENT_LANGUAGE == 'en' %}Video completion{% else %}Vidéos terminées{% endif %}</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-ico violet"><span class="material-symbols-outlined">payments</span></div>
+                <div class="min-w-0">
+                    <p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}الرسوم{% elif CURRENT_LANGUAGE == 'en' %}Fees{% else %}Frais{% endif %}</p>
+                    <p class="kpi-v">{{ amount_remaining|default:0 }}</p>
+                    <p class="kpi-s">{% if CURRENT_LANGUAGE == 'ar' %}متبقي للدفع{% elif CURRENT_LANGUAGE == 'en' %}Remaining due{% else %}Reste à payer{% endif %}</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-ico slate"><span class="material-symbols-outlined">notifications</span></div>
+                <div class="min-w-0">
+                    <p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}الإشعارات{% elif CURRENT_LANGUAGE == 'en' %}Inbox{% else %}Boîte{% endif %}</p>
+                    <p class="kpi-v">{{ notifications|length|default:0 }}</p>
+                    <p class="kpi-s">{% if CURRENT_LANGUAGE == 'ar' %}غير مقروءة{% elif CURRENT_LANGUAGE == 'en' %}Unread{% else %}Non lues{% endif %}</p>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section class="main-grid">
-        <div class="panelx space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-black" style="color:var(--stu-text-main);">{% if CURRENT_LANGUAGE == 'ar' %}البث المباشر والجلسات{% elif CURRENT_LANGUAGE == 'en' %}Live & Sessions{% else %}Live & Sessions{% endif %}</h3>
-                {% if next_seance %}<span class="text-xs font-bold" style="color:var(--stu-text-muted);">{{ next_seance.date|date:'d M' }} · {{ next_seance.time|time:'H:i' }}</span>{% endif %}
+    <section class="panel">
+        <div class="panel-title">
+            <h3 class="inline-flex items-center gap-2">
+                <span class="material-symbols-outlined">bolt</span>
+                {% if CURRENT_LANGUAGE == 'ar' %}إجراءات سريعة{% elif CURRENT_LANGUAGE == 'en' %}Quick Actions{% else %}Actions rapides{% endif %}
+            </h3>
+            <span class="pill">{% if CURRENT_LANGUAGE == 'ar' %}اختصارات{% elif CURRENT_LANGUAGE == 'en' %}Shortcuts{% else %}Raccourcis{% endif %}</span>
+        </div>
+        <div class="quick-actions">
+            <a class="qa" href="{% url 'Prolean:student_schedule' %}">
+                <span class="material-symbols-outlined">calendar_month</span>
+                <div class="min-w-0">
+                    <b>{% if CURRENT_LANGUAGE == 'ar' %}الجدول{% elif CURRENT_LANGUAGE == 'en' %}Schedule{% else %}Planning{% endif %}</b>
+                    <span>{% if next_seance %}{{ next_seance.date }}{% else %}{% if CURRENT_LANGUAGE == 'ar' %}لا يوجد موعد{% elif CURRENT_LANGUAGE == 'en' %}No upcoming{% else %}Aucun à venir{% endif %}{% endif %}</span>
+                </div>
+            </a>
+            <a class="qa" href="{% url 'Prolean:student_profile' %}">
+                <span class="material-symbols-outlined">badge</span>
+                <div class="min-w-0">
+                    <b>{% if CURRENT_LANGUAGE == 'ar' %}الملف{% elif CURRENT_LANGUAGE == 'en' %}Profile{% else %}Profil{% endif %}</b>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}تحديث بياناتك{% elif CURRENT_LANGUAGE == 'en' %}Update details{% else %}Mettre à jour{% endif %}</span>
+                </div>
+            </a>
+            <a class="qa" href="#formations">
+                <span class="material-symbols-outlined">play_circle</span>
+                <div class="min-w-0">
+                    <b>{% if CURRENT_LANGUAGE == 'ar' %}الدروس{% elif CURRENT_LANGUAGE == 'en' %}Lessons{% else %}Cours{% endif %}</b>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}تابع التعلّم{% elif CURRENT_LANGUAGE == 'en' %}Continue learning{% else %}Continuer{% endif %}</span>
+                </div>
+            </a>
+            <a class="qa" href="https://wa.me/212779259942" target="_blank" rel="noreferrer">
+                <span class="material-symbols-outlined">support_agent</span>
+                <div class="min-w-0">
+                    <b>WhatsApp</b>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}الدعم السريع{% elif CURRENT_LANGUAGE == 'en' %}Quick support{% else %}Support rapide{% endif %}</span>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <section class="stu-grid">
+        <div class="panel">
+            <div class="panel-title">
+                <h3 class="inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined">live_tv</span>
+                    {% if CURRENT_LANGUAGE == 'ar' %}مباشر الآن{% elif CURRENT_LANGUAGE == 'en' %}Live Now{% else %}Live maintenant{% endif %}
+                </h3>
+                {% if external_active_live_sessions %}
+                <span class="pill live">{% if CURRENT_LANGUAGE == 'ar' %}نشط{% elif CURRENT_LANGUAGE == 'en' %}Active{% else %}Actif{% endif %}</span>
+                {% else %}
+                <span class="pill">{% if CURRENT_LANGUAGE == 'ar' %}غير متوفر{% elif CURRENT_LANGUAGE == 'en' %}Offline{% else %}Hors ligne{% endif %}</span>
+                {% endif %}
             </div>
 
-            {% if external_active_live_sessions %}
-                {% for live_row in external_active_live_sessions %}
-                <div class="live-tile flex items-center justify-between gap-3">
-                    <div>
-                        <p class="text-sm font-black" style="color:var(--stu-text-main);">{{ live_row.session_name }}</p>
-                        <p class="text-xs font-semibold" style="color:var(--stu-text-muted);">{{ live_row.professor_name }} · {{ live_row.ville }}</p>
-                    </div>
-                    <a href="{% url 'Prolean:external_live_room' live_row.session_id %}" class="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest">Join</a>
-                </div>
-                {% endfor %}
-            {% elif active_streams %}
-                <div class="live-tile flex items-center justify-between gap-3">
-                    <div>
-                        <p class="text-sm font-black" style="color:var(--stu-text-main);">{{ active_streams.0.session.formations.all.0.title }}</p>
-                        <p class="text-xs font-semibold" style="color:var(--stu-text-muted);">{{ active_streams.0.session.professor.profile.full_name }}</p>
-                    </div>
-                    <a href="{% url 'Prolean:live_session' active_streams.0.id %}" class="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest">Join</a>
-                </div>
-            {% else %}
-                <div class="kpi-box"><p class="text-sm font-bold" style="color:var(--stu-text-muted);">{% if CURRENT_LANGUAGE == 'ar' %}لا يوجد بث مباشر حالياً.{% elif CURRENT_LANGUAGE == 'en' %}No active live stream right now.{% else %}Aucun live actif pour le moment.{% endif %}</p></div>
+            {% if external_pending_assignment %}
+            <div class="panel" style="background:var(--stu-surface);">
+                <p class="text-sm font-bold" style="color:var(--stu-text-muted);">
+                    {% if CURRENT_LANGUAGE == 'ar' %}لم يتم ربط حسابك بعد بتكوين. تواصل مع الإدارة.{% elif CURRENT_LANGUAGE == 'en' %}No assignment yet. Contact administration.{% else %}Aucune affectation. Contactez l'administration.{% endif %}
+                </p>
+            </div>
             {% endif %}
 
-            <div class="kpi-box">
-                <p class="text-xs font-black uppercase tracking-[.14em] mb-2" style="color:var(--stu-text-muted);">{% if CURRENT_LANGUAGE == 'ar' %}الجلسة القادمة{% elif CURRENT_LANGUAGE == 'en' %}Next Session{% else %}Prochaine séance{% endif %}</p>
-                <p class="text-sm font-black" style="color:var(--stu-text-main);">{% if next_seance %}{{ next_seance.title }}{% else %}{% if CURRENT_LANGUAGE == 'ar' %}لا توجد جلسة مجدولة{% elif CURRENT_LANGUAGE == 'en' %}No session planned{% else %}Aucune séance planifiée{% endif %}{% endif %}</p>
-                <a href="{% url 'Prolean:student_schedule' %}" class="inline-flex mt-3 px-4 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-widest">{% if CURRENT_LANGUAGE == 'ar' %}الجدول{% elif CURRENT_LANGUAGE == 'en' %}Schedule{% else %}Agenda{% endif %}</a>
+            {% if external_active_live_sessions %}
+            <div class="live-list">
+                {% for live_row in external_active_live_sessions %}
+                <div class="live-card">
+                    <div class="live-meta min-w-0">
+                        <p class="live-name">{{ live_row.session_name }}</p>
+                        <p class="live-sub">{{ live_row.professor_name }} · {{ live_row.ville }}</p>
+                    </div>
+                    <a class="btn-join" href="{% url 'Prolean:external_live_room' live_row.session_id %}">
+                        <span class="material-symbols-outlined text-base">call</span>
+                        {% if CURRENT_LANGUAGE == 'ar' %}انضم{% elif CURRENT_LANGUAGE == 'en' %}Join{% else %}Rejoindre{% endif %}
+                    </a>
+                </div>
+                {% endfor %}
             </div>
+            {% else %}
+            <p class="text-sm font-semibold" style="color:var(--stu-text-muted);">
+                {% if CURRENT_LANGUAGE == 'ar' %}لا يوجد بث مباشر حالياً.{% elif CURRENT_LANGUAGE == 'en' %}No live sessions right now.{% else %}Aucun live pour le moment.{% endif %}
+            </p>
+            {% endif %}
+
+            {% if next_seance %}
+            <div class="mt-4 p-3 rounded-2xl border" style="border-color:var(--stu-border); background: var(--stu-surface);">
+                <p class="kpi-l mb-1">{% if CURRENT_LANGUAGE == 'ar' %}الحصة القادمة{% elif CURRENT_LANGUAGE == 'en' %}Next class{% else %}Prochaine séance{% endif %}</p>
+                <p class="text-sm font-black" style="color:var(--stu-text-main);">{{ next_seance.title|default:'Seance' }}</p>
+                <p class="text-xs font-bold" style="color:var(--stu-text-muted);">{{ next_seance.date }} · {{ next_seance.time }}</p>
+            </div>
+            {% endif %}
         </div>
 
-        <div class="panelx">
-            <h3 class="text-lg font-black mb-2" style="color:var(--stu-text-main);">{% if CURRENT_LANGUAGE == 'ar' %}الرسائل{% elif CURRENT_LANGUAGE == 'en' %}Announcements{% else %}Messages{% endif %}</h3>
-            {% for note in notifications|slice:':5' %}
-            <div class="msg-item {% if forloop.first %}border-0 pt-0{% endif %}">
-                <p class="text-sm font-black" style="color:var(--stu-text-main);">{{ note.title }}</p>
-                <p class="text-xs" style="color:var(--stu-text-muted);">{{ note.message|truncatechars:130 }}</p>
+        <div class="panel">
+            <div class="panel-title">
+                <h3 class="inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined">campaign</span>
+                    {% if CURRENT_LANGUAGE == 'ar' %}إعلانات{% elif CURRENT_LANGUAGE == 'en' %}Announcements{% else %}Annonces{% endif %}
+                </h3>
+                <span class="pill">{{ notifications|length|default:0 }}</span>
             </div>
-            {% empty %}
-            <p class="text-sm font-bold" style="color:var(--stu-text-muted);">{% if CURRENT_LANGUAGE == 'ar' %}لا توجد رسائل جديدة.{% elif CURRENT_LANGUAGE == 'en' %}No recent messages.{% else %}Aucun message récent.{% endif %}</p>
-            {% endfor %}
+            <div class="msg-list">
+                {% for note in notifications %}
+                <div class="msg">
+                    <div class="ico"><span class="material-symbols-outlined">mail</span></div>
+                    <div class="min-w-0">
+                        <h5>{{ note.title|default:"Update" }}</h5>
+                        <p>{{ note.message|truncatechars:160 }}</p>
+                        <small>{{ note.created_at|date:"Y-m-d H:i" }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="msg">
+                    <div class="ico"><span class="material-symbols-outlined">inbox</span></div>
+                    <div class="min-w-0">
+                        <h5>{% if CURRENT_LANGUAGE == 'ar' %}لا توجد رسائل{% elif CURRENT_LANGUAGE == 'en' %}No messages{% else %}Aucun message{% endif %}</h5>
+                        <p>{% if CURRENT_LANGUAGE == 'ar' %}ستظهر الإعلانات هنا عند توفرها.{% elif CURRENT_LANGUAGE == 'en' %}Announcements will appear here.{% else %}Les annonces apparaîtront ici.{% endif %}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </section>
 
-    <section class="panelx">
-        <div class="flex items-center justify-between mb-3">
-            <h3 id="formations" class="text-lg font-black" style="color:var(--stu-text-main);">{% if CURRENT_LANGUAGE == 'ar' %}التكوينات{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</h3>
-            <span class="text-xs font-black px-3 py-1 rounded-full" style="background:var(--stu-surface-hover);color:var(--stu-text-muted);">{% if external_authority_mode and external_formations %}{{ external_formations|length }}{% else %}{{ my_formations.count }}{% endif %}</span>
+    <section class="panel" id="formations">
+        <div class="panel-title">
+            <h3 class="inline-flex items-center gap-2">
+                <span class="material-symbols-outlined">auto_stories</span>
+                {% if CURRENT_LANGUAGE == 'ar' %}التكوينات{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}
+            </h3>
+            <span class="pill">
+                {% if external_authority_mode and external_formations %}{{ external_formations|length }}{% else %}{{ my_formations.count }}{% endif %}
+            </span>
         </div>
-        <div class="training-grid">
+
+        <div class="train-grid">
             {% if external_authority_mode and external_formations %}
                 {% for row in external_formations %}
-                <article class="training-card">
-                    <div class="training-head"><span class="material-symbols-outlined text-5xl">school</span></div>
-                    <div class="p-4 flex-1 flex flex-col gap-2">
-                        <h4 class="text-sm font-black" style="color:var(--stu-text-main);">{{ row.formation_name|default:'Training' }}</h4>
-                        <p class="text-xs" style="color:var(--stu-text-muted);">{{ row.session_name|default:'Session' }} · {{ row.ville|default:'-' }}</p>
-                        <p class="text-xs font-bold" style="color:var(--stu-text-muted);">{{ row.professor_name|default:'-' }}</p>
+                {% with sid=row.session_id|stringformat:"s" %}
+                {% with st=external_live_states|get_item:sid %}
+                <article class="train-card">
+                    <div class="train-top">
+                        <span class="tag">{% if row.session_type %}{{ row.session_type }}{% else %}Session{% endif %}</span>
+                        <span class="material-symbols-outlined">school</span>
+                    </div>
+                    <div class="train-body">
+                        <h4>{{ row.formation_name|default:'Training' }}</h4>
+                        <p>{{ row.session_name|default:'Session' }} · {{ row.ville|default:'-' }}</p>
+                        <p>{{ row.professor_name|default:'-' }}</p>
+                        {% if st and st.status == 'live' %}
+                        <a class="train-cta" href="{% url 'Prolean:external_live_room' row.session_id %}">
+                            <span class="material-symbols-outlined text-base">live_tv</span>
+                            {% if CURRENT_LANGUAGE == 'ar' %}انضم للبث{% elif CURRENT_LANGUAGE == 'en' %}Join live{% else %}Rejoindre{% endif %}
+                        </a>
+                        {% endif %}
                     </div>
                 </article>
+                {% endwith %}
+                {% endwith %}
                 {% empty %}
-                <div class="kpi-box" style="grid-column:1/-1;"><p class="text-sm font-bold" style="color:var(--stu-text-muted);">No assignments yet.</p></div>
+                <div class="panel" style="grid-column:1/-1;">
+                    <p class="text-sm font-bold" style="color:var(--stu-text-muted);">
+                        {% if CURRENT_LANGUAGE == 'ar' %}لا توجد تكوينات بعد.{% elif CURRENT_LANGUAGE == 'en' %}No assignments yet.{% else %}Aucune affectation.{% endif %}
+                    </p>
+                </div>
                 {% endfor %}
             {% else %}
                 {% for training in my_formations %}
-                <article class="training-card">
-                    <div class="training-head">
-                        {% if training.thumbnail %}<img src="{{ training.thumbnail }}" alt="{{ training.title }}" class="w-full h-full object-cover">{% else %}<span class="material-symbols-outlined text-5xl">school</span>{% endif %}
+                <article class="train-card">
+                    <div class="train-top">
+                        <span class="tag">{% if CURRENT_LANGUAGE == 'ar' %}دورة{% elif CURRENT_LANGUAGE == 'en' %}Course{% else %}Cours{% endif %}</span>
+                        <span class="material-symbols-outlined">play_circle</span>
                     </div>
-                    <div class="p-4 flex-1 flex flex-col gap-2">
-                        <h4 class="text-sm font-black" style="color:var(--stu-text-main);">{{ training.title }}</h4>
-                        <p class="text-xs" style="color:var(--stu-text-muted);">{{ training.short_description|truncatechars:90 }}</p>
-                        <a href="{% url 'Prolean:recorded_videos_list' training.slug %}" class="mt-auto inline-flex items-center justify-center px-3 py-2 rounded-xl bg-brand text-white text-xs font-black uppercase tracking-widest">{% if CURRENT_LANGUAGE == 'ar' %}متابعة{% elif CURRENT_LANGUAGE == 'en' %}Continue{% else %}Continuer{% endif %}</a>
+                    <div class="train-body">
+                        <h4>{{ training.title }}</h4>
+                        <p>{{ training.short_description|truncatechars:120 }}</p>
+                        <a class="train-cta" href="{% url 'Prolean:recorded_videos_list' training.slug %}">
+                            <span class="material-symbols-outlined text-base">play_arrow</span>
+                            {% if CURRENT_LANGUAGE == 'ar' %}متابعة{% elif CURRENT_LANGUAGE == 'en' %}Continue{% else %}Continuer{% endif %}
+                        </a>
                     </div>
                 </article>
                 {% empty %}
-                <div class="kpi-box" style="grid-column:1/-1;"><p class="text-sm font-bold" style="color:var(--stu-text-muted);">{% if CURRENT_LANGUAGE == 'ar' %}لا توجد تكوينات حالياً.{% elif CURRENT_LANGUAGE == 'en' %}No trainings yet.{% else %}Aucune formation pour le moment.{% endif %}</p></div>
+                <div class="panel" style="grid-column:1/-1;">
+                    <p class="text-sm font-bold" style="color:var(--stu-text-muted);">
+                        {% if CURRENT_LANGUAGE == 'ar' %}لا توجد تكوينات حالياً.{% elif CURRENT_LANGUAGE == 'en' %}No trainings yet.{% else %}Aucune formation pour le moment.{% endif %}
+                    </p>
+                </div>
                 {% endfor %}
             {% endif %}
         </div>
@@ -176,7 +495,7 @@
 </div>
 
 {% else %}
-<div class="panelx text-center py-14">
+<div class="panel text-center py-14">
     <h3 class="text-2xl font-black mb-2" style="color:var(--stu-text-main);">{% if CURRENT_LANGUAGE == 'ar' %}الحساب قيد التحقق{% elif CURRENT_LANGUAGE == 'en' %}Account Pending Validation{% else %}Compte en attente de validation{% endif %}</h3>
     <p class="text-sm font-semibold mb-6" style="color:var(--stu-text-muted);">{% if CURRENT_LANGUAGE == 'ar' %}سيتم تفعيل حسابك بعد مراجعة الفريق.{% elif CURRENT_LANGUAGE == 'en' %}Your account will be activated after team review.{% else %}Votre accès sera activé après validation de l'équipe.{% endif %}</p>
     <a href="https://wa.me/212779259942" class="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl font-bold">Support WhatsApp</a>
@@ -198,3 +517,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
+

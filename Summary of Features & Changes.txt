@@ -397,3 +397,25 @@ Recent Entries
 - Preserved existing backend actions/routes and data bindings for live controls, notifications, and training links.
 - Validation:
   - Django system check passed.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/i18n Feedback + Dashboard Redesign (Student/Professor)
+- What changed:
+  - Added explicit Prolean language switch endpoint (`/i18n/set/`) that sets session+cookie language and shows a success message.
+  - Updated header language switcher (desktop + mobile) to post to this endpoint for visible user feedback.
+  - Fully reworked student dashboard UI with a more colorful, icon-driven layout (KPIs, quick actions, live panel, announcements, trainings grid).
+  - Fully reworked professor dashboard UI (external mode + local mode) with a more colorful, icon-driven layout (hero, session list, live controls, students roster, broadcast).
+- Why:
+  - Users reported that switching language “did nothing” (no visible confirmation).
+  - Requirement: dashboards should be significantly more visual (icons + color) and easier to scan.
+- Validation:
+  - Django system check recommended (run locally/CI).
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/i18n Language Switcher Actually Persists
+- What changed:
+  - Fixed `AutoLanguageMiddleware` overriding the language cookie after `/i18n/set/` (middleware now respects the final language activated by the view).
+  - Stopped writing language preference into DB-backed sessions (cookie-only persistence).
+  - Switched Django messages to cookie storage so the “language updated” confirmation does not depend on DB sessions.
+- Why:
+  - Language appeared to “not work” because the response cookie was being overwritten back to `fr`.
+- Validation:
+  - Django test client: POST `/i18n/set/` sets `django_language=ar` and subsequent GET renders `lang="ar"` + `dir="rtl"`.

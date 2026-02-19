@@ -38,7 +38,7 @@
                 </button>
                 <div class="absolute right-0 top-full mt-1 hidden group-hover:block bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-xl p-2 min-w-[120px] z-50 
                             before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
-                    <form action="{% url 'set_language' %}" method="post">
+                    <form action="{% url 'Prolean:set_language_preference' %}" method="post">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         <input type="hidden" name="language" value="fr">
@@ -46,7 +46,7 @@
                             FR Français
                         </button>
                     </form>
-                    <form action="{% url 'set_language' %}" method="post">
+                    <form action="{% url 'Prolean:set_language_preference' %}" method="post">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         <input type="hidden" name="language" value="ar">
@@ -54,7 +54,7 @@
                             AR العربية
                         </button>
                     </form>
-                    <form action="{% url 'set_language' %}" method="post">
+                    <form action="{% url 'Prolean:set_language_preference' %}" method="post">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         <input type="hidden" name="language" value="en">
@@ -233,7 +233,7 @@
                             <span class="icon-arrow">â–¼</span>
                         </button>
                         <div id="mobile-language-menu" class="mobile-menu-dropdown-content">
-                            <form action="{% url 'set_language' %}" method="post">
+                            <form action="{% url 'Prolean:set_language_preference' %}" method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 <input type="hidden" name="language" value="fr">
@@ -241,7 +241,7 @@
                                     FR Français
                                 </button>
                             </form>
-                            <form action="{% url 'set_language' %}" method="post">
+                            <form action="{% url 'Prolean:set_language_preference' %}" method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 <input type="hidden" name="language" value="ar">
@@ -249,7 +249,7 @@
                                     AR العربية
                                 </button>
                             </form>
-                            <form action="{% url 'set_language' %}" method="post">
+                            <form action="{% url 'Prolean:set_language_preference' %}" method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 <input type="hidden" name="language" value="en">

@@ -1,4 +1,4 @@
-﻿{% extends 'Prolean/professor/base_professor.html' %}
+{% extends 'Prolean/professor/base_professor.html' %}
 {% load static i18n %}
 {% get_current_language as CURRENT_LANGUAGE %}
 
@@ -7,234 +7,551 @@
 
 {% block professor_content %}
 <style>
-    .dash-wrap { display: grid; gap: 20px; }
-    .hero-panel {
+    .p-wrap { display: grid; gap: 18px; }
+
+    .p-hero {
         border: 1px solid var(--prof-border);
-        border-radius: 24px;
-        padding: 22px;
+        border-radius: 26px;
+        padding: 18px;
         background:
-            radial-gradient(1200px 300px at -10% -40%, rgba(255,107,0,.25), transparent 40%),
-            radial-gradient(800px 250px at 120% -40%, rgba(6,182,212,.18), transparent 35%),
-            linear-gradient(135deg, #101726 0%, #1a2840 100%);
+            radial-gradient(1200px 320px at -10% -40%, rgba(255,107,0,.25), transparent 44%),
+            radial-gradient(900px 240px at 110% -30%, rgba(6,182,212,.20), transparent 42%),
+            linear-gradient(135deg, rgba(15,23,42,.92), rgba(2,6,23,.70));
         color: #f8fafc;
+        overflow: hidden;
+        position: relative;
     }
-    .hero-kpi { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
-    .hero-kpi > div {
+    .p-hero::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        background:
+            radial-gradient(500px 220px at 15% 0%, rgba(255,255,255,.18), transparent 60%),
+            radial-gradient(500px 220px at 85% 25%, rgba(255,255,255,.10), transparent 60%);
+        pointer-events: none;
+        mix-blend-mode: overlay;
+    }
+    .p-hero h2 { position: relative; z-index: 1; }
+
+    .p-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; position: relative; z-index: 1; }
+    .p-kpi {
         border: 1px solid rgba(148,163,184,.28);
         background: rgba(255,255,255,.08);
-        border-radius: 14px;
-        padding: 10px 12px;
+        border-radius: 18px;
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
     }
-    .hero-kpi p { margin: 0; }
-    .kpi-l { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #cbd5e1; }
-    .kpi-v { font-size: 20px; font-weight: 900; color: #fff; }
+    .p-kpi .ico {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(135deg, rgba(255,107,0,.95), rgba(6,182,212,.75));
+        border: 1px solid rgba(255,255,255,.18);
+        flex: 0 0 auto;
+    }
+    .p-kpi .l { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #cbd5e1; }
+    .p-kpi .v { font-size: 18px; font-weight: 900; color: #fff; line-height: 1.1; }
 
-    .studio-grid { display: grid; gap: 18px; grid-template-columns: 320px minmax(0, 1fr); }
-    .cardx {
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 4px 10px;
+        border: 1px solid rgba(148,163,184,.28);
+        background: rgba(255,255,255,.08);
+        color: #e2e8f0;
+        white-space: nowrap;
+        position: relative;
+        z-index: 1;
+    }
+    .pill.live { border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.14); color: #fecaca; }
+    .pill.paused { border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.14); color: #fde68a; }
+    .pill.off { border-color: rgba(148,163,184,.25); background: rgba(148,163,184,.10); color: #e2e8f0; }
+
+    .grid-2 { display: grid; grid-template-columns: 340px minmax(0,1fr); gap: 18px; }
+    .card {
         border: 1px solid var(--prof-border);
-        border-radius: 20px;
-        background: var(--prof-surface);
+        border-radius: 22px;
+        background: var(--prof-bg);
         padding: 16px;
     }
-    .session-tile {
-        display: block;
+    .card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom: 12px; }
+    .card-head h3 { font-size: 14px; font-weight: 900; color: var(--prof-text-main); display: inline-flex; align-items: center; gap: 8px; }
+    .count { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--prof-border); background: var(--prof-surface-hover); color: var(--prof-text-muted); }
+
+    .sess-list { display: grid; gap: 10px; max-height: 520px; overflow: auto; padding-right: 4px; }
+    .sess {
         border: 1px solid var(--prof-border);
-        border-radius: 14px;
+        border-radius: 18px;
+        background: var(--prof-surface);
         padding: 12px;
-        background: var(--prof-bg);
-        transition: .2s ease;
+        display: grid;
+        grid-template-columns: 46px minmax(0,1fr);
+        gap: 10px;
+        align-items: start;
+        transition: transform .18s ease, border-color .18s ease;
     }
-    .session-tile:hover { transform: translateY(-1px); }
-    .session-tile.active {
-        border-color: var(--prof-brand);
-        background: linear-gradient(135deg, rgba(255,107,0,.12), rgba(255,107,0,.03));
+    .sess:hover { transform: translateY(-2px); border-color: rgba(255,107,0,.55); }
+    .sess.active { border-color: var(--prof-brand); background: linear-gradient(135deg, rgba(255,107,0,.12), rgba(6,182,212,.10)); }
+    .sess .ico {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, rgba(255,107,0,.22), rgba(6,182,212,.18));
+        border: 1px solid rgba(148,163,184,.25);
+        color: var(--prof-text-main);
     }
+    .sess b { display:block; font-size: 12px; font-weight: 900; color: var(--prof-text-main); }
+    .sess p { margin: 2px 0 0; font-size: 11px; font-weight: 700; color: var(--prof-text-muted); }
 
-    .action-grid { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0,1fr)); }
-    .btnx { border-radius: 12px; padding: 12px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+    .ctrl-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+    .btnx {
+        border-radius: 16px;
+        padding: 12px;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1px solid transparent;
+        transition: transform .18s ease, filter .18s ease;
+        white-space: nowrap;
+    }
+    .btnx:hover { transform: translateY(-2px); filter: brightness(1.02); }
+    .btnx.red { background: linear-gradient(135deg, #ef4444, #ff6b00); color: #fff; }
+    .btnx.amb { background: linear-gradient(135deg, #f59e0b, #fb7185); color: #111827; }
+    .btnx.dark { background: linear-gradient(135deg, #0f172a, #334155); color: #fff; }
+    .btnx.sky { background: linear-gradient(135deg, #0ea5e9, #22c55e); color: #fff; }
+    .btnx.ghost { background: var(--prof-surface); border-color: var(--prof-border); color: var(--prof-text-main); }
+    .btnx[disabled], .btnx.disabled { opacity: .55; pointer-events: none; transform: none !important; }
 
-    .students-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0,1fr)); }
-    .studentx {
+    .students { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .stu {
         border: 1px solid var(--prof-border);
-        border-radius: 12px;
-        background: var(--prof-bg);
-        padding: 10px;
+        border-radius: 18px;
+        background: var(--prof-surface);
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 44px minmax(0,1fr);
+        gap: 10px;
+        align-items: start;
     }
+    .stu .av {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+    }
+    .stu b { display:block; font-size: 12px; font-weight: 900; color: var(--prof-text-main); }
+    .stu p { margin: 2px 0 0; font-size: 11px; font-weight: 700; color: var(--prof-text-muted); }
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 3px 9px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+        margin-top: 6px;
+        width: fit-content;
+    }
+    .badge.on { background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.25); color: #16a34a; }
+    .dark .badge.on { color: #86efac; }
+    .badge.off { background: rgba(148,163,184,.10); border-color: rgba(148,163,184,.25); color: var(--prof-text-muted); }
 
-    .local-grid { display: grid; gap: 18px; grid-template-columns: 2fr 1fr; }
-    .feed-list > div { border-top: 1px solid var(--prof-border); padding: 12px 2px; }
+    .broadcast { display: grid; gap: 10px; }
+    .inp, .sel, .txt {
+        width: 100%;
+        border-radius: 16px;
+        padding: 12px;
+        border: 1px solid var(--prof-border);
+        background: var(--prof-bg);
+        color: var(--prof-text-main);
+        font-size: 13px;
+        font-weight: 700;
+        outline: none;
+    }
+    .txt { resize: none; min-height: 120px; }
 
     @media (max-width: 1180px) {
-        .studio-grid, .local-grid { grid-template-columns: 1fr; }
-        .hero-kpi { grid-template-columns: repeat(2, minmax(0,1fr)); }
-        .action-grid { grid-template-columns: 1fr; }
-        .students-grid { grid-template-columns: 1fr; }
+        .grid-2 { grid-template-columns: 1fr; }
+        .p-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .ctrl-grid { grid-template-columns: 1fr; }
+        .students { grid-template-columns: 1fr; }
     }
 </style>
 
 {% if external_professor_mode %}
-<div class="dash-wrap">
+<div class="p-wrap">
     {% if external_error %}
-    <div class="cardx" style="border-color:#f59e0b;background:#fffbeb;color:#92400e;">Source Barka temporairement indisponible.</div>
+    <div class="card" style="border-color:#f59e0b;background:#fffbeb;color:#92400e;">
+        <div class="flex items-center gap-2 font-black">
+            <span class="material-symbols-outlined">warning</span>
+            External authority temporarily unavailable.
+        </div>
+        <div class="text-sm font-semibold mt-1">{{ external_error }}</div>
+    </div>
     {% endif %}
 
-    <section class="hero-panel">
-        <p class="kpi-l mb-2">Live Command</p>
-        <h2 class="text-2xl font-black mb-1">{{ external_selected_session.titre|default:"No session selected" }}</h2>
-        <p class="text-sm text-slate-300 mb-4">{{ external_selected_session.ville_name|default:"-" }} · {{ external_selected_session.session_type|default:"-" }} · {{ external_selected_session.statut|default:"-" }}</p>
-        <div class="hero-kpi">
-            <div><p class="kpi-l">Sessions</p><p class="kpi-v">{{ external_sessions|length }}</p></div>
-            <div><p class="kpi-l">Students</p><p class="kpi-v">{{ students_count }}</p></div>
-            <div><p class="kpi-l">Online Web</p><p class="kpi-v">{{ online_students_count|default:0 }}</p></div>
-            <div><p class="kpi-l">Live</p><p class="kpi-v">{% if external_live_state and external_live_state.status == 'live' %}On Air{% elif external_live_state and external_live_state.status == 'paused' %}Paused{% else %}Offline{% endif %}</p></div>
+    <section class="p-hero">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                    {% if external_live_state and external_live_state.status == 'live' %}
+                        <span class="pill live"><span class="material-symbols-outlined text-sm">live_tv</span>On Air</span>
+                    {% elif external_live_state and external_live_state.status == 'paused' %}
+                        <span class="pill paused"><span class="material-symbols-outlined text-sm">pause_circle</span>Paused</span>
+                    {% else %}
+                        <span class="pill off"><span class="material-symbols-outlined text-sm">power</span>Offline</span>
+                    {% endif %}
+                    <span class="pill"><span class="material-symbols-outlined text-sm">public</span>Barka</span>
+                </div>
+                <h2 class="text-2xl font-black mb-1 truncate">
+                    {{ external_selected_session.titre|default:"No session selected" }}
+                </h2>
+                <p class="text-sm font-semibold text-slate-300 truncate">
+                    {{ external_selected_session.ville_name|default:"-" }} ·
+                    {{ external_selected_session.session_type|default:"-" }} ·
+                    {{ external_selected_session.statut|default:"-" }}
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% if external_selected_session and external_selected_session.id %}
+                    <a class="btnx sky" href="{% url 'Prolean:external_live_room' external_selected_session.id %}">
+                        <span class="material-symbols-outlined text-base">videocam</span>
+                        Open Studio
+                    </a>
+                {% else %}
+                    <div class="btnx ghost disabled">
+                        <span class="material-symbols-outlined text-base">videocam_off</span>
+                        Open Studio
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="p-kpis">
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">calendar_month</span></div>
+                <div>
+                    <div class="l">Sessions</div>
+                    <div class="v">{{ external_sessions|length }}</div>
+                </div>
+            </div>
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">groups</span></div>
+                <div>
+                    <div class="l">Students</div>
+                    <div class="v">{{ students_count }}</div>
+                </div>
+            </div>
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">wifi</span></div>
+                <div>
+                    <div class="l">Online Web</div>
+                    <div class="v">{{ online_students_count|default:0 }}</div>
+                </div>
+            </div>
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">live_tv</span></div>
+                <div>
+                    <div class="l">Live</div>
+                    <div class="v">
+                        {% if external_live_state and external_live_state.status == 'live' %}On{% elif external_live_state and external_live_state.status == 'paused' %}Paused{% else %}Off{% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section class="studio-grid">
-        <aside class="cardx">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-black uppercase tracking-[.14em]" style="color:var(--prof-text-main);">Barka Sessions</h3>
-                <span class="text-xs font-bold" style="color:var(--prof-text-muted);">{{ external_sessions|length }}</span>
+    <section class="grid-2">
+        <aside class="card">
+            <div class="card-head">
+                <h3><span class="material-symbols-outlined">list</span>Barka Sessions</h3>
+                <span class="count">{{ external_sessions|length }}</span>
             </div>
-            <div class="space-y-2 max-h-[470px] overflow-y-auto pr-1">
+            <div class="sess-list">
                 {% for sess in external_sessions %}
-                <a href="?session_id={{ sess.id }}" class="session-tile {% if external_selected_session and external_selected_session.id == sess.id %}active{% endif %}">
-                    <p class="text-sm font-black" style="color:var(--prof-text-main);">{{ sess.titre|default:"Session" }}</p>
-                    <p class="text-[11px] mt-1" style="color:var(--prof-text-muted);">{{ sess.ville_name|default:"-" }} · {{ sess.statut|default:"-" }}</p>
+                <a class="sess {% if external_selected_session and sess.id == external_selected_session.id %}active{% endif %}" href="?session_id={{ sess.id }}">
+                    <div class="ico"><span class="material-symbols-outlined">school</span></div>
+                    <div class="min-w-0">
+                        <b class="truncate">{{ sess.titre|default:"Session" }}</b>
+                        <p class="truncate">{{ sess.ville_name|default:"-" }} · {{ sess.date_debut|default:"-" }}</p>
+                        <p class="truncate">{% if sess.statut %}{{ sess.statut }}{% else %}-{% endif %}</p>
+                    </div>
                 </a>
                 {% empty %}
-                <div class="session-tile"><p class="text-sm font-bold" style="color:var(--prof-text-muted);">No sessions available.</p></div>
+                <div class="sess">
+                    <div class="ico"><span class="material-symbols-outlined">event_busy</span></div>
+                    <div class="min-w-0">
+                        <b>No assigned sessions</b>
+                        <p>Check your assignments in Barka.</p>
+                    </div>
+                </div>
                 {% endfor %}
             </div>
         </aside>
 
-        <div class="cardx space-y-4">
-            {% if external_selected_session %}
-            <div class="action-grid">
-                <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">{% csrf_token %}<button class="btnx w-full bg-emerald-600 text-white {% if external_live_state and external_live_state.status == 'live' %}opacity-60{% endif %}">Start & Join</button></form>
-                <form method="post" action="{% url 'Prolean:external_professor_live_pause' external_selected_session.id %}">{% csrf_token %}<button class="btnx w-full bg-amber-500 text-white {% if not external_live_state or external_live_state.status != 'live' %}opacity-60{% endif %}">Pause</button></form>
-                {% if external_live_state and external_live_state.status == 'live' %}
-                <a href="{% url 'Prolean:external_live_room' external_selected_session.id %}" class="btnx text-center bg-brand text-white inline-flex items-center justify-center">Open Studio</a>
+        <div class="grid gap-4">
+            <div class="card">
+                <div class="card-head">
+                    <h3><span class="material-symbols-outlined">settings_remote</span>Live Controls</h3>
+                    {% if external_selected_session and external_selected_session.id %}
+                        <span class="count">Session #{{ external_selected_session.id }}</span>
+                    {% else %}
+                        <span class="count">Pick session</span>
+                    {% endif %}
+                </div>
+
+                {% if external_selected_session and external_selected_session.id %}
+                <div class="ctrl-grid">
+                    <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">
+                        {% csrf_token %}
+                        <button class="btnx red w-full {% if external_live_state and external_live_state.status == 'live' %}disabled{% endif %}" {% if external_live_state and external_live_state.status == 'live' %}disabled{% endif %}>
+                            <span class="material-symbols-outlined text-base">radio_button_checked</span>
+                            Start & Join
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'Prolean:external_professor_live_pause' external_selected_session.id %}">
+                        {% csrf_token %}
+                        <button class="btnx amb w-full {% if not external_live_state or external_live_state.status != 'live' %}disabled{% endif %}" {% if not external_live_state or external_live_state.status != 'live' %}disabled{% endif %}>
+                            <span class="material-symbols-outlined text-base">pause_circle</span>
+                            Pause
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}">
+                        {% csrf_token %}
+                        <button class="btnx dark w-full {% if not external_live_state or external_live_state.status == 'ended' %}disabled{% endif %}" {% if not external_live_state or external_live_state.status == 'ended' %}disabled{% endif %}>
+                            <span class="material-symbols-outlined text-base">stop_circle</span>
+                            End
+                        </button>
+                    </form>
+                </div>
+
+                <div class="mt-4 grid gap-2">
+                    <a class="btnx sky w-full" href="{% url 'Prolean:external_live_room' external_selected_session.id %}">
+                        <span class="material-symbols-outlined text-base">videocam</span>
+                        Open Studio
+                    </a>
+                    <div class="text-xs font-bold" style="color: var(--prof-text-muted);">
+                        Tip: students join from their dashboard when the live is On Air.
+                    </div>
+                </div>
                 {% else %}
-                <div class="btnx text-center border" style="border-color:var(--prof-border);color:var(--prof-text-muted);">Studio Inactive</div>
+                <div class="text-sm font-bold" style="color: var(--prof-text-muted);">
+                    Select a session to unlock controls.
+                </div>
                 {% endif %}
             </div>
 
-            <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}" class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                {% csrf_token %}
-                <input type="url" name="recording_url" placeholder="Recording URL" class="px-3 py-2 rounded-xl border" style="border-color:var(--prof-border);background:var(--prof-bg);color:var(--prof-text-main);">
-                <button class="btnx bg-red-600 text-white">End Live</button>
-            </form>
-
-            <form method="post" action="{% url 'Prolean:external_send_session_notification' external_selected_session.id %}" class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                {% csrf_token %}
-                <input type="text" name="title" required placeholder="Broadcast title" class="md:col-span-1 px-3 py-2 rounded-xl border" style="border-color:var(--prof-border);background:var(--prof-bg);color:var(--prof-text-main);">
-                <input type="text" name="message" required placeholder="Message to all session students" class="md:col-span-2 px-3 py-2 rounded-xl border" style="border-color:var(--prof-border);background:var(--prof-bg);color:var(--prof-text-main);">
-                <button class="btnx md:col-span-1 bg-prof-text-main text-prof-bg" style="background:var(--prof-text-main);color:var(--prof-bg);">Broadcast</button>
-            </form>
-
-            <div>
-                <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-xs font-black uppercase tracking-[.14em]" style="color:var(--prof-text-main);">Students In Session</h4>
-                    <span class="text-xs font-bold" style="color:var(--prof-text-muted);">{{ students_count }}</span>
+            <div class="card">
+                <div class="card-head">
+                    <h3><span class="material-symbols-outlined">groups</span>Students</h3>
+                    <span class="count">{{ students_count }}</span>
                 </div>
-                <div class="students-grid">
+
+                <div class="students">
                     {% for st in external_students %}
-                    <article class="studentx">
-                        <div class="flex items-center justify-between gap-2">
-                            <p class="text-sm font-black" style="color:var(--prof-text-main);">{{ st.student_name|default:"Student" }}</p>
-                            {% if st.is_online_web %}<span class="px-2 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">Online</span>{% else %}<span class="px-2 py-1 rounded-full text-[10px] font-black bg-neutral-200 text-neutral-700">Offline</span>{% endif %}
+                    <div class="stu">
+                        <div class="av"><span class="material-symbols-outlined">person</span></div>
+                        <div class="min-w-0">
+                            <b class="truncate">{{ st.student_name|default:st.full_name|default:st.name|default:"Student" }}</b>
+                            <p class="truncate">{{ st.student_email|default:st.email|default:"" }}</p>
+                            <p class="truncate">{{ st.student_phone|default:st.phone|default:"" }}</p>
+                            {% if st.is_online_web %}
+                                <span class="badge on"><span class="material-symbols-outlined text-sm">wifi</span>Online</span>
+                            {% else %}
+                                <span class="badge off"><span class="material-symbols-outlined text-sm">wifi_off</span>Offline</span>
+                            {% endif %}
                         </div>
-                        <p class="text-xs mt-1" style="color:var(--prof-text-muted);">{{ st.student_email|default:"-" }}</p>
-                        <p class="text-xs" style="color:var(--prof-text-muted);">{{ st.student_phone|default:"-" }}</p>
-                    </article>
+                    </div>
                     {% empty %}
-                    <div class="studentx" style="grid-column:1/-1;"><p class="text-sm font-bold" style="color:var(--prof-text-muted);">No student in this session.</p></div>
+                    <div class="stu">
+                        <div class="av"><span class="material-symbols-outlined">person_off</span></div>
+                        <div class="min-w-0">
+                            <b>No students</b>
+                            <p>Students will appear after enrollment.</p>
+                        </div>
+                    </div>
                     {% endfor %}
                 </div>
             </div>
-            {% else %}
-            <div class="studentx"><p class="text-sm font-bold" style="color:var(--prof-text-muted);">Select a session to open controls.</p></div>
-            {% endif %}
+
+            <div class="card">
+                <div class="card-head">
+                    <h3><span class="material-symbols-outlined">campaign</span>Broadcast</h3>
+                    <span class="count">Notify</span>
+                </div>
+
+                {% if external_selected_session and external_selected_session.id %}
+                <form class="broadcast" method="post" action="{% url 'Prolean:external_send_session_notification' external_selected_session.id %}">
+                    {% csrf_token %}
+                    <input class="inp" name="title" required placeholder="{% if CURRENT_LANGUAGE == 'ar' %}العنوان{% elif CURRENT_LANGUAGE == 'en' %}Title{% else %}Titre{% endif %}">
+                    <select class="sel" name="type">
+                        <option value="info">{% if CURRENT_LANGUAGE == 'ar' %}معلومة{% elif CURRENT_LANGUAGE == 'en' %}Info{% else %}Info{% endif %}</option>
+                        <option value="success">{% if CURRENT_LANGUAGE == 'ar' %}نجاح{% elif CURRENT_LANGUAGE == 'en' %}Success{% else %}Succès{% endif %}</option>
+                        <option value="warning">{% if CURRENT_LANGUAGE == 'ar' %}تنبيه{% elif CURRENT_LANGUAGE == 'en' %}Warning{% else %}Alerte{% endif %}</option>
+                        <option value="error">{% if CURRENT_LANGUAGE == 'ar' %}خطأ{% elif CURRENT_LANGUAGE == 'en' %}Error{% else %}Erreur{% endif %}</option>
+                    </select>
+                    <textarea class="txt" name="message" required placeholder="{% if CURRENT_LANGUAGE == 'ar' %}اكتب رسالتك...{% elif CURRENT_LANGUAGE == 'en' %}Write your message...{% else %}Votre message...{% endif %}"></textarea>
+                    <button class="btnx sky w-full" type="submit">
+                        <span class="material-symbols-outlined text-base">send</span>
+                        {% if CURRENT_LANGUAGE == 'ar' %}إرسال{% elif CURRENT_LANGUAGE == 'en' %}Send{% else %}Envoyer{% endif %}
+                    </button>
+                </form>
+                {% else %}
+                <div class="text-sm font-bold" style="color: var(--prof-text-muted);">
+                    Select a session to broadcast to its students.
+                </div>
+                {% endif %}
+            </div>
         </div>
     </section>
 </div>
+
 {% else %}
-<div class="dash-wrap">
-    {% if not selected_session %}
-    <div class="cardx text-center py-14">
-        <h3 class="text-2xl font-black mb-2" style="color:var(--prof-text-main);">No active session</h3>
-        <p class="text-sm font-semibold" style="color:var(--prof-text-muted);">Select one session to unlock your studio controls.</p>
-        {% if all_sessions %}
-        <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
-            {% for sess in all_sessions %}<a href="?session_id={{ sess.id }}" class="px-4 py-2 rounded-xl bg-brand text-white text-sm font-black">{{ sess.city.name }}</a>{% endfor %}
+<div class="p-wrap">
+    <section class="p-hero">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <div class="min-w-0">
+                <span class="pill"><span class="material-symbols-outlined text-sm">dns</span>Local Mode</span>
+                <h2 class="text-2xl font-black mb-1 truncate">{% if selected_session %}{{ selected_session.city.name }}{% else %}No session selected{% endif %}</h2>
+                <p class="text-sm font-semibold text-slate-300 truncate">{% if selected_session %}{{ selected_session.get_status_display }}{% else %}Select a session to unlock controls.{% endif %}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% if selected_session and selected_session.status == 'ONGOING' %}
+                    {% if active_streams %}
+                        {% for stream in active_streams %}
+                        <a class="btnx sky" href="{% url 'Prolean:live_session' stream.id %}">
+                            <span class="material-symbols-outlined text-base">videocam</span>Join Live
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <a class="btnx red" href="{% url 'Prolean:start_live_stream' selected_session.id %}">
+                            <span class="material-symbols-outlined text-base">radio_button_checked</span>Start Live
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
         </div>
-        {% endif %}
-    </div>
-    {% else %}
-    <section class="hero-panel">
-        <p class="kpi-l mb-2">Local Session</p>
-        <h2 class="text-2xl font-black mb-1">{{ selected_session.city.name }} · {{ selected_session.get_status_display }}</h2>
-        <div class="hero-kpi">
-            <div><p class="kpi-l">Students</p><p class="kpi-v">{{ students_count }}</p></div>
-            <div><p class="kpi-l">Comments</p><p class="kpi-v">{{ recent_comments|length }}</p></div>
-            <div><p class="kpi-l">Streams</p><p class="kpi-v">{{ active_streams|length }}</p></div>
-            <div><p class="kpi-l">Upcoming</p><p class="kpi-v">{{ upcoming_sessions|length }}</p></div>
+
+        <div class="p-kpis">
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">groups</span></div>
+                <div><div class="l">Students</div><div class="v">{{ students_count }}</div></div>
+            </div>
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">wifi</span></div>
+                <div><div class="l">Online Web</div><div class="v">{{ online_students_count|default:0 }}</div></div>
+            </div>
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">forum</span></div>
+                <div><div class="l">Comments</div><div class="v">{{ recent_comments|length }}</div></div>
+            </div>
+            <div class="p-kpi">
+                <div class="ico"><span class="material-symbols-outlined">stream</span></div>
+                <div><div class="l">Streams</div><div class="v">{{ active_streams|length }}</div></div>
+            </div>
         </div>
     </section>
 
-    <section class="local-grid">
-        <div class="cardx space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-black" style="color:var(--prof-text-main);">Live Studio</h3>
-                {% if selected_session.status == 'ONGOING' %}
-                    {% if active_streams %}
-                        {% for stream in active_streams %}<a href="{% url 'Prolean:live_session' stream.id %}" class="btnx bg-red-600 text-white">Join Live</a>{% endfor %}
-                    {% else %}
-                        <a href="{% url 'Prolean:start_live_stream' selected_session.id %}" class="btnx bg-brand text-white">Start Live</a>
-                    {% endif %}
-                {% else %}
-                    <span class="text-xs font-black uppercase" style="color:var(--prof-text-muted);">Session inactive</span>
-                {% endif %}
+    <section class="grid-2">
+        <aside class="card">
+            <div class="card-head">
+                <h3><span class="material-symbols-outlined">list</span>Sessions</h3>
+                <span class="count">{{ all_sessions|length }}</span>
             </div>
-
-            <div class="feed-list">
-                <div class="border-0 pt-0">
-                    <h4 class="text-xs font-black uppercase tracking-[.12em]" style="color:var(--prof-text-muted);">Recent Interactions</h4>
-                </div>
-                {% for comment in recent_comments %}
-                <div>
-                    <p class="text-sm font-black" style="color:var(--prof-text-main);">{{ comment.student.profile.full_name }}</p>
-                    <p class="text-sm" style="color:var(--prof-text-muted);">{{ comment.content|truncatechars:140 }}</p>
-                    <a href="{% url 'Prolean:professor_comments' %}?student_id={{ comment.student.id }}" class="text-xs font-black text-brand">Reply</a>
-                </div>
+            <div class="sess-list">
+                {% for sess in all_sessions %}
+                <a class="sess {% if selected_session and sess.id == selected_session.id %}active{% endif %}" href="?session_id={{ sess.id }}">
+                    <div class="ico"><span class="material-symbols-outlined">calendar_month</span></div>
+                    <div class="min-w-0">
+                        <b class="truncate">{{ sess.city.name }}</b>
+                        <p class="truncate">{{ sess.start_date }} → {{ sess.end_date }}</p>
+                        <p class="truncate">{{ sess.get_status_display }}</p>
+                    </div>
+                </a>
                 {% empty %}
-                <div><p class="text-sm font-bold" style="color:var(--prof-text-muted);">No recent interactions.</p></div>
+                <div class="sess">
+                    <div class="ico"><span class="material-symbols-outlined">event_busy</span></div>
+                    <div class="min-w-0">
+                        <b>No sessions</b>
+                        <p>Create a session from admin.</p>
+                    </div>
+                </div>
                 {% endfor %}
             </div>
-        </div>
+        </aside>
 
-        <div class="cardx">
-            <h3 class="text-xs font-black uppercase tracking-[.12em] mb-4" style="color:var(--prof-text-muted);">Broadcast</h3>
-            <form action="{% url 'Prolean:send_session_notification' selected_session.id %}" method="post" class="space-y-3">
-                {% csrf_token %}
-                <input type="text" name="title" placeholder="Subject" required class="w-full px-3 py-2 rounded-xl border" style="border-color:var(--prof-border);background:var(--prof-bg);color:var(--prof-text-main);">
-                <textarea name="message" rows="5" placeholder="Your message..." required class="w-full px-3 py-2 rounded-xl border resize-none" style="border-color:var(--prof-border);background:var(--prof-bg);color:var(--prof-text-main);"></textarea>
-                <button class="btnx w-full bg-brand text-white">Send Announcement</button>
-            </form>
+        <div class="grid gap-4">
+            <div class="card">
+                <div class="card-head">
+                    <h3><span class="material-symbols-outlined">forum</span>Recent Interactions</h3>
+                    <span class="count">{{ recent_comments|length }}</span>
+                </div>
+                <div class="grid gap-10">
+                    {% for comment in recent_comments %}
+                    <div class="border-t pt-3" style="border-color: var(--prof-border);">
+                        <div class="font-black" style="color: var(--prof-text-main);">{{ comment.student.profile.full_name }}</div>
+                        <div class="text-sm font-semibold" style="color: var(--prof-text-muted);">{{ comment.content|truncatechars:160 }}</div>
+                        <a href="{% url 'Prolean:professor_comments' %}?student_id={{ comment.student.id }}" class="text-xs font-black" style="color: var(--prof-brand);">Reply</a>
+                    </div>
+                    {% empty %}
+                    <div class="text-sm font-bold" style="color: var(--prof-text-muted);">No recent interactions.</div>
+                    {% endfor %}
+                </div>
+            </div>
 
-            <form action="{% url 'Prolean:update_session_status' selected_session.id %}" method="post" class="mt-4">
-                {% csrf_token %}
-                <input type="hidden" name="status" value="COMPLETED">
-                {% if selected_session.status != 'COMPLETED' %}
-                <button class="btnx w-full bg-red-600 text-white">Close Session</button>
+            <div class="card">
+                <div class="card-head">
+                    <h3><span class="material-symbols-outlined">campaign</span>Broadcast</h3>
+                    <span class="count">Local</span>
+                </div>
+                {% if selected_session %}
+                <form class="broadcast" action="{% url 'Prolean:send_session_notification' selected_session.id %}" method="post">
+                    {% csrf_token %}
+                    <input class="inp" type="text" name="title" required placeholder="Subject">
+                    <textarea class="txt" name="message" required placeholder="Your message..."></textarea>
+                    <button class="btnx sky w-full" type="submit"><span class="material-symbols-outlined text-base">send</span>Send</button>
+                </form>
+
+                <form action="{% url 'Prolean:update_session_status' selected_session.id %}" method="post" class="mt-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="COMPLETED">
+                    {% if selected_session.status != 'COMPLETED' %}
+                    <button class="btnx dark w-full" type="submit"><span class="material-symbols-outlined text-base">lock</span>Close Session</button>
+                    {% else %}
+                    <div class="btnx ghost disabled w-full"><span class="material-symbols-outlined text-base">lock</span>Session closed</div>
+                    {% endif %}
+                </form>
                 {% else %}
-                <div class="btnx text-center border" style="border-color:var(--prof-border);color:var(--prof-text-muted);">Session already closed</div>
+                <div class="text-sm font-bold" style="color: var(--prof-text-muted);">Select a session to broadcast.</div>
                 {% endif %}
-            </form>
+            </div>
         </div>
     </section>
-    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

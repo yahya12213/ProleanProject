@@ -27,6 +27,9 @@ urlpatterns = [
     path("api/review/helpful/", views.mark_review_helpful, name="mark_review_helpful"),
     path("api/dashboard/updates/", views.check_updates_ajax, name="check_updates_ajax"),
     path("api/presence/heartbeat/", views.presence_heartbeat, name="presence_heartbeat"),
+
+    # i18n helpers (explicit UI feedback)
+    path("i18n/set/", views.set_language_preference, name="set_language_preference"),
     
     # New endpoints - FIXED: removed slug parameter
     path('api/pre-subscribe/', views.create_pre_subscription, name='create_pre_subscription'),

@@ -14,7 +14,12 @@ class ExternalAuthorityGuardMiddleware:
 
     SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
     SKIP_PREFIXES = ("/admin/", "/static/", "/media/")
-    SKIP_MUTATION_PATHS = ("/logout/", "/i18n/setlang/", "/api/presence/heartbeat/")
+    SKIP_MUTATION_PATHS = (
+        "/logout/",
+        "/i18n/setlang/",
+        "/i18n/set/",
+        "/api/presence/heartbeat/",
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -64,7 +69,6 @@ class AutoLanguageMiddleware:
     """
 
     SUPPORTED = ("fr", "en", "ar")
-    SESSION_KEY = "django_language"
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -81,20 +85,23 @@ class AutoLanguageMiddleware:
         return "fr"
 
     def __call__(self, request):
-        session_lang = request.session.get(self.SESSION_KEY) if hasattr(request, "session") else None
         cookie_lang = request.COOKIES.get("django_language")
-        if session_lang in self.SUPPORTED:
-            selected = session_lang
-        elif cookie_lang in self.SUPPORTED:
+        if cookie_lang in self.SUPPORTED:
             selected = cookie_lang
-            if hasattr(request, "session"):
-                request.session[self.SESSION_KEY] = selected
         else:
             selected = self._pick_language(request)
-            if hasattr(request, "session"):
-                request.session[self.SESSION_KEY] = selected
         translation.activate(selected)
         request.LANGUAGE_CODE = selected
         response = self.get_response(request)
-        response.set_cookie("django_language", selected, max_age=31536000, samesite="Lax")
+        # Don't clobber an explicit language change performed by a view.
+        final_lang = (
+            str(getattr(request, "LANGUAGE_CODE", "") or "").strip().lower()
+            or str(translation.get_language() or "").strip().lower()
+            or selected
+        )
+        if "-" in final_lang:
+            final_lang = final_lang.split("-", 1)[0]
+        if final_lang not in self.SUPPORTED:
+            final_lang = selected
+        response.set_cookie("django_language", final_lang, max_age=31536000, samesite="Lax")
         return response

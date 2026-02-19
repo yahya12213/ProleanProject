@@ -34,6 +34,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.utils import translation
+from django.utils.http import url_has_allowed_host_and_scheme
 from .context_processors import get_client_ip, get_location_from_ip
 from .presence import touch_user_presence, get_online_students
 import uuid
@@ -1645,6 +1647,33 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('Prolean:home')
+
+
+@require_POST
+def set_language_preference(request):
+    """
+    Force language switch in session+cookie (fr/en/ar) and redirect back.
+    This avoids relying on JS-only flows and ensures deterministic behavior.
+    """
+    lang = str(request.POST.get("language", "") or "").strip().lower()
+    if lang not in {"fr", "en", "ar"}:
+        lang = "fr"
+    next_url = str(request.POST.get("next", "") or "").strip()
+    if not next_url or not url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = request.META.get("HTTP_REFERER") or reverse("Prolean:home")
+    translation.activate(lang)
+    request.LANGUAGE_CODE = lang
+    messages.success(
+        request,
+        "Language updated." if lang == "en" else ("تم تغيير اللغة." if lang == "ar" else "Langue mise à jour."),
+    )
+    response = redirect(next_url)
+    response.set_cookie("django_language", lang, max_age=31536000, samesite="Lax")
+    return response
 
 # ==========================================
 # STUDENT DASHBOARD VIEWS

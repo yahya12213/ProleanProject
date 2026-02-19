@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${SKIP_CHANGELOG:-}" == "1" ]]; then
+  exit 0
+fi
+
+CHANGELOG_FILE="Summary of Features & Changes.txt"
+
+staged="$(git diff --cached --name-only)"
+if [[ -z "$staged" ]]; then
+  exit 0
+fi
+
+# Ignore churny/binary/generated paths
+if ! echo "$staged" | grep -qvE '^(Summary of Features & Changes\.txt|db\.sqlite3|media/|trainings/|.*\.pyc|venv/|\.env)$'; then
+  exit 0
+fi
+
+if ! echo "$staged" | grep -qE "^${CHANGELOG_FILE}$"; then
+  echo "ERROR: Commit includes changes but '${CHANGELOG_FILE}' is not staged." >&2
+  echo "Add a changelog entry (UTC) and stage it, or bypass once with SKIP_CHANGELOG=1." >&2
+  exit 1
+fi
+
