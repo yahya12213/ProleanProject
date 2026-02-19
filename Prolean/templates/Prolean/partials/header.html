@@ -16,7 +16,7 @@
             </a>
             
             <!-- Desktop Navigation -->
-            {% if not ('/professor/' in request.path or '/mon-espace/' in request.path or '/mon-profil/' in request.path or '/mon-emploi-du-temps/' in request.path or '/assistant/' in request.path or '/director/' in request.path) %}
+            {% if '/professor/' not in request.path and '/mon-espace/' not in request.path and '/mon-profil/' not in request.path and '/mon-emploi-du-temps/' not in request.path and '/assistant/' not in request.path and '/director/' not in request.path %}
             <nav class="hidden lg:flex items-center gap-6 2xl:gap-8">
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if request.path == '/' %}active-nav{% endif %}" 
                    href="{% url 'Prolean:home' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</a>
