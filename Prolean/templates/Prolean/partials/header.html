@@ -16,7 +16,6 @@
             </a>
             
             <!-- Desktop Navigation -->
-            {% if '/professor/' not in request.path and '/mon-espace/' not in request.path and '/mon-profil/' not in request.path and '/mon-emploi-du-temps/' not in request.path and '/assistant/' not in request.path and '/director/' not in request.path %}
             <nav class="hidden lg:flex items-center gap-6 2xl:gap-8">
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if request.path == '/' %}active-nav{% endif %}" 
                    href="{% url 'Prolean:home' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</a>
@@ -27,7 +26,6 @@
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/centres-contact/' in request.path %}active-nav{% endif %}" 
                    href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
             </nav>
-            {% endif %}
         </div>
         
         <!-- Desktop buttons -->
@@ -37,32 +35,32 @@
             <div class="relative group currency-selector">
                 <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-accent-green/10 dark:hover:bg-accent-green/20 transition-colors text-sm font-bold active-currency">
                     <span class="current-currency">MAD</span>
-                    <span class="icon-arrow">â–¼</span>
+                    <span class="material-symbols-outlined text-base leading-none">expand_more</span>
                 </button>
                 <div class="absolute right-0 top-full mt-1 hidden group-hover:block bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-xl p-2 min-w-[150px] z-50 currency-dropdown
                             before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
                     <a class="currency-option flex items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-currency="MAD" href="#">
-                        <span>ðŸ‡²ðŸ‡¦ MAD</span>
+                        <span>MAD</span>
                         <span class="text-xs text-neutral-500">Dirham</span>
                     </a>
                     <a class="currency-option flex items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-currency="EUR" href="#">
-                        <span>ðŸ‡ªðŸ‡º EUR</span>
+                        <span>EUR</span>
                         <span class="text-xs text-neutral-500">Euro</span>
                     </a>
                     <a class="currency-option flex items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-currency="USD" href="#">
-                        <span>ðŸ‡ºðŸ‡¸ USD</span>
+                        <span>USD</span>
                         <span class="text-xs text-neutral-500">Dollar</span>
                     </a>
                     <a class="currency-option flex items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-currency="GBP" href="#">
-                        <span>ðŸ‡¬ðŸ‡§ GBP</span>
+                        <span>GBP</span>
                         <span class="text-xs text-neutral-500">Livre</span>
                     </a>
                     <a class="currency-option flex items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-currency="CAD" href="#">
-                        <span>ðŸ‡¨ðŸ‡¦ CAD</span>
+                        <span>CAD</span>
                         <span class="text-xs text-neutral-500">Dollar</span>
                     </a>
                     <a class="currency-option flex items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg" data-currency="AED" href="#">
-                        <span>ðŸ‡¦ðŸ‡ª AED</span>
+                        <span>AED</span>
                         <span class="text-xs text-neutral-500">Dirham</span>
                     </a>
                 </div>
@@ -70,7 +68,7 @@
             
             <!-- Theme Toggle -->
             <button class="size-10 flex items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400" onclick="toggleTheme()">
-                <span id="theme-icon" class="icon-theme">â˜€</span>
+                <span id="theme-icon" class="material-symbols-outlined">light_mode</span>
             </button>
             
             <!-- Notification Bell -->
@@ -168,7 +166,7 @@
 
         <!-- Mobile Menu Button -->
         <button id="mobile-menu-button" class="lg:hidden size-10 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-            <span id="menu-icon" class="icon-menu">â˜°</span>
+            <span id="menu-icon" class="material-symbols-outlined">menu</span>
         </button>
     </div>
 
@@ -180,7 +178,7 @@
         <div class="mobile-menu-content">
             <div class="mobile-menu-header">
                 <button id="mobile-menu-close" class="mobile-menu-close" onclick="closeMobileMenu()">
-                    <span class="icon-menu-close">Ã—</span>
+                    <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
             
@@ -198,27 +196,27 @@
                                 <span class="currency-indicator">MAD</span>
                                 <span>- Dirham</span>
                             </span>
-                            <span class="icon-arrow">â–¼</span>
+                            <span class="material-symbols-outlined text-base leading-none">expand_more</span>
                         </button>
                         <div id="mobile-currency-menu" class="mobile-menu-dropdown-content">
                             <a class="mobile-menu-dropdown-item currency-option" data-currency="MAD" href="#">
-                                <span>ðŸ‡²ðŸ‡¦ MAD</span>
+                                <span>MAD</span>
                                 <span class="text-xs text-neutral-500">Dirham</span>
                             </a>
                             <a class="mobile-menu-dropdown-item currency-option" data-currency="EUR" href="#">
-                                <span>ðŸ‡ªðŸ‡º EUR</span>
+                                <span>EUR</span>
                                 <span class="text-xs text-neutral-500">Euro</span>
                             </a>
                             <a class="mobile-menu-dropdown-item currency-option" data-currency="USD" href="#">
-                                <span>ðŸ‡ºðŸ‡¸ USD</span>
+                                <span>USD</span>
                                 <span class="text-xs text-neutral-500">Dollar</span>
                             </a>
                             <a class="mobile-menu-dropdown-item currency-option" data-currency="GBP" href="#">
-                                <span>ðŸ‡¬ðŸ‡§ GBP</span>
+                                <span>GBP</span>
                                 <span class="text-xs text-neutral-500">Livre</span>
                             </a>
                             <a class="mobile-menu-dropdown-item currency-option" data-currency="CAD" href="#">
-                                <span>ðŸ‡¨ðŸ‡¦ CAD</span>
+                                <span>CAD</span>
                                 <span class="text-xs text-neutral-500">Dollar</span>
                             </a>
                         </div>
@@ -227,7 +225,7 @@
                     <!-- Mobile Theme Toggle -->
                     <button class="mobile-menu-dropdown-button" onclick="toggleTheme()">
                         <span class="flex items-center gap-2">
-                            <span id="mobile-theme-icon" class="icon-theme">â˜€</span>
+                            <span id="mobile-theme-icon" class="material-symbols-outlined">light_mode</span>
                             <span>ThÃ¨me</span>
                         </span>
                         <span id="mobile-theme-label">Clair</span>
@@ -689,11 +687,7 @@
                 
                 if (menuIcon) {
                     // Update icon to close
-                    if (menuIcon.previousElementSibling && menuIcon.previousElementSibling.classList.contains('material-icon-replacement')) {
-                        menuIcon.previousElementSibling.textContent = 'close';
-                    } else {
-                        menuIcon.textContent = 'Ã—';
-                    }
+                    menuIcon.textContent = 'close';
                 }
             }
         }
@@ -717,11 +711,7 @@
                 
                 if (menuIcon) {
                     // Update icon back to menu
-                    if (menuIcon.previousElementSibling && menuIcon.previousElementSibling.classList.contains('material-icon-replacement')) {
-                        menuIcon.previousElementSibling.textContent = 'menu';
-                    } else {
-                        menuIcon.textContent = 'â˜°';
-                    }
+                    menuIcon.textContent = 'menu';
                 }
             }
         }
