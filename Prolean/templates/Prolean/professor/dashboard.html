@@ -1,8 +1,9 @@
 ﻿{% extends 'Prolean/professor/base_professor.html' %}
-{% load static %}
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
 
-{% block header_title %}Tableau de Bord{% endblock %}
-{% block header_subtitle %}AperÃ§u de vos performances et de vos sessions.{% endblock %}
+{% block header_title %}{% if CURRENT_LANGUAGE == 'ar' %}لوحة التحكم{% elif CURRENT_LANGUAGE == 'en' %}Dashboard{% else %}Tableau de Bord{% endif %}{% endblock %}
+{% block header_subtitle %}{% if CURRENT_LANGUAGE == 'ar' %}نظرة عامة على الأداء والجلسات.{% elif CURRENT_LANGUAGE == 'en' %}Overview of your performance and sessions.{% else %}Aperçu de vos performances et de vos sessions.{% endif %}{% endblock %}
 
 {% block professor_content %}
 {% if external_professor_mode %}

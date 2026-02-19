@@ -371,3 +371,12 @@ Recent Entries
   - Added geo caching + richer location payload (`exact_city`, `region`, `timezone`, coordinates, source).
 - Validation:
   - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Language Switcher Visible Localization
+- Implemented immediate visible multilingual output tied to switcher state (FR/EN/AR) on key user surfaces without waiting for full gettext catalog rollout.
+- Localized main header/nav labels and mobile menu labels according to selected language.
+- Localized live studio labels and runtime UI text (presence states, panel titles, status/error strings) using language-aware template-driven JS strings.
+- Localized professor dashboard title/subtitle for selected language.
+- Why:
+  - The switcher changed language state but many templates were still hardcoded in one language, making it appear non-functional.
+- Validation:
+  - Django system check passed.

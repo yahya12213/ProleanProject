@@ -1,5 +1,6 @@
 {% extends 'Prolean/base.html' %}
-{% load static %}
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
 
 {% block title %}Live Presenter Room{% endblock %}
 {% block main_class %}w-full max-w-none{% endblock %}
@@ -553,12 +554,12 @@
 {% block content %}
 <div id="room-root" class="presenter-room">
     <div class="room-top px-3 py-2 flex items-center justify-between">
-        <div class="room-title text-xs font-black uppercase tracking-widest">Live Presenter</div>
+        <div class="room-title text-xs font-black uppercase tracking-widest">{% if CURRENT_LANGUAGE == 'ar' %}غرفة البث{% elif CURRENT_LANGUAGE == 'en' %}Live Presenter{% else %}Présentateur Live{% endif %}</div>
         <div class="flex items-center gap-2">
-            <span id="conn-badge" class="px-2 py-1 rounded bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-wider">Connecting</span>
+            <span id="conn-badge" class="px-2 py-1 rounded bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-wider">{% if CURRENT_LANGUAGE == 'ar' %}جاري الاتصال{% elif CURRENT_LANGUAGE == 'en' %}Connecting{% else %}Connexion{% endif %}</span>
             <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
                 {% csrf_token %}
-                <button type="submit" class="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider">Leave</button>
+                <button type="submit" class="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider">{% if CURRENT_LANGUAGE == 'ar' %}خروج{% elif CURRENT_LANGUAGE == 'en' %}Leave{% else %}Quitter{% endif %}</button>
             </form>
         </div>
     </div>
@@ -568,43 +569,43 @@
     <div id="presence-board" class="presence-board">
         <section class="presence-col">
             <div class="presence-head">
-                <span class="presence-title">Online Students</span>
+                <span class="presence-title">{% if CURRENT_LANGUAGE == 'ar' %}الطلاب المتصلون{% elif CURRENT_LANGUAGE == 'en' %}Online Students{% else %}Étudiants en ligne{% endif %}</span>
                 <span id="online-count" class="presence-count">0</span>
             </div>
             <div id="online-list" class="presence-list">
-                <span class="presence-empty">No students online</span>
+                <span class="presence-empty">{% if CURRENT_LANGUAGE == 'ar' %}لا يوجد طلاب متصلون{% elif CURRENT_LANGUAGE == 'en' %}No students online{% else %}Aucun étudiant en ligne{% endif %}</span>
             </div>
         </section>
         <section class="presence-col">
             <div class="presence-head">
-                <span class="presence-title">Speaking Now</span>
+                <span class="presence-title">{% if CURRENT_LANGUAGE == 'ar' %}المتحدثون الآن{% elif CURRENT_LANGUAGE == 'en' %}Speaking Now{% else %}Parle maintenant{% endif %}</span>
                 <span id="speaking-count" class="presence-count">0</span>
             </div>
             <div id="speaking-list" class="presence-list">
-                <span class="presence-empty">No active speaker</span>
+                <span class="presence-empty">{% if CURRENT_LANGUAGE == 'ar' %}لا يوجد متحدث نشط{% elif CURRENT_LANGUAGE == 'en' %}No active speaker{% else %}Aucun intervenant actif{% endif %}</span>
             </div>
         </section>
         <section class="presence-col">
             <div class="presence-head">
-                <span class="presence-title">Raised Hands</span>
+                <span class="presence-title">{% if CURRENT_LANGUAGE == 'ar' %}الأيادي المرفوعة{% elif CURRENT_LANGUAGE == 'en' %}Raised Hands{% else %}Mains levées{% endif %}</span>
                 <span id="raised-count" class="presence-count">0</span>
             </div>
             <div id="raised-list" class="presence-list">
-                <span class="presence-empty">No raised hand</span>
+                <span class="presence-empty">{% if CURRENT_LANGUAGE == 'ar' %}لا توجد أيادي مرفوعة{% elif CURRENT_LANGUAGE == 'en' %}No raised hand{% else %}Aucune main levée{% endif %}</span>
             </div>
         </section>
     </div>
 
     <div class="room-shell">
         <section id="left-pane" class="pane pane-main">
-            <div class="pane-title">Professor Camera</div>
+            <div class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}كاميرا الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Camera{% else %}Caméra professeur{% endif %}</div>
             <div id="left-host" class="video-host"></div>
         </section>
 
-        <div id="pane-resizer" class="pane-resizer" title="Drag to resize screens"></div>
+        <div id="pane-resizer" class="pane-resizer" title="{% if CURRENT_LANGUAGE == 'ar' %}اسحب لتعديل الحجم{% elif CURRENT_LANGUAGE == 'en' %}Drag to resize screens{% else %}Glisser pour redimensionner{% endif %}"></div>
 
-        <section id="right-pane" class="pane pane-side" title="Tap to switch right screen mode">
-            <div id="right-title" class="pane-title">Professor Screen Share + Your Camera</div>
+        <section id="right-pane" class="pane pane-side" title="{% if CURRENT_LANGUAGE == 'ar' %}اضغط لتبديل وضع الشاشة اليمنى{% elif CURRENT_LANGUAGE == 'en' %}Tap to switch right screen mode{% else %}Touchez pour changer le mode à droite{% endif %}">
+            <div id="right-title" class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ + كاميرتك{% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share + Your Camera{% else %}Partage écran prof + votre caméra{% endif %}</div>
             <div id="right-host" class="video-host"></div>
         </section>
     </div>
@@ -650,6 +651,21 @@
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 <script>
 (() => {
+  const uiText = {
+    connecting: "{% if CURRENT_LANGUAGE == 'ar' %}جاري الاتصال{% elif CURRENT_LANGUAGE == 'en' %}Connecting{% else %}Connexion{% endif %}",
+    configMissing: "{% if CURRENT_LANGUAGE == 'ar' %}إعدادات Agora مفقودة.{% elif CURRENT_LANGUAGE == 'en' %}Agora config missing.{% else %}Configuration Agora manquante.{% endif %}",
+    noStudentsOnline: "{% if CURRENT_LANGUAGE == 'ar' %}لا يوجد طلاب متصلون{% elif CURRENT_LANGUAGE == 'en' %}No students online{% else %}Aucun étudiant en ligne{% endif %}",
+    noOneSpeaking: "{% if CURRENT_LANGUAGE == 'ar' %}لا أحد يتكلم الآن{% elif CURRENT_LANGUAGE == 'en' %}No one speaking now{% else %}Personne ne parle maintenant{% endif %}",
+    noRaisedHands: "{% if CURRENT_LANGUAGE == 'ar' %}لا توجد أيادي مرفوعة{% elif CURRENT_LANGUAGE == 'en' %}No raised hands{% else %}Aucune main levée{% endif %}",
+    waitingStudents: "{% if CURRENT_LANGUAGE == 'ar' %}في انتظار انضمام الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Waiting for students to join live{% else %}En attente des étudiants{% endif %}",
+    rightScreen: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ (اضغط للتبديل){% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share (Tap to Switch){% else %}Partage écran prof (tap pour changer){% endif %}",
+    rightSplit: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة الشاشة + الطلاب (اضغط للتبديل){% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share + Students (Tap to Switch){% else %}Partage écran + étudiants (tap pour changer){% endif %}",
+    rightStudents: "{% if CURRENT_LANGUAGE == 'ar' %}شبكة الطلاب (اضغط للتبديل){% elif CURRENT_LANGUAGE == 'en' %}Students Grid (Tap to Switch){% else %}Grille étudiants (tap pour changer){% endif %}",
+    noScreenShare: "{% if CURRENT_LANGUAGE == 'ar' %}لا توجد مشاركة شاشة{% elif CURRENT_LANGUAGE == 'en' %}No Screen Share{% else %}Aucun partage écran{% endif %}",
+    screenShareLabel: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة الشاشة{% elif CURRENT_LANGUAGE == 'en' %}Screen Share{% else %}Partage écran{% endif %}",
+    profScreenSharing: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}The prof screen sharing{% else %}Partage écran du prof{% endif %}",
+  };
+
   const agoraAppId = "{{ agora_app_id|escapejs }}";
   const agoraChannel = "{{ agora_channel|escapejs }}";
   const agoraToken = "{{ agora_token|escapejs }}";
@@ -888,9 +904,9 @@
     onlineCount.textContent = String(studentIds.length);
     speakingCount.textContent = String(speakingStudentIds.length);
     raisedCount.textContent = String(raisedStudentIds.length);
-    paintPresenceList(onlineList, studentIds, "online", "No students online");
-    paintPresenceList(speakingList, speakingStudentIds, "speaking", "No one speaking now");
-    paintPresenceList(raisedList, raisedStudentIds, "hand", "No raised hands");
+    paintPresenceList(onlineList, studentIds, "online", uiText.noStudentsOnline);
+    paintPresenceList(speakingList, speakingStudentIds, "speaking", uiText.noOneSpeaking);
+    paintPresenceList(raisedList, raisedStudentIds, "hand", uiText.noRaisedHands);
   };
 
   const renderLeftPane = () => {
@@ -914,7 +930,7 @@
     if (!students.length) {
       const empty = document.createElement("div");
       empty.className = "empty-students";
-      empty.textContent = "Waiting for students to join live";
+      empty.textContent = uiText.waitingStudents;
       host.appendChild(empty);
       return;
     }
@@ -963,12 +979,12 @@
   };
   const renderRightPane = () => {
     if (rightMode === 0) {
-      rightTitle.textContent = "Professor Screen Share (Tap to Switch)";
+      rightTitle.textContent = uiText.rightScreen;
       const screen = pickTrack(resolveProfessorIdentity(), true);
-      if (screen) renderTrack(rightHost, screen, "Screen Share");
-      else renderAvatar(rightHost, "No Screen Share");
+      if (screen) renderTrack(rightHost, screen, uiText.screenShareLabel);
+      else renderAvatar(rightHost, uiText.noScreenShare);
     } else if (rightMode === 1) {
-      rightTitle.textContent = "Professor Screen Share + Students (Tap to Switch)";
+      rightTitle.textContent = uiText.rightSplit;
       rightHost.innerHTML = "";
       const split = document.createElement("div");
       split.className = "right-split";
@@ -977,14 +993,14 @@
       const bottom = document.createElement("div");
       bottom.className = "right-split-bottom";
       const screen = pickTrack(resolveProfessorIdentity(), true);
-      if (screen) renderTrack(top, screen, "The prof screen sharing");
-      else renderAvatar(top, "No Screen Share");
+      if (screen) renderTrack(top, screen, uiText.profScreenSharing);
+      else renderAvatar(top, uiText.noScreenShare);
       renderStudentsInto(bottom, true);
       split.appendChild(top);
       split.appendChild(bottom);
       rightHost.appendChild(split);
     } else {
-      rightTitle.textContent = "Students Grid (Tap to Switch)";
+      rightTitle.textContent = uiText.rightStudents;
       renderStudentsInto(rightHost, false);
     }
     syncModeButtons();
@@ -1011,10 +1027,10 @@
   const connectAgora = async () => {
     if (!agoraAppId || !agoraChannel || !agoraToken) {
       setStatus("Config Error", "err");
-      showError("Agora config missing.");
+      showError(uiText.configMissing);
       return;
     }
-    setStatus("Connecting", "warn");
+    setStatus(uiText.connecting, "warn");
     try {
       participantLabels.set(String(agoraUid), selfName || (isProfessor ? "Professor" : "You"));
       await mainClient.join(agoraAppId, agoraChannel, agoraToken, agoraUid);

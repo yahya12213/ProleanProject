@@ -18,13 +18,13 @@
             <!-- Desktop Navigation -->
             <nav class="hidden lg:flex items-center gap-6 2xl:gap-8">
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if request.path == '/' %}active-nav{% endif %}" 
-                   href="{% url 'Prolean:home' %}">Accueil</a>
+                   href="{% url 'Prolean:home' %}">{% if CURRENT_LANGUAGE == 'ar' %}الرئيسية{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</a>
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/formations/' in request.path %}active-nav{% endif %}" 
-                   href="{% url 'Prolean:training_catalog' %}">Formations</a>
+                   href="{% url 'Prolean:training_catalog' %}">{% if CURRENT_LANGUAGE == 'ar' %}التكوينات{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</a>
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/migration/' in request.path %}active-nav{% endif %}" 
-                   href="{% url 'Prolean:migration_services' %}">Migration</a>
+                   href="{% url 'Prolean:migration_services' %}">{% if CURRENT_LANGUAGE == 'ar' %}الهجرة{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</a>
                 <a class="text-sm font-semibold hover:text-primary dark:hover:text-white transition-colors duration-200 {% if '/centres-contact/' in request.path %}active-nav{% endif %}" 
-                   href="{% url 'Prolean:contact_centers' %}">Contact</a>
+                   href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}اتصل بنا{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
             </nav>
         </div>
         
@@ -102,7 +102,7 @@
                 <div class="absolute right-0 top-full mt-1 hidden group-hover:block bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-xl p-2 min-w-[300px] z-50
                             before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
                     <div class="p-3 border-b border-neutral-100 dark:border-neutral-700">
-                        <h3 class="font-bold text-sm">Notifications</h3>
+                        <h3 class="font-bold text-sm">{% if CURRENT_LANGUAGE == 'ar' %}الإشعارات{% elif CURRENT_LANGUAGE == 'en' %}Notifications{% else %}Notifications{% endif %}</h3>
                     </div>
                     <div id="notification-menu" class="max-h-[300px] overflow-y-auto">
                         {% for note in global_notifications %}
@@ -112,7 +112,7 @@
                             <div class="text-[10px] text-neutral-400 mt-1">{{ note.created_at|timesince }} ago</div>
                         </a>
                         {% empty %}
-                        <div class="p-8 text-center text-xs text-neutral-500 empty-msg">Aucune notification</div>
+                        <div class="p-8 text-center text-xs text-neutral-500 empty-msg">{% if CURRENT_LANGUAGE == 'ar' %}لا توجد إشعارات{% elif CURRENT_LANGUAGE == 'en' %}No notifications{% else %}Aucune notification{% endif %}</div>
                         {% endfor %}
                     </div>
                 </div>
@@ -202,10 +202,10 @@
             </div>
             
             <div class="mobile-menu-body">
-                <a class="mobile-menu-link {% if request.path == '/' %}active-nav{% endif %}" href="{% url 'Prolean:home' %}">Accueil</a>
-                <a class="mobile-menu-link {% if '/formations/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:training_catalog' %}">Formations</a>
-                <a class="mobile-menu-link {% if '/migration/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:migration_services' %}">Migration</a>
-                <a class="mobile-menu-link {% if '/centres-contact/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:contact_centers' %}">Contact</a>
+                <a class="mobile-menu-link {% if request.path == '/' %}active-nav{% endif %}" href="{% url 'Prolean:home' %}">{% if CURRENT_LANGUAGE == 'ar' %}الرئيسية{% elif CURRENT_LANGUAGE == 'en' %}Home{% else %}Accueil{% endif %}</a>
+                <a class="mobile-menu-link {% if '/formations/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:training_catalog' %}">{% if CURRENT_LANGUAGE == 'ar' %}التكوينات{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</a>
+                <a class="mobile-menu-link {% if '/migration/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:migration_services' %}">{% if CURRENT_LANGUAGE == 'ar' %}الهجرة{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</a>
+                <a class="mobile-menu-link {% if '/centres-contact/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}اتصل بنا{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
 
                 <div class="mobile-menu-settings">
                     <!-- Mobile Language Switcher -->
