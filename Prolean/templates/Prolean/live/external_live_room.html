@@ -79,11 +79,101 @@
         overflow: hidden;
     }
 
+    .presence-board {
+        margin: 0 12px 10px;
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        background: var(--panel-bg);
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .presence-col {
+        min-width: 0;
+    }
+
+    .presence-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+
+    .presence-title {
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted-text);
+    }
+
+    .presence-count {
+        font-size: 11px;
+        font-weight: 900;
+        color: var(--text-main);
+        background: rgba(148, 163, 184, 0.16);
+        border-radius: 999px;
+        padding: 2px 8px;
+    }
+
+    .presence-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 30px;
+    }
+
+    .presence-chip {
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 999px;
+        padding: 3px 9px;
+        border: 1px solid transparent;
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--text-main);
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .presence-chip.online {
+        background: rgba(34, 197, 94, 0.18);
+        border-color: rgba(34, 197, 94, 0.45);
+        color: #86efac;
+    }
+
+    .presence-chip.speaking {
+        background: rgba(14, 165, 233, 0.18);
+        border-color: rgba(14, 165, 233, 0.42);
+        color: #7dd3fc;
+    }
+
+    .presence-chip.hand {
+        background: rgba(239, 68, 68, 0.16);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #fca5a5;
+    }
+
+    .presence-empty {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--empty-text);
+    }
+
     @media (max-width: 1100px) {
         .room-shell {
             grid-template-columns: 1fr;
             grid-template-areas: "left" "right";
             grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .presence-board {
+            grid-template-columns: 1fr;
+            margin: 0 8px 8px;
+            padding: 8px;
         }
 
         .pane-resizer {
@@ -475,6 +565,36 @@
 
     <div id="conn-error" class="hidden mx-3 mt-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-red-300 text-xs font-semibold"></div>
 
+    <div id="presence-board" class="presence-board">
+        <section class="presence-col">
+            <div class="presence-head">
+                <span class="presence-title">Online Students</span>
+                <span id="online-count" class="presence-count">0</span>
+            </div>
+            <div id="online-list" class="presence-list">
+                <span class="presence-empty">No students online</span>
+            </div>
+        </section>
+        <section class="presence-col">
+            <div class="presence-head">
+                <span class="presence-title">Speaking Now</span>
+                <span id="speaking-count" class="presence-count">0</span>
+            </div>
+            <div id="speaking-list" class="presence-list">
+                <span class="presence-empty">No active speaker</span>
+            </div>
+        </section>
+        <section class="presence-col">
+            <div class="presence-head">
+                <span class="presence-title">Raised Hands</span>
+                <span id="raised-count" class="presence-count">0</span>
+            </div>
+            <div id="raised-list" class="presence-list">
+                <span class="presence-empty">No raised hand</span>
+            </div>
+        </section>
+    </div>
+
     <div class="room-shell">
         <section id="left-pane" class="pane pane-main">
             <div class="pane-title">Professor Camera</div>
@@ -550,6 +670,13 @@
   const rightTitle = document.getElementById("right-title");
   const connBadge = document.getElementById("conn-badge");
   const connError = document.getElementById("conn-error");
+  const presenceBoard = document.getElementById("presence-board");
+  const onlineList = document.getElementById("online-list");
+  const speakingList = document.getElementById("speaking-list");
+  const raisedList = document.getElementById("raised-list");
+  const onlineCount = document.getElementById("online-count");
+  const speakingCount = document.getElementById("speaking-count");
+  const raisedCount = document.getElementById("raised-count");
 
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
@@ -736,6 +863,35 @@
     if (studentIds.some((id) => speakingIds.has(id))) rightPane.classList.add("speaker-border");
     if (studentIds.some((id) => raisedHands.has(id))) rightPane.classList.add("raised-border");
   };
+  const identityLabel = (id) => participantLabels.get(String(id)) || `Student ${id}`;
+  const paintPresenceList = (host, ids, type, emptyText) => {
+    host.innerHTML = "";
+    if (!ids.length) {
+      const empty = document.createElement("span");
+      empty.className = "presence-empty";
+      empty.textContent = emptyText;
+      host.appendChild(empty);
+      return;
+    }
+    ids.forEach((id) => {
+      const chip = document.createElement("span");
+      chip.className = `presence-chip ${type}`;
+      chip.textContent = identityLabel(id);
+      host.appendChild(chip);
+    });
+  };
+  const refreshPresenceBoard = () => {
+    if (!presenceBoard || !isProfessor) return;
+    const studentIds = getStudentEntries().map((s) => s.id);
+    const speakingStudentIds = studentIds.filter((id) => speakingIds.has(id));
+    const raisedStudentIds = studentIds.filter((id) => raisedHands.has(id));
+    onlineCount.textContent = String(studentIds.length);
+    speakingCount.textContent = String(speakingStudentIds.length);
+    raisedCount.textContent = String(raisedStudentIds.length);
+    paintPresenceList(onlineList, studentIds, "online", "No students online");
+    paintPresenceList(speakingList, speakingStudentIds, "speaking", "No one speaking now");
+    paintPresenceList(raisedList, raisedStudentIds, "hand", "No raised hands");
+  };
 
   const renderLeftPane = () => {
     professorIdentity = resolveProfessorIdentity();
@@ -834,7 +990,7 @@
     syncModeButtons();
     markPaneBorders();
   };
-  const rerender = () => { renderLeftPane(); renderRightPane(); };
+  const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); };
 
   const subscribeUser = async (user, mediaType) => {
     await mainClient.subscribe(user, mediaType);
@@ -910,6 +1066,7 @@
       if ((v.level || 0) > 5) speakingIds.add(String(v.uid));
     });
     markPaneBorders();
+    refreshPresenceBoard();
     if (rightMode === 2) renderRightPane();
   });
 
@@ -1018,6 +1175,7 @@
       ? '<span class="material-symbols-outlined">waving_hand</span>'
       : '<span class="material-symbols-outlined">front_hand</span>';
     markPaneBorders();
+    refreshPresenceBoard();
   });
   btnSound.addEventListener("click", () => {
     audioTracks.forEach((track) => { try { track.play(); } catch (_) {} });
@@ -1053,6 +1211,7 @@
   bindThemeSync();
   loadLayoutPrefs();
   applyLayoutPrefs();
+  if (!isProfessor && presenceBoard) presenceBoard.classList.add("hidden");
   window.addEventListener("resize", rerender);
   connectAgora();
 })();

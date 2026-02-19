@@ -334,3 +334,21 @@ Recent Entries
 - Kept responsive panel reflow behavior from previous fix.
 - Validation:
   - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Feature/UI Live Presence + Professor Dashboard Refresh
+- Enhanced external live room with a professor-only presence board showing:
+  - online students currently connected in the live room
+  - speaking-now students (real-time volume indicator)
+  - raised-hand students
+- Wired presence board refresh into live lifecycle updates:
+  - join/leave/re-render
+  - speaking updates
+  - raise-hand toggles
+- Kept speaking and raised-hand visual emphasis in pane borders while adding named chips for faster moderation.
+- Refreshed external professor dashboard presentation:
+  - new control-center hero shell
+  - clearer live status pills and action grouping
+  - improved student list cards with stronger visual hierarchy
+- Why:
+  - Give professors immediate awareness of student activity and make the dashboard/studio easier to read and operate.
+- Validation:
+  - Django system check passed.
