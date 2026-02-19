@@ -236,6 +236,11 @@
         }
     </script>
     
+    <!-- Hard reset to prevent any top gap above sticky header (works even if @layer is unsupported) -->
+    <style>
+        html, body { margin: 0; padding: 0; }
+    </style>
+     
     <style type="text/tailwindcss">
         @layer base {
             body { 
