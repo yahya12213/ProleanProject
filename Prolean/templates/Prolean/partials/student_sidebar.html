@@ -19,6 +19,10 @@
                     <span class="material-symbols-outlined">school</span>
                     Mes Formations
                 </a>
+                <a href="{% url 'Prolean:student_certificates' %}" class="nav-item {% if request.resolver_match.url_name == 'student_certificates' %}active{% endif %}">
+                    <span class="material-symbols-outlined">workspace_premium</span>
+                    Mon Certificat
+                </a>
                 <a href="{% url 'Prolean:student_profile' %}" class="nav-item {% if request.resolver_match.url_name == 'student_profile' %}active{% endif %}">
                     <span class="material-symbols-outlined">person</span>
                     Mon Profil

@@ -32,40 +32,6 @@
         
         <!-- Desktop buttons -->
         <div class="hidden lg:flex items-center gap-3 lg:gap-6">
-            <!-- Language Switcher -->
-            <div class="relative group">
-                <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-accent-green/10 dark:hover:bg-accent-green/20 transition-colors text-sm font-bold">
-                    <span>{% if CURRENT_LANGUAGE == 'ar' %}AR{% elif CURRENT_LANGUAGE == 'en' %}EN{% else %}FR{% endif %}</span>
-                    <span class="icon-arrow">â–¼</span>
-                </button>
-                <div class="absolute right-0 top-full mt-1 hidden group-hover:block bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-xl p-2 min-w-[120px] z-50 
-                            before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
-                    <form action="{% url 'Prolean:set_language_preference' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <input type="hidden" name="language" value="fr">
-                        <button type="submit" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg">
-                            FR Français
-                        </button>
-                    </form>
-                    <form action="{% url 'Prolean:set_language_preference' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <input type="hidden" name="language" value="ar">
-                        <button type="submit" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg font-arabic text-right">
-                            AR العربية
-                        </button>
-                    </form>
-                    <form action="{% url 'Prolean:set_language_preference' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <input type="hidden" name="language" value="en">
-                        <button type="submit" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg">
-                            EN English
-                        </button>
-                    </form>
-                </div>
-            </div>
             
             <!-- Currency Switcher -->
             <div class="relative group currency-selector">
@@ -225,43 +191,6 @@
                 <a class="mobile-menu-link {% if '/centres-contact/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
 
                 <div class="mobile-menu-settings">
-                    <!-- Mobile Language Switcher -->
-                    <div class="mobile-menu-dropdown">
-                        <button id="mobile-language-button" class="mobile-menu-dropdown-button">
-                            <span class="flex items-center gap-2">
-                                <span>{% if CURRENT_LANGUAGE == 'ar' %}AR{% elif CURRENT_LANGUAGE == 'en' %}EN{% else %}FR{% endif %}</span>
-                                <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©{% elif CURRENT_LANGUAGE == 'en' %}English{% else %}FranÃ§ais{% endif %}</span>
-                            </span>
-                            <span class="icon-arrow">â–¼</span>
-                        </button>
-                        <div id="mobile-language-menu" class="mobile-menu-dropdown-content">
-                            <form action="{% url 'Prolean:set_language_preference' %}" method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <input type="hidden" name="language" value="fr">
-                                <button type="submit" class="mobile-menu-dropdown-item w-full text-left">
-                                    FR Français
-                                </button>
-                            </form>
-                            <form action="{% url 'Prolean:set_language_preference' %}" method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <input type="hidden" name="language" value="ar">
-                                <button type="submit" class="mobile-menu-dropdown-item font-arabic text-right w-full">
-                                    AR العربية
-                                </button>
-                            </form>
-                            <form action="{% url 'Prolean:set_language_preference' %}" method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <input type="hidden" name="language" value="en">
-                                <button type="submit" class="mobile-menu-dropdown-item w-full text-left">
-                                    EN English
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                    
                     <!-- Mobile Currency Switcher -->
                     <div class="mobile-menu-dropdown">
                         <button id="mobile-currency-button" class="mobile-menu-dropdown-button">
@@ -687,29 +616,6 @@
         
         // Initialize dropdowns inside mobile menu
         function initMobileMenuDropdowns() {
-            // Language dropdown
-            const languageButton = document.getElementById('mobile-language-button');
-            const languageMenu = document.getElementById('mobile-language-menu');
-            
-            if (languageButton && languageMenu) {
-                languageButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Toggle language dropdown
-                    const parent = this.closest('.mobile-menu-dropdown');
-                    parent.classList.toggle('open');
-                    
-                    // Close other dropdowns
-                    closeOtherDropdowns(parent);
-                });
-                
-                // Prevent clicks inside dropdown from closing menu
-                languageMenu.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
-            }
-            
             // Currency dropdown
             const currencyButton = document.getElementById('mobile-currency-button');
             const currencyMenu = document.getElementById('mobile-currency-menu');

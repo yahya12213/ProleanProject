@@ -16,8 +16,6 @@ class ExternalAuthorityGuardMiddleware:
     SKIP_PREFIXES = ("/admin/", "/static/", "/media/")
     SKIP_MUTATION_PATHS = (
         "/logout/",
-        "/i18n/setlang/",
-        "/i18n/set/",
         "/api/presence/heartbeat/",
     )
 
@@ -64,44 +62,15 @@ class ExternalAuthorityGuardMiddleware:
 
 class AutoLanguageMiddleware:
     """
-    Auto-detect user language (fr/en/ar) from browser headers when no language
-    has been selected yet. It keeps user choice stable via session + cookie.
+    Language switching disabled: force French everywhere.
     """
-
-    SUPPORTED = ("fr", "en", "ar")
 
     def __init__(self, get_response):
         self.get_response = get_response
 
-    def _pick_language(self, request) -> str:
-        header = str(request.META.get("HTTP_ACCEPT_LANGUAGE", "") or "").lower()
-        if not header:
-            return "fr"
-        chunks = [p.split(";")[0].strip() for p in header.split(",") if p.strip()]
-        for chunk in chunks:
-            base = chunk.split("-")[0]
-            if base in self.SUPPORTED:
-                return base
-        return "fr"
-
     def __call__(self, request):
-        cookie_lang = request.COOKIES.get("django_language")
-        if cookie_lang in self.SUPPORTED:
-            selected = cookie_lang
-        else:
-            selected = self._pick_language(request)
-        translation.activate(selected)
-        request.LANGUAGE_CODE = selected
+        translation.activate("fr")
+        request.LANGUAGE_CODE = "fr"
         response = self.get_response(request)
-        # Don't clobber an explicit language change performed by a view.
-        final_lang = (
-            str(getattr(request, "LANGUAGE_CODE", "") or "").strip().lower()
-            or str(translation.get_language() or "").strip().lower()
-            or selected
-        )
-        if "-" in final_lang:
-            final_lang = final_lang.split("-", 1)[0]
-        if final_lang not in self.SUPPORTED:
-            final_lang = selected
-        response.set_cookie("django_language", final_lang, max_age=31536000, samesite="Lax")
+        response.set_cookie("django_language", "fr", max_age=31536000, samesite="Lax")
         return response

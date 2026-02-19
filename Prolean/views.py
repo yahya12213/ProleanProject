@@ -1676,6 +1676,8 @@ def set_language_preference(request):
     Force language switch in session+cookie (fr/en/ar) and redirect back.
     This avoids relying on JS-only flows and ensures deterministic behavior.
     """
+    # Language switching disabled: keep endpoint as no-op for backwards compatibility.
+    return redirect(request.META.get("HTTP_REFERER") or reverse("Prolean:home"))
     lang = str(request.POST.get("language", "") or "").strip().lower()
     if lang not in {"fr", "en", "ar"}:
         lang = "fr"
@@ -1953,6 +1955,12 @@ def student_profile(request):
         return redirect('Prolean:student_profile')
         
     return render(request, 'Prolean/dashboard/profile.html', {'profile': profile})
+
+@login_required
+@student_active_required
+def student_certificates(request):
+    profile = request.user.profile
+    return render(request, "Prolean/dashboard/certificates.html", {"profile": profile})
 
 
 @login_required

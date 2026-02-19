@@ -1,0 +1,50 @@
+{% extends 'Prolean/dashboard/base_student.html' %}
+{% load i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
+
+{% block student_header_title %}
+    {% if CURRENT_LANGUAGE == 'ar' %}شهادتي{% elif CURRENT_LANGUAGE == 'en' %}My Certificate{% else %}Mon certificat{% endif %}
+{% endblock %}
+
+{% block student_header_subtitle %}
+    {% if CURRENT_LANGUAGE == 'ar' %}هنا ستجد شهادتك الرقمية عند اكتمال التكوين.{% elif CURRENT_LANGUAGE == 'en' %}Your digital certificate will appear here once you complete your training.{% else %}Votre certificat numérique apparaîtra ici une fois la formation terminée.{% endif %}
+{% endblock %}
+
+{% block student_content %}
+<div class="panel">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="size-12 rounded-2xl flex items-center justify-center" style="background: rgba(14,165,233,.12); border: 1px solid rgba(14,165,233,.25);">
+                <span class="material-symbols-outlined" style="color: var(--stu-text-main);">workspace_premium</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-black" style="color: var(--stu-text-main);">
+                    {% if CURRENT_LANGUAGE == 'ar' %}شهادة رقمية{% elif CURRENT_LANGUAGE == 'en' %}Digital certificate{% else %}Certificat numérique{% endif %}
+                </h3>
+                <p class="text-sm font-semibold" style="color: var(--stu-text-muted);">
+                    {% if CURRENT_LANGUAGE == 'ar' %}عند جاهزية الشهادة ستتمكن من تحميلها من هنا.{% elif CURRENT_LANGUAGE == 'en' %}When available, you’ll be able to download it here.{% else %}Lorsqu’elle sera prête, vous pourrez la télécharger ici.{% endif %}
+                </p>
+            </div>
+        </div>
+        <a href="{% url 'Prolean:dashboard' %}#formations" class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider"
+           style="background: var(--stu-surface-hover); border: 1px solid var(--stu-border); color: var(--stu-text-main);">
+            {% if CURRENT_LANGUAGE == 'ar' %}تابع الدروس{% elif CURRENT_LANGUAGE == 'en' %}Continue{% else %}Continuer{% endif %}
+        </a>
+    </div>
+
+    <div class="mt-6 p-5 rounded-2xl" style="background: var(--stu-surface); border: 1px dashed var(--stu-border);">
+        <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined" style="color: var(--stu-text-muted);">info</span>
+            <div class="min-w-0">
+                <p class="text-sm font-bold" style="color: var(--stu-text-main);">
+                    {% if CURRENT_LANGUAGE == 'ar' %}لا توجد شهادة متاحة بعد.{% elif CURRENT_LANGUAGE == 'en' %}No certificate available yet.{% else %}Aucun certificat disponible pour le moment.{% endif %}
+                </p>
+                <p class="text-xs font-semibold mt-1" style="color: var(--stu-text-muted);">
+                    {% if CURRENT_LANGUAGE == 'ar' %}أكمل التكوين وسيقوم فريقنا بإضافة الشهادة تلقائياً.{% elif CURRENT_LANGUAGE == 'en' %}Finish your training and our team will publish it automatically.{% else %}Terminez votre formation et notre équipe la publiera automatiquement.{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

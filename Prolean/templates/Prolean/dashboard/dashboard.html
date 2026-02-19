@@ -58,7 +58,7 @@
         flex: 0 0 auto;
     }
     .kpi-ico.orange { background: linear-gradient(135deg, #ff6b00, #fb7185); }
-    .kpi-ico.blue { background: linear-gradient(135deg, #0ea5e9, #22c55e); }
+    .kpi-ico.blue { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
     .kpi-ico.violet { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
     .kpi-ico.slate { background: linear-gradient(135deg, #0f172a, #334155); }
     .kpi-l { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--stu-text-muted); }
@@ -189,7 +189,7 @@
         gap: 8px;
         padding: 10px 12px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #0ea5e9, #22c55e);
+        background: linear-gradient(135deg, #0ea5e9, #6366f1);
         color: #fff;
         font-size: 11px;
         font-weight: 900;
@@ -286,7 +286,7 @@
                 <div class="kpi-ico violet"><span class="material-symbols-outlined">payments</span></div>
                 <div class="min-w-0">
                     <p class="kpi-l">{% if CURRENT_LANGUAGE == 'ar' %}الرسوم{% elif CURRENT_LANGUAGE == 'en' %}Fees{% else %}Frais{% endif %}</p>
-                    <p class="kpi-v">{{ amount_remaining|default:0 }}</p>
+                    <p class="kpi-v"><span class="price-display" data-price-mad="{{ amount_remaining|default:0 }}">{{ amount_remaining|default:0 }} MAD</span></p>
                     <p class="kpi-s">{% if CURRENT_LANGUAGE == 'ar' %}متبقي للدفع{% elif CURRENT_LANGUAGE == 'en' %}Remaining due{% else %}Reste à payer{% endif %}</p>
                 </div>
             </div>
@@ -329,6 +329,13 @@
                 <div class="min-w-0">
                     <b>{% if CURRENT_LANGUAGE == 'ar' %}الدروس{% elif CURRENT_LANGUAGE == 'en' %}Lessons{% else %}Cours{% endif %}</b>
                     <span>{% if CURRENT_LANGUAGE == 'ar' %}تابع التعلّم{% elif CURRENT_LANGUAGE == 'en' %}Continue learning{% else %}Continuer{% endif %}</span>
+                </div>
+            </a>
+            <a class="qa" href="{% url 'Prolean:student_certificates' %}">
+                <span class="material-symbols-outlined">workspace_premium</span>
+                <div class="min-w-0">
+                    <b>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ø´Ù‡Ø§Ø¯Ø©{% elif CURRENT_LANGUAGE == 'en' %}Certificate{% else %}Certificat{% endif %}</b>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}ØªØ­Ù…ÙŠÙ„ Ø´Ù‡Ø§Ø¯ØªÙƒ{% elif CURRENT_LANGUAGE == 'en' %}View your certificate{% else %}Voir votre certificat{% endif %}</span>
                 </div>
             </a>
             <a class="qa" href="https://wa.me/212779259942" target="_blank" rel="noreferrer">
@@ -517,4 +524,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
-

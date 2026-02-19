@@ -28,8 +28,7 @@ urlpatterns = [
     path("api/dashboard/updates/", views.check_updates_ajax, name="check_updates_ajax"),
     path("api/presence/heartbeat/", views.presence_heartbeat, name="presence_heartbeat"),
 
-    # i18n helpers (explicit UI feedback)
-    path("i18n/set/", views.set_language_preference, name="set_language_preference"),
+    # i18n helpers removed (language switching disabled)
     
     # New endpoints - FIXED: removed slug parameter
     path('api/pre-subscribe/', views.create_pre_subscription, name='create_pre_subscription'),
@@ -45,6 +44,7 @@ urlpatterns = [
     path('mon-espace/', views.dashboard, name='dashboard'),
     path('mon-emploi-du-temps/', views.student_schedule, name='student_schedule'),
     path('mon-profil/', views.student_profile, name='student_profile'),
+    path('mes-certificats/', views.student_certificates, name='student_certificates'),
     path('api/profile/upload-picture/', views.upload_profile_picture, name='upload_profile_picture'),
     
     # Classroom
