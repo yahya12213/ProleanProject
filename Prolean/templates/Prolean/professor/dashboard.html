@@ -201,17 +201,93 @@
         .ctrl-grid { grid-template-columns: 1fr; }
         .students { grid-template-columns: 1fr; }
     }
+
+    .warn-card {
+        border-radius: 24px;
+        padding: 18px;
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        background:
+            radial-gradient(900px 260px at -10% -40%, rgba(245, 158, 11, 0.30), transparent 52%),
+            radial-gradient(700px 220px at 110% -30%, rgba(239, 68, 68, 0.22), transparent 55%),
+            linear-gradient(135deg, rgba(255, 251, 235, 1), rgba(255, 237, 213, 0.88));
+        color: #92400e;
+    }
+    .dark .warn-card {
+        border-color: rgba(245, 158, 11, 0.35);
+        background:
+            radial-gradient(900px 260px at -10% -40%, rgba(245, 158, 11, 0.22), transparent 52%),
+            radial-gradient(700px 220px at 110% -30%, rgba(239, 68, 68, 0.18), transparent 55%),
+            linear-gradient(135deg, rgba(120, 53, 15, 0.35), rgba(15, 23, 42, 0.45));
+        color: #fde68a;
+    }
+    .warn-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 900;
+        font-size: 14px;
+        letter-spacing: .02em;
+    }
+    .warn-ico {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(135deg, #f59e0b, #ef4444);
+        border: 1px solid rgba(255,255,255,.25);
+        flex: 0 0 auto;
+    }
+    .warn-body {
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.35;
+        opacity: .95;
+        word-break: break-word;
+    }
+    .warn-actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .warn-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .warn-btn.primary { background: linear-gradient(135deg, #ef4444, #ff6b00); color: #fff; }
+    .warn-btn.ghost { border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(255,255,255,.5); color: #92400e; }
+    .dark .warn-btn.ghost { background: rgba(15, 23, 42, 0.35); color: #fde68a; }
 </style>
 
 {% if external_professor_mode %}
 <div class="p-wrap">
     {% if external_error %}
-    <div class="card" style="border-color:#f59e0b;background:#fffbeb;color:#92400e;">
-        <div class="flex items-center gap-2 font-black">
-            <span class="material-symbols-outlined">warning</span>
-            External authority temporarily unavailable.
+    <div class="warn-card">
+        <div class="warn-head">
+            <div class="warn-ico"><span class="material-symbols-outlined">warning</span></div>
+            <div>
+                <div>External authority temporarily unavailable.</div>
+                <div class="text-xs font-black opacity-80">Barka contract error</div>
+            </div>
         </div>
-        <div class="text-sm font-semibold mt-1">{{ external_error }}</div>
+        <div class="warn-body">{{ external_error }}</div>
+        <div class="warn-actions">
+            <a class="warn-btn primary" href="{% url 'Prolean:login' %}">
+                <span class="material-symbols-outlined text-base">login</span>
+                Re-login
+            </a>
+            <a class="warn-btn ghost" href="{% url 'Prolean:professor_dashboard' %}">
+                <span class="material-symbols-outlined text-base">refresh</span>
+                Retry
+            </a>
+        </div>
     </div>
     {% endif %}
 

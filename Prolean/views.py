@@ -96,6 +96,11 @@ from Prolean.integration.trainings import to_external_training
 from agora_token_builder import RtcTokenBuilder
 
 
+def _is_barka_token_expired(exc: Exception) -> bool:
+    msg = str(exc or "").lower()
+    return ("token expired" in msg) or ("token_expired" in msg) or ("code\":\"token_expired" in msg)
+
+
 def _norm_identifier(value) -> str:
     return str(value or "").strip().lower()
 
@@ -1775,6 +1780,13 @@ def dashboard(request):
                 external_formations = []
                 external_pending_assignment = True
     except Exception as exc:
+        if _is_barka_token_expired(exc):
+            try:
+                request.session.pop("barka_token", None)
+                request.session.pop("barka_permissions", None)
+            except Exception:
+                pass
+            messages.warning(request, "Session expired. Please login again.")
         logger.warning("Could not load external student profile: %s", exc)
 
     # Fallback mapping by CIN using service credentials (UI adaptation resilience).
@@ -2601,6 +2613,15 @@ def professor_dashboard(request):
             }
             return render(request, 'Prolean/professor/dashboard.html', context)
         except Exception as exc:
+            if _is_barka_token_expired(exc):
+                try:
+                    request.session.pop("barka_token", None)
+                    request.session.pop("barka_permissions", None)
+                except Exception:
+                    pass
+                logout(request)
+                messages.warning(request, "Session expired. Please login again.")
+                return redirect("Prolean:login")
             logger.warning("External professor dashboard unavailable: %s", exc)
             context = {
                 'external_professor_mode': True,
@@ -3012,6 +3033,14 @@ def external_live_room(request, session_id):
             "professor_name_hint": professor_name_hint,
         })
     except Exception as exc:
+        if _is_barka_token_expired(exc):
+            try:
+                request.session.pop("barka_token", None)
+                request.session.pop("barka_permissions", None)
+            except Exception:
+                pass
+            messages.warning(request, "Session expired. Please login again.")
+            return redirect("Prolean:login")
         messages.error(request, f"Unable to join live: {exc}")
         if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
             return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")

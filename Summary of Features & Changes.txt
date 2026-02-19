@@ -436,3 +436,12 @@ Recent Entries
   - Reported slight header height change after recent UI updates.
 - Validation:
   - Visual verification recommended.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Expired Barka Token UX + Warning Card UI
+- What changed:
+  - Detects `TOKEN_EXPIRED` from Barka contract calls and forces a clean re-login (clears `barka_token`/permissions and redirects to login with a warning).
+  - Improved professor dashboard external warning card (slightly larger + new warm gradient + clearer CTA).
+- Why:
+  - Users were stuck seeing repeated 401 "Token expired" warnings instead of being guided to re-login.
+- Validation:
+  - Django system check passed.
