@@ -330,6 +330,13 @@
         justify-content: center;
     }
 
+    .agora-video-slot.fit-contain {
+        background: #000;
+    }
+    .agora-video-slot.fit-contain video {
+        object-fit: contain !important;
+    }
+
     .student-card video {
         width: 100%;
         height: 100%;
@@ -870,8 +877,10 @@
     host.innerHTML = "";
     const media = document.createElement("div");
     media.className = "agora-video-slot";
+    const fit = isScreenShare(data?.source) ? "contain" : "cover";
+    if (fit === "contain") media.classList.add("fit-contain");
     host.appendChild(media);
-    data.track.play(media, { fit: "cover" });
+    data.track.play(media, { fit });
     const footer = document.createElement("div");
     footer.className = "student-label";
     footer.textContent = label;
