@@ -2,7 +2,7 @@
 {% get_current_language as CURRENT_LANGUAGE %}
 <!-- templates/Prolean/partials/header.html -->
 <header class="sticky top-0 z-50 w-full prolean-header" style="height: var(--site-header-height, 80px);">
-    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-4">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-3">
         <div class="flex items-center gap-4 lg:gap-6 min-w-0">
             <!-- Brand -->
             <a class="flex items-center gap-3 min-w-0" href="{% url 'Prolean:home' %}">
@@ -31,12 +31,28 @@
                    href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
             </nav>
         </div>
+
+        <!-- Desktop Search (inspired layout) -->
+        <div class="hidden lg:flex flex-1 justify-center px-2">
+            <form action="{% url 'Prolean:training_catalog' %}" method="get" class="w-full max-w-[560px]">
+                <div class="relative">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">search</span>
+                    <input
+                        name="q"
+                        type="search"
+                        placeholder="Find trainings, sessions..."
+                        class="w-full h-10 pl-10 pr-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-4 focus:ring-orange-500/15 focus:border-orange-400 dark:focus:border-indigo-400 transition"
+                    />
+                </div>
+            </form>
+        </div>
         
-        <!-- Desktop buttons -->
-        <div class="hidden lg:flex items-center gap-2">
-            
-            <!-- Currency Switcher -->
-            <div class="relative group currency-selector">
+        <div class="flex items-center gap-2">
+            <!-- Desktop buttons -->
+            <div class="hidden lg:flex items-center gap-2">
+             
+             <!-- Currency Switcher -->
+             <div class="relative group currency-selector">
                 <button class="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-sm font-black inline-flex items-center gap-2 active-currency">
                     <span class="material-symbols-outlined text-[18px] leading-none text-slate-600 dark:text-slate-300">currency_exchange</span>
                     <span class="current-currency">MAD</span>
@@ -68,13 +84,13 @@
                         <span>AED</span>
                         <span class="text-xs text-neutral-500">Dirham</span>
                     </a>
-                </div>
+             </div>
             </div>
             
-            <!-- Theme Toggle -->
-            <button class="size-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-200" onclick="toggleTheme()">
-                <span id="theme-icon" class="material-symbols-outlined">light_mode</span>
-            </button>
+             <!-- Theme Toggle -->
+             <button class="size-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-200" onclick="toggleTheme()">
+                 <span id="theme-icon" class="material-symbols-outlined">light_mode</span>
+             </button>
             
             <!-- Notification Bell -->
             {% if user.is_authenticated and user.profile.status in 'ACTIVE,PENDING' %}
@@ -167,12 +183,13 @@
                     {% endif %}
                 </div>
             </div>
-        </div>
+            </div>
 
-        <!-- Mobile Menu Button -->
-            <button id="mobile-menu-button" class="lg:hidden size-10 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+            <!-- Mobile Menu Button -->
+            <button id="mobile-menu-button" class="lg:hidden size-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-200 transition-colors">
                 <span id="menu-icon" class="material-symbols-outlined">menu</span>
             </button>
+        </div>
     </div>
 
     <!-- Mobile Menu Overlay -->
