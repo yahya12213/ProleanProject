@@ -2401,6 +2401,44 @@ def live_session(request, stream_id):
 
 
 @login_required
+def live_stream_status(request, stream_id):
+    """
+    Lightweight status endpoint for live sessions.
+    Used by clients to auto-exit when the professor ends the live.
+    """
+    stream = get_object_or_404(Live, id=stream_id)
+    session = stream.session
+
+    if not hasattr(request.user, "profile"):
+        return JsonResponse({"ok": False, "error": "missing_profile"}, status=403)
+
+    profile = request.user.profile
+    if profile.role == "PROFESSOR":
+        try:
+            professor_profile = profile.professor_profile
+        except ProfessorProfile.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "not_allowed"}, status=403)
+        if session.professor != professor_profile:
+            return JsonResponse({"ok": False, "error": "not_allowed"}, status=403)
+    else:
+        try:
+            student_profile = profile.student_profile
+        except StudentProfile.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "not_allowed"}, status=403)
+        if student_profile.session != session:
+            return JsonResponse({"ok": False, "error": "not_allowed"}, status=403)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "stream_id": int(stream.id),
+            "is_active": bool(stream.is_active),
+            "ended_at": stream.ended_at.isoformat() if stream.ended_at else None,
+        }
+    )
+
+
+@login_required
 @student_active_required
 def recorded_videos_list(request, training_slug):
     """List all recorded videos for a training"""

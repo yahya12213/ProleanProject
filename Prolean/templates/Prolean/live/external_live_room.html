@@ -615,6 +615,11 @@
         <button id="toggle-video" class="ctrl-btn" data-state="on" title="Camera"><span class="material-symbols-outlined">videocam</span></button>
         <button id="toggle-screen" class="ctrl-btn" title="Screen Share"><span class="material-symbols-outlined">present_to_all</span></button>
         <button id="raise-hand" class="ctrl-btn" title="Raise Hand"><span class="material-symbols-outlined">front_hand</span></button>
+        {% if live_role|lower == 'professor' %}
+        <button id="end-live" class="ctrl-btn" title="End Live" data-end-url="{% url 'Prolean:external_professor_live_end' session_id %}">
+            <span class="material-symbols-outlined">stop_circle</span>
+        </button>
+        {% endif %}
         <button id="enable-sound" class="ctrl-btn" title="Enable Sound"><span class="material-symbols-outlined">volume_up</span></button>
         <button id="toggle-fullscreen" class="ctrl-btn" title="Fullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
         <button id="cycle-right-mode" class="ctrl-btn" title="Switch Right Screen"><span class="material-symbols-outlined">swap_horiz</span></button>
@@ -698,6 +703,7 @@
   const btnVideo = document.getElementById("toggle-video");
   const btnScreen = document.getElementById("toggle-screen");
   const btnRaiseHand = document.getElementById("raise-hand");
+  const btnEndLive = document.getElementById("end-live");
   const btnSound = document.getElementById("enable-sound");
   const btnFullscreen = document.getElementById("toggle-fullscreen");
   const btnCycleMode = document.getElementById("cycle-right-mode");
@@ -730,6 +736,7 @@
   let localCamTrack = null;
   let localScreenTrack = null;
   let screenClient = null;
+  let dataStreamId = null;
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
@@ -948,6 +955,7 @@
     for (const student of students) {
       const card = document.createElement("div");
       card.className = "student-card";
+      card.dataset.identity = String(student.id);
       card.style.minHeight = "0";
       if (raisedHands.has(student.id)) card.classList.add("raised-border");
       else if (speakingIds.has(student.id)) card.classList.add("speaker-border");
@@ -973,6 +981,17 @@
       grid.appendChild(card);
     }
     host.appendChild(grid);
+  };
+
+  const syncStudentCardBorders = () => {
+    const cards = rightHost.querySelectorAll(".student-card[data-identity]");
+    cards.forEach((card) => {
+      const id = String(card.dataset.identity || "");
+      if (!id) return;
+      card.classList.remove("speaker-border", "raised-border");
+      if (raisedHands.has(id)) card.classList.add("raised-border");
+      else if (speakingIds.has(id)) card.classList.add("speaker-border");
+    });
   };
   const syncModeButtons = () => {
     btnModeScreen.classList.toggle("active", rightMode === 0);
@@ -1007,8 +1026,28 @@
     }
     syncModeButtons();
     markPaneBorders();
+    syncStudentCardBorders();
   };
   const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); };
+
+  const getCsrfToken = () => {
+    try {
+      const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
+    } catch (_) {
+      return "";
+    }
+  };
+
+  const sendRoomSignal = async (payload) => {
+    if (!mainClient || dataStreamId === null) return;
+    try {
+      const raw = JSON.stringify(payload || {});
+      if (typeof mainClient.sendStreamMessage === "function") {
+        await mainClient.sendStreamMessage(dataStreamId, raw);
+      }
+    } catch (_) {}
+  };
 
   const subscribeUser = async (user, mediaType) => {
     await mainClient.subscribe(user, mediaType);
@@ -1035,6 +1074,11 @@
     try {
       participantLabels.set(String(agoraUid), selfName || (isProfessor ? "Professor" : "You"));
       await mainClient.join(agoraAppId, agoraChannel, agoraToken, agoraUid);
+      try {
+        dataStreamId = await mainClient.createDataStream({ reliable: true, ordered: true });
+      } catch (_) {
+        dataStreamId = null;
+      }
       mainClient.enableAudioVolumeIndicator();
       localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
       localCamTrack = await AgoraRTC.createCameraVideoTrack();
@@ -1055,6 +1099,34 @@
       showError(`Agora connection failed: ${err?.message || err}`);
     }
   };
+
+  mainClient.on("stream-message", (uid, _streamId, message) => {
+    let payload = null;
+    try {
+      const txt = typeof message === "string" ? message : new TextDecoder().decode(message);
+      payload = JSON.parse(txt);
+    } catch (_) {
+      payload = null;
+    }
+    if (!payload || typeof payload !== "object") return;
+    const type = String(payload.t || payload.type || "");
+    if (type === "hand") {
+      const who = String(payload.uid || uid || "");
+      const raised = !!payload.raised;
+      if (raised) raisedHands.add(who);
+      else raisedHands.delete(who);
+      markPaneBorders();
+      syncStudentCardBorders();
+      refreshPresenceBoard();
+      return;
+    }
+    if (type === "live_end") {
+      const dest = isProfessor
+        ? `${location.origin}{% url 'Prolean:professor_dashboard' %}?session_id={{ session_id }}`
+        : `{% url 'Prolean:dashboard' %}`;
+      window.location.href = dest;
+    }
+  });
 
   mainClient.on("user-published", async (user, mediaType) => {
     await subscribeUser(user, mediaType);
@@ -1082,8 +1154,8 @@
       if ((v.level || 0) > 5) speakingIds.add(String(v.uid));
     });
     markPaneBorders();
+    syncStudentCardBorders();
     refreshPresenceBoard();
-    if (rightMode === 2) renderRightPane();
   });
 
   const startScreenShare = async () => {
@@ -1136,10 +1208,10 @@
     btnToggleLayoutPanel.classList.toggle("active", layoutPanel.classList.contains("open"));
   });
   swapPanesInput.addEventListener("change", () => { layoutPrefs.swapped = swapPanesInput.checked; applyLayoutPrefs(); persistLayoutPrefs(); });
-  rightWidthInput.addEventListener("input", () => { layoutPrefs.rightWidth = Number(rightWidthInput.value); applyLayoutPrefs(); rerender(); });
+  rightWidthInput.addEventListener("input", () => { layoutPrefs.rightWidth = Number(rightWidthInput.value); applyLayoutPrefs(); });
   rightWidthInput.addEventListener("change", persistLayoutPrefs);
-  gridColsInput.addEventListener("input", () => { layoutPrefs.gridCols = Number(gridColsInput.value); applyLayoutPrefs(); renderRightPane(); });
-  gridColsInput.addEventListener("change", persistLayoutPrefs);
+  gridColsInput.addEventListener("input", () => { layoutPrefs.gridCols = Number(gridColsInput.value); applyLayoutPrefs(); });
+  gridColsInput.addEventListener("change", () => { persistLayoutPrefs(); renderRightPane(); });
   tileSizeInput.addEventListener("input", () => { layoutPrefs.tileMinHeight = Number(tileSizeInput.value); applyLayoutPrefs(); });
   tileSizeInput.addEventListener("change", persistLayoutPrefs);
   btnResetLayout.addEventListener("click", () => { layoutPrefs = { ...defaultLayoutPrefs }; applyLayoutPrefs(); persistLayoutPrefs(); renderRightPane(); });
@@ -1153,7 +1225,6 @@
     const rightPercent = ((shellRect.width - relativeX) / shellRect.width) * 100;
     layoutPrefs.rightWidth = clampRightPaneWidth(rightPercent);
     applyLayoutPrefs();
-    rerender();
   };
   paneResizer.addEventListener("pointerdown", (event) => {
     if (window.matchMedia("(max-width: 1100px)").matches) return;
@@ -1191,8 +1262,38 @@
       ? '<span class="material-symbols-outlined">waving_hand</span>'
       : '<span class="material-symbols-outlined">front_hand</span>';
     markPaneBorders();
+    syncStudentCardBorders();
     refreshPresenceBoard();
+    await sendRoomSignal({ t: "hand", uid: id, raised: raisedHands.has(id) });
   });
+  if (btnEndLive) {
+    btnEndLive.addEventListener("click", async () => {
+      if (!isProfessor) return;
+      const endUrl = String(btnEndLive.dataset.endUrl || "");
+      if (!endUrl) return;
+      btnEndLive.disabled = true;
+      btnEndLive.classList.add("opacity-50", "cursor-not-allowed");
+      try {
+        await sendRoomSignal({ t: "live_end", uid: String(agoraUid) });
+      } catch (_) {}
+      try {
+        const res = await fetch(endUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          body: "",
+          credentials: "same-origin",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (e) {
+        showError(`End live failed: ${e?.message || e}`);
+      }
+      const dest = `${location.origin}{% url 'Prolean:professor_dashboard' %}?session_id={{ session_id }}`;
+      window.location.href = dest;
+    });
+  }
   btnSound.addEventListener("click", () => {
     audioTracks.forEach((track) => { try { track.play(); } catch (_) {} });
     setStatus("Connected", "ok");

@@ -189,6 +189,8 @@
     const UID = {{ user.id }};
     const USER_IS_HOST = {{ user_is_host|yesno:"true,false" }};
     const STREAM_ID = {{ stream.id }};
+    const STATUS_URL = "{% url 'Prolean:live_stream_status' stream.id %}";
+    const EXIT_URL = USER_IS_HOST ? "{% url 'Prolean:professor_dashboard' %}" : "{% url 'Prolean:dashboard' %}";
 
     const micBtn = document.getElementById("mic-btn");
     const cameraBtn = document.getElementById("camera-btn");
@@ -206,6 +208,21 @@
     };
 
     const playedRemoteAudio = new Set();
+    let shouldPollStatus = true;
+
+    const pollLiveStatus = async () => {
+        if (!shouldPollStatus) return;
+        try {
+            const res = await fetch(STATUS_URL, { credentials: "same-origin", headers: { "Accept": "application/json" } });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.ok && data.is_active === false) {
+                window.location.href = EXIT_URL;
+            }
+        } catch (_) {}
+    };
+    setInterval(pollLiveStatus, 2000);
+    pollLiveStatus();
 
     const syncControlState = () => {
         const micOn = !!rtc.localAudioTrack && !rtc.localAudioTrack.muted;
@@ -296,6 +313,7 @@
     };
 
     const leaveSession = async () => {
+        shouldPollStatus = false;
         if (rtc.localAudioTrack) rtc.localAudioTrack.close();
         if (rtc.localVideoTrack) rtc.localVideoTrack.close();
         if (rtc.client) await rtc.client.leave();
@@ -336,6 +354,7 @@
     leaveBtn.addEventListener("click", leaveSession);
 
     window.addEventListener("beforeunload", async () => {
+        shouldPollStatus = false;
         if (rtc.client) await rtc.client.leave().catch(() => {});
     });
 

@@ -53,6 +53,7 @@ urlpatterns = [
     
     # Live Sessions
     path('live/<int:stream_id>/', views.live_session, name='live_session'),
+    path('live/<int:stream_id>/status/', views.live_stream_status, name='live_stream_status'),
     path('professor/sessions/start-live/<int:session_id>/', views.start_live_stream, name='start_live_stream'),
     path('professor/live/end/<int:stream_id>/', views.end_live_stream, name='end_live_stream'),
     path('professor/session/update/<int:session_id>/', views.update_session_status, name='update_session_status'),
