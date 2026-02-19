@@ -147,15 +147,15 @@
     }
 
     .presence-chip.speaking {
-        background: rgba(14, 165, 233, 0.18);
-        border-color: rgba(14, 165, 233, 0.42);
-        color: #7dd3fc;
-    }
-
-    .presence-chip.hand {
         background: rgba(239, 68, 68, 0.16);
         border-color: rgba(239, 68, 68, 0.45);
         color: #fca5a5;
+    }
+
+    .presence-chip.hand {
+        background: rgba(34, 197, 94, 0.18);
+        border-color: rgba(34, 197, 94, 0.45);
+        color: #86efac;
     }
 
     .presence-empty {
@@ -244,11 +244,11 @@
     }
 
     .speaker-border {
-        box-shadow: inset 0 0 0 2px #22c55e;
+        box-shadow: inset 0 0 0 2px #ef4444;
     }
 
     .raised-border {
-        box-shadow: inset 0 0 0 2px #ef4444;
+        box-shadow: inset 0 0 0 2px #22c55e;
     }
 
     .video-host {
@@ -830,6 +830,7 @@
     return entries.length ? entries[entries.length - 1] : null;
   };
 
+  const resolveProfessorScreenIdentity = () => String(Number(professorUidHint) + SCREEN_UID_OFFSET);
   const resolveProfessorIdentity = () => {
     if (isProfessor) return String(agoraUid);
     if (participantLabels.has(String(professorUidHint))) return String(professorUidHint);
@@ -839,7 +840,8 @@
   const isProfessorLike = (identity) => {
     const id = String(identity);
     if (id === String(resolveProfessorIdentity())) return true;
-    if (id === String(professorUidHint + SCREEN_UID_OFFSET)) return true;
+    if (id === resolveProfessorScreenIdentity()) return true;
+    if (id === String(Number(resolveProfessorIdentity()) + SCREEN_UID_OFFSET)) return true;
     return false;
   };
 
@@ -980,7 +982,7 @@
   const renderRightPane = () => {
     if (rightMode === 0) {
       rightTitle.textContent = uiText.rightScreen;
-      const screen = pickTrack(resolveProfessorIdentity(), true);
+      const screen = pickTrack(resolveProfessorScreenIdentity(), true);
       if (screen) renderTrack(rightHost, screen, uiText.screenShareLabel);
       else renderAvatar(rightHost, uiText.noScreenShare);
     } else if (rightMode === 1) {
@@ -992,7 +994,7 @@
       top.className = "right-split-top";
       const bottom = document.createElement("div");
       bottom.className = "right-split-bottom";
-      const screen = pickTrack(resolveProfessorIdentity(), true);
+      const screen = pickTrack(resolveProfessorScreenIdentity(), true);
       if (screen) renderTrack(top, screen, uiText.profScreenSharing);
       else renderAvatar(top, uiText.noScreenShare);
       renderStudentsInto(bottom, true);
@@ -1013,9 +1015,8 @@
     const uid = String(user.uid);
     if (!participantLabels.has(uid)) participantLabels.set(uid, `Student ${uid}`);
     if (mediaType === "video" && user.videoTrack) {
-      const source = Number(user.uid) === (professorUidHint + SCREEN_UID_OFFSET) ? "screen_share" : "camera";
-      const identity = source === "screen_share" ? String(professorUidHint) : uid;
-      addVideoTrack(identity, user.videoTrack, source, false);
+      const source = Number(user.uid) === (Number(professorUidHint) + SCREEN_UID_OFFSET) ? "screen_share" : "camera";
+      addVideoTrack(uid, user.videoTrack, source, false);
       rerender();
     }
     if (mediaType === "audio" && user.audioTrack) {
@@ -1062,7 +1063,6 @@
     const uid = String(user.uid);
     if (mediaType === "video") {
       removeVideoTracksByIdentity(uid);
-      if (Number(user.uid) === (professorUidHint + SCREEN_UID_OFFSET)) removeVideoTracksByIdentity(String(professorUidHint));
     }
     if (mediaType === "audio") audioTracks.delete(uid);
     rerender();
@@ -1089,13 +1089,13 @@
   const startScreenShare = async () => {
     if (!isProfessor || localScreenTrack) return;
     try {
-      const screenUid = professorUidHint + SCREEN_UID_OFFSET;
+      const screenUid = Number(professorUidHint) + SCREEN_UID_OFFSET;
       screenClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
       await screenClient.join(agoraAppId, agoraChannel, (agoraScreenToken || agoraToken), screenUid);
       const st = await AgoraRTC.createScreenVideoTrack();
       localScreenTrack = Array.isArray(st) ? st[0] : st;
       await screenClient.publish([localScreenTrack]);
-      addVideoTrack(String(professorUidHint), localScreenTrack, "screen_share", true);
+      addVideoTrack(String(screenUid), localScreenTrack, "screen_share", true);
       localScreenTrack.on("track-ended", stopScreenShare);
       btnScreen.innerHTML = '<span class="material-symbols-outlined">stop_screen_share</span>';
       rerender();
@@ -1119,7 +1119,7 @@
     } catch (_) {}
     localScreenTrack = null;
     screenClient = null;
-    removeVideoTracksByIdentity(String(professorUidHint));
+    removeVideoTracksByIdentity(resolveProfessorScreenIdentity());
     if (localCamTrack) addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
     btnScreen.innerHTML = '<span class="material-symbols-outlined">present_to_all</span>';
     rerender();

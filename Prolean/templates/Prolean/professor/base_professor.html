@@ -38,7 +38,7 @@
         --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 
         display: flex;
-        min-height: calc(100vh - 80px); /* Adjust for header height */
+        min-height: calc(100vh - var(--site-header-height, 80px)); /* Adjust for header height */
         background-color: var(--prof-surface);
         color: var(--prof-text-main);
         transition: background-color 0.3s ease, color 0.3s ease;
@@ -98,8 +98,8 @@
         
         /* Sticky positioning to respect header */
         position: sticky;
-        top: 80px; /* Height of the sticky header */
-        height: calc(100vh - 80px);
+        top: var(--site-header-height, 80px); /* Height of the sticky header */
+        height: calc(100vh - var(--site-header-height, 80px));
         overflow-y: auto;
         
         z-index: 40; /* Below header (50) */
@@ -214,15 +214,15 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--prof-text-muted); }
 
     /* Mobile Responsive */
-    @media (max-width: 1024px) {
-        .prof-sidebar {
-            position: fixed;
-            top: 80px; /* Still respect header */
-            bottom: 0;
-            left: 0;
-            transform: translateX(-100%);
-            z-index: 60; /* Higher on mobile to overlay content */
-            height: auto;
+        @media (max-width: 1024px) {
+            .prof-sidebar {
+                position: fixed;
+                top: var(--site-header-height, 80px); /* Still respect header */
+                bottom: 0;
+                left: 0;
+                transform: translateX(-100%);
+                z-index: 60; /* Higher on mobile to overlay content */
+                height: auto;
         }
         .prof-sidebar.open {
             transform: translateX(0);

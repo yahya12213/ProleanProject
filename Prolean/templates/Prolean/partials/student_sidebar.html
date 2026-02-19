@@ -63,8 +63,8 @@
     .student-sidebar {
         width: 280px;
         position: sticky;
-        top: 80px;
-        height: calc(100vh - 80px);
+        top: var(--site-header-height, 80px);
+        height: calc(100vh - var(--site-header-height, 80px));
         background: var(--stu-bg);
         border-right: 1px solid var(--stu-border);
         transition: all 0.3s ease;
