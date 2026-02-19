@@ -428,3 +428,11 @@ Recent Entries
   - Production error: "Failed lookup for key [full_name]" for external students payloads that only include `student_name`.
 - Validation:
   - Django system check passed.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/UI Header Height Stability
+- What changed:
+  - Locked global header to exactly `h-20` and set inner container to `h-full` to prevent subtle height drift across pages.
+- Why:
+  - Reported slight header height change after recent UI updates.
+- Validation:
+  - Visual verification recommended.
