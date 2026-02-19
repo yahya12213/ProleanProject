@@ -377,9 +377,9 @@
                     <div class="stu">
                         <div class="av"><span class="material-symbols-outlined">person</span></div>
                         <div class="min-w-0">
-                            <b class="truncate">{{ st.student_name|default:st.full_name|default:st.name|default:"Student" }}</b>
-                            <p class="truncate">{{ st.student_email|default:st.email|default:"" }}</p>
-                            <p class="truncate">{{ st.student_phone|default:st.phone|default:"" }}</p>
+                            <b class="truncate">{{ st.display_name|default:"Student" }}</b>
+                            <p class="truncate">{{ st.display_email|default:"" }}</p>
+                            <p class="truncate">{{ st.display_phone|default:"" }}</p>
                             {% if st.is_online_web %}
                                 <span class="badge on"><span class="material-symbols-outlined text-sm">wifi</span>Online</span>
                             {% else %}

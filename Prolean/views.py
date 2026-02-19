@@ -150,6 +150,22 @@ def _enrich_external_students_with_presence(external_students: list[dict]) -> tu
     enriched: list[dict] = []
     for row in external_students if isinstance(external_students, list) else []:
         entry = dict(row) if isinstance(row, dict) else {"student_name": str(row)}
+
+        # Precompute safe display fields so templates don't crash on missing dict keys.
+        first_name = str(entry.get("student_first_name") or entry.get("first_name") or "").strip()
+        last_name = str(entry.get("student_last_name") or entry.get("last_name") or "").strip()
+        combined_name = " ".join([part for part in (first_name, last_name) if part]).strip()
+        entry["display_name"] = (
+            str(entry.get("student_name") or "").strip()
+            or str(entry.get("full_name") or "").strip()
+            or str(entry.get("name") or "").strip()
+            or combined_name
+            or "Student"
+        )
+        entry["display_email"] = str(entry.get("student_email") or entry.get("email") or "").strip()
+        entry["display_phone"] = str(entry.get("student_phone") or entry.get("phone") or "").strip()
+        entry["display_cin"] = str(entry.get("student_cin") or entry.get("cin") or entry.get("cin_or_passport") or "").strip()
+
         identifiers = _extract_external_student_identifiers(entry)
         online_payload = None
         for ident in identifiers:

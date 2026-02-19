@@ -419,3 +419,12 @@ Recent Entries
   - Language appeared to “not work” because the response cookie was being overwritten back to `fr`.
 - Validation:
   - Django test client: POST `/i18n/set/` sets `django_language=ar` and subsequent GET renders `lang="ar"` + `dir="rtl"`.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Professor Dashboard External Students Rendering
+- What changed:
+  - Fixed template crash when an external student dict doesn't include `full_name` by precomputing safe `display_*` fields in `_enrich_external_students_with_presence`.
+  - Updated professor dashboard to render `display_name/display_email/display_phone` instead of chaining missing keys in template filters.
+- Why:
+  - Production error: "Failed lookup for key [full_name]" for external students payloads that only include `student_name`.
+- Validation:
+  - Django system check passed.
