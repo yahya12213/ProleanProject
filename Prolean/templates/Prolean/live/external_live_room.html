@@ -91,91 +91,6 @@
         gap: 10px;
     }
 
-    .tracking-panel {
-        margin: 0 12px 10px;
-        border: 1px solid var(--panel-border);
-        border-radius: 14px;
-        background: var(--panel-bg);
-        overflow: hidden;
-    }
-    .tracking-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--panel-border);
-        background: linear-gradient(135deg, rgba(255, 107, 0, 0.10), rgba(6, 182, 212, 0.08));
-    }
-    .tracking-title {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        font-weight: 900;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-main);
-    }
-    .tracking-sub {
-        font-size: 11px;
-        font-weight: 800;
-        color: var(--muted-text);
-    }
-    .tracking-table-wrap {
-        max-height: 180px;
-        overflow: auto;
-        padding: 10px 12px 12px;
-    }
-    .tracking-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0 8px;
-    }
-    .tracking-th {
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--muted-text);
-        text-align: left;
-        padding: 0 10px 6px;
-    }
-    .tracking-row {
-        border: 1px solid var(--panel-border);
-        background: rgba(148, 163, 184, 0.10);
-        border-radius: 14px;
-    }
-    .tracking-td {
-        padding: 10px;
-        font-size: 12px;
-        font-weight: 800;
-        color: var(--text-main);
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-    .tracking-td.name {
-        max-width: 240px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .tracking-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        border-radius: 999px;
-        padding: 3px 9px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(0, 0, 0, 0.18);
-        color: var(--text-main);
-        font-size: 11px;
-        font-weight: 900;
-    }
-    .tracking-pill.hot { border-color: rgba(255, 107, 0, 0.35); background: rgba(255, 107, 0, 0.14); }
-    .tracking-pill.cool { border-color: rgba(6, 182, 212, 0.35); background: rgba(6, 182, 212, 0.14); }
-
     .presence-col {
         min-width: 0;
     }
@@ -688,30 +603,6 @@
         </section>
     </div>
 
-    <div id="tracking-panel" class="tracking-panel hidden">
-        <div class="tracking-head">
-            <div class="min-w-0">
-                <div class="tracking-title"><span class="material-symbols-outlined">insights</span>Student Tracking</div>
-                <div id="tracking-sub" class="tracking-sub">Live engagement (updates in real-time)</div>
-            </div>
-            <div class="tracking-pill cool" id="tracking-updated">--</div>
-        </div>
-        <div class="tracking-table-wrap">
-            <table class="tracking-table">
-                <thead>
-                    <tr>
-                        <th class="tracking-th">Student</th>
-                        <th class="tracking-th">Watched</th>
-                        <th class="tracking-th">Speaks</th>
-                        <th class="tracking-th">Hands</th>
-                        <th class="tracking-th">Engagement</th>
-                    </tr>
-                </thead>
-                <tbody id="tracking-body"></tbody>
-            </table>
-        </div>
-    </div>
-
     <div class="room-shell">
         <section id="left-pane" class="pane pane-main">
             <div class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}كاميرا الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Camera{% else %}Caméra professeur{% endif %}</div>
@@ -814,10 +705,6 @@
   const onlineCount = document.getElementById("online-count");
   const speakingCount = document.getElementById("speaking-count");
   const raisedCount = document.getElementById("raised-count");
-  const trackingPanel = document.getElementById("tracking-panel");
-  const trackingBody = document.getElementById("tracking-body");
-  const trackingUpdated = document.getElementById("tracking-updated");
-
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
   const btnScreen = document.getElementById("toggle-screen");
@@ -1066,76 +953,6 @@
     const hands = Number(item.hands || 0);
     return Math.max(0, Math.round(mins * 1 + speaks * 2 + hands * 1.5));
   };
-  const fmtMinutes = (ms) => {
-    const mins = Math.max(0, Math.floor((Number(ms || 0)) / 60000));
-    if (mins < 60) return `${mins}m`;
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h}h ${m}m`;
-  };
-  const renderTrackingPanel = () => {
-    if (!isProfessor || !trackingPanel || !trackingBody || !trackingUpdated) return;
-    trackingPanel.classList.remove("hidden");
-
-    const rows = Array.from(statsByUid.values()).filter((r) => !isProfessorLike(r.uid));
-    rows.forEach((r) => {
-      const label = participantLabels.get(String(r.uid));
-      if (label) r.name = label;
-    });
-    rows.sort((a, b) => computeEngagement(b) - computeEngagement(a));
-
-    trackingUpdated.textContent = new Date().toLocaleTimeString();
-    trackingBody.innerHTML = "";
-    if (!rows.length) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 5;
-      td.className = "tracking-td";
-      td.style.color = "var(--muted-text)";
-      td.textContent = "Waiting for students...";
-      tr.appendChild(td);
-      trackingBody.appendChild(tr);
-      return;
-    }
-
-    rows.slice(0, 40).forEach((row) => {
-      const tr = document.createElement("tr");
-      tr.className = "tracking-row";
-      const watch = estimateWatchMs(row);
-      const score = computeEngagement(row);
-
-      const tdName = document.createElement("td");
-      tdName.className = "tracking-td name";
-      tdName.textContent = row.name || `Student ${row.uid}`;
-
-      const tdWatch = document.createElement("td");
-      tdWatch.className = "tracking-td";
-      tdWatch.textContent = fmtMinutes(watch);
-
-      const tdSpeaks = document.createElement("td");
-      tdSpeaks.className = "tracking-td";
-      tdSpeaks.textContent = String(row.speaks || 0);
-
-      const tdHands = document.createElement("td");
-      tdHands.className = "tracking-td";
-      tdHands.textContent = String(row.hands || 0);
-
-      const tdEng = document.createElement("td");
-      tdEng.className = "tracking-td";
-      const pill = document.createElement("span");
-      pill.className = `tracking-pill ${score >= 20 ? "hot" : "cool"}`;
-      pill.textContent = String(score);
-      tdEng.appendChild(pill);
-
-      tr.appendChild(tdName);
-      tr.appendChild(tdWatch);
-      tr.appendChild(tdSpeaks);
-      tr.appendChild(tdHands);
-      tr.appendChild(tdEng);
-      trackingBody.appendChild(tr);
-    });
-  };
-
   const renderLeftPane = () => {
     professorIdentity = resolveProfessorIdentity();
     const label = participantLabels.get(professorIdentity) || professorNameHint || "Professor";
@@ -1246,7 +1063,7 @@
     markPaneBorders();
     syncStudentCardBorders();
   };
-  const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); renderTrackingPanel(); };
+  const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); };
 
   const getCsrfToken = () => {
     try {
@@ -1404,7 +1221,6 @@
       markPaneBorders();
       syncStudentCardBorders();
       refreshPresenceBoard();
-      renderTrackingPanel();
       return;
     }
     if (type === "live_end") {
@@ -1472,7 +1288,6 @@
     markPaneBorders();
     syncStudentCardBorders();
     refreshPresenceBoard();
-    renderTrackingPanel();
   });
 
   const startScreenShare = async () => {
@@ -1663,8 +1478,8 @@
   };
   setInterval(pollStatus, 3500);
 
-  if (isProfessor) {
-    const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
+    if (isProfessor) {
+      const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
 
     const tickTracking = () => {
       if (exiting) return;
@@ -1673,7 +1488,6 @@
         const stat = getOrInitStat(s.id);
         if (stat.online && !stat.joinedAt) stat.joinedAt = Date.now();
       });
-      renderTrackingPanel();
     };
 
     const pushTracking = async () => {

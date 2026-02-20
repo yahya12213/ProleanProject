@@ -464,3 +464,8 @@ Recent Entries
   - Bug: when professor ends the live, students could continue chatting—now enforced by server status + room exit.
 - Validation:
   - Django system check passed (`python manage.py check`).
+
+[2026-02-20 UTC] Area: Prolean | Type: UI/External Live Studio
+- What changed:
+  - Removed the “Student Tracking” panel from the external live studio room UI (`Prolean/templates/Prolean/live/external_live_room.html`).
+  - Kept tracking collection + professor dashboard live tracking intact (no UI clutter inside the studio).
