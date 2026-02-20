@@ -3078,6 +3078,11 @@ def external_live_room(request, session_id):
                 pass
 
         touch_user_presence(request.user, path=request.path, session_id=str(session_id))
+        try:
+            # If the live is joinable, clear any stale "ended" flag so clients don't auto-exit.
+            cache.delete(f"prolean:external_live_ended_at:{session_id}")
+        except Exception:
+            pass
         return render(request, 'Prolean/live/external_live_room.html', {
             "session_id": str(session_id),
             "live_state": live,
@@ -3130,11 +3135,32 @@ def external_live_status(request, session_id):
     except Exception:
         ended_at = None
 
+    # If we have a token, confirm live state with the external authority to avoid stale cache forcing exits.
+    token = request.session.get("barka_token")
+    mgmt = ManagementContractClient()
+    live_state = None
+    if mgmt.is_configured() and isinstance(token, str) and token.strip():
+        try:
+            live_state = mgmt.get_session_live_state(str(session_id), bearer_token=token.strip())
+        except Exception:
+            live_state = None
+
+    status = str((live_state or {}).get("status") or "").strip().lower() if isinstance(live_state, dict) else ""
+    externally_ended = status == "ended"
+
+    if ended_at and not externally_ended and status in {"live", "paused"}:
+        try:
+            cache.delete(f"prolean:external_live_ended_at:{session_id}")
+        except Exception:
+            pass
+        ended_at = None
+
     return JsonResponse(
         {
             "session_id": str(session_id),
-            "ended": bool(ended_at),
+            "ended": bool(ended_at) or externally_ended,
             "ended_at": ended_at,
+            "status": status or None,
             "server_time": timezone.now().isoformat(),
         }
     )

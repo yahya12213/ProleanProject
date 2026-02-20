@@ -479,3 +479,9 @@ Recent Entries
   - Requirement: tracking must be stored per student (not only in cache) and visible from the professor students page.
 - Validation:
   - Django system check recommended + apply migration in production.
+
+[2026-02-20 UTC] Area: Prolean | Type: Fix/External Live Auto-Ending (Stale End Flag)
+- What changed:
+  - Prevents the external live room from auto-exiting due to a stale cached `ended_at` flag by:
+    - Clearing the flag on successful join.
+    - Having the status endpoint confirm live state with Barka when possible and auto-clear stale flags.
