@@ -91,6 +91,91 @@
         gap: 10px;
     }
 
+    .tracking-panel {
+        margin: 0 12px 10px;
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        background: var(--panel-bg);
+        overflow: hidden;
+    }
+    .tracking-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--panel-border);
+        background: linear-gradient(135deg, rgba(255, 107, 0, 0.10), rgba(6, 182, 212, 0.08));
+    }
+    .tracking-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-main);
+    }
+    .tracking-sub {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--muted-text);
+    }
+    .tracking-table-wrap {
+        max-height: 180px;
+        overflow: auto;
+        padding: 10px 12px 12px;
+    }
+    .tracking-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+    }
+    .tracking-th {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-text);
+        text-align: left;
+        padding: 0 10px 6px;
+    }
+    .tracking-row {
+        border: 1px solid var(--panel-border);
+        background: rgba(148, 163, 184, 0.10);
+        border-radius: 14px;
+    }
+    .tracking-td {
+        padding: 10px;
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text-main);
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .tracking-td.name {
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .tracking-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 3px 9px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(0, 0, 0, 0.18);
+        color: var(--text-main);
+        font-size: 11px;
+        font-weight: 900;
+    }
+    .tracking-pill.hot { border-color: rgba(255, 107, 0, 0.35); background: rgba(255, 107, 0, 0.14); }
+    .tracking-pill.cool { border-color: rgba(6, 182, 212, 0.35); background: rgba(6, 182, 212, 0.14); }
+
     .presence-col {
         min-width: 0;
     }
@@ -603,6 +688,30 @@
         </section>
     </div>
 
+    <div id="tracking-panel" class="tracking-panel hidden">
+        <div class="tracking-head">
+            <div class="min-w-0">
+                <div class="tracking-title"><span class="material-symbols-outlined">insights</span>Student Tracking</div>
+                <div id="tracking-sub" class="tracking-sub">Live engagement (updates in real-time)</div>
+            </div>
+            <div class="tracking-pill cool" id="tracking-updated">--</div>
+        </div>
+        <div class="tracking-table-wrap">
+            <table class="tracking-table">
+                <thead>
+                    <tr>
+                        <th class="tracking-th">Student</th>
+                        <th class="tracking-th">Watched</th>
+                        <th class="tracking-th">Speaks</th>
+                        <th class="tracking-th">Hands</th>
+                        <th class="tracking-th">Engagement</th>
+                    </tr>
+                </thead>
+                <tbody id="tracking-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="room-shell">
         <section id="left-pane" class="pane pane-main">
             <div class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}كاميرا الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Camera{% else %}Caméra professeur{% endif %}</div>
@@ -705,6 +814,9 @@
   const onlineCount = document.getElementById("online-count");
   const speakingCount = document.getElementById("speaking-count");
   const raisedCount = document.getElementById("raised-count");
+  const trackingPanel = document.getElementById("tracking-panel");
+  const trackingBody = document.getElementById("tracking-body");
+  const trackingUpdated = document.getElementById("tracking-updated");
 
   const btnAudio = document.getElementById("toggle-audio");
   const btnVideo = document.getElementById("toggle-video");
@@ -738,12 +850,17 @@
   const audioTracks = new Map();
   const speakingIds = new Set();
   const raisedHands = new Set();
+  const statsByUid = new Map();
+  let previousSpeaking = new Set();
   let professorIdentity = String(professorUidHint);
   let localMicTrack = null;
   let localCamTrack = null;
   let localScreenTrack = null;
   let screenClient = null;
   let dataStreamId = null;
+  let hasJoined = false;
+  let exiting = false;
+  let warnedNoDataStream = false;
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
@@ -927,6 +1044,98 @@
     paintPresenceList(raisedList, raisedStudentIds, "hand", uiText.noRaisedHands);
   };
 
+  const getOrInitStat = (uid) => {
+    const id = String(uid);
+    let item = statsByUid.get(id);
+    if (!item) {
+      item = { uid: id, name: identityLabel(id), online: false, joinedAt: null, watchMs: 0, speaks: 0, hands: 0 };
+      statsByUid.set(id, item);
+    }
+    const label = participantLabels.get(id);
+    if (label) item.name = label;
+    return item;
+  };
+  const estimateWatchMs = (item) => {
+    const base = Number(item.watchMs || 0);
+    if (item.online && item.joinedAt) return base + (Date.now() - Number(item.joinedAt));
+    return base;
+  };
+  const computeEngagement = (item) => {
+    const mins = estimateWatchMs(item) / 60000;
+    const speaks = Number(item.speaks || 0);
+    const hands = Number(item.hands || 0);
+    return Math.max(0, Math.round(mins * 1 + speaks * 2 + hands * 1.5));
+  };
+  const fmtMinutes = (ms) => {
+    const mins = Math.max(0, Math.floor((Number(ms || 0)) / 60000));
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+  };
+  const renderTrackingPanel = () => {
+    if (!isProfessor || !trackingPanel || !trackingBody || !trackingUpdated) return;
+    trackingPanel.classList.remove("hidden");
+
+    const rows = Array.from(statsByUid.values()).filter((r) => !isProfessorLike(r.uid));
+    rows.forEach((r) => {
+      const label = participantLabels.get(String(r.uid));
+      if (label) r.name = label;
+    });
+    rows.sort((a, b) => computeEngagement(b) - computeEngagement(a));
+
+    trackingUpdated.textContent = new Date().toLocaleTimeString();
+    trackingBody.innerHTML = "";
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 5;
+      td.className = "tracking-td";
+      td.style.color = "var(--muted-text)";
+      td.textContent = "Waiting for students...";
+      tr.appendChild(td);
+      trackingBody.appendChild(tr);
+      return;
+    }
+
+    rows.slice(0, 40).forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.className = "tracking-row";
+      const watch = estimateWatchMs(row);
+      const score = computeEngagement(row);
+
+      const tdName = document.createElement("td");
+      tdName.className = "tracking-td name";
+      tdName.textContent = row.name || `Student ${row.uid}`;
+
+      const tdWatch = document.createElement("td");
+      tdWatch.className = "tracking-td";
+      tdWatch.textContent = fmtMinutes(watch);
+
+      const tdSpeaks = document.createElement("td");
+      tdSpeaks.className = "tracking-td";
+      tdSpeaks.textContent = String(row.speaks || 0);
+
+      const tdHands = document.createElement("td");
+      tdHands.className = "tracking-td";
+      tdHands.textContent = String(row.hands || 0);
+
+      const tdEng = document.createElement("td");
+      tdEng.className = "tracking-td";
+      const pill = document.createElement("span");
+      pill.className = `tracking-pill ${score >= 20 ? "hot" : "cool"}`;
+      pill.textContent = String(score);
+      tdEng.appendChild(pill);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdWatch);
+      tr.appendChild(tdSpeaks);
+      tr.appendChild(tdHands);
+      tr.appendChild(tdEng);
+      trackingBody.appendChild(tr);
+    });
+  };
+
   const renderLeftPane = () => {
     professorIdentity = resolveProfessorIdentity();
     const label = participantLabels.get(professorIdentity) || professorNameHint || "Professor";
@@ -1037,7 +1246,7 @@
     markPaneBorders();
     syncStudentCardBorders();
   };
-  const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); };
+  const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); renderTrackingPanel(); };
 
   const getCsrfToken = () => {
     try {
@@ -1048,8 +1257,55 @@
     }
   };
 
+  const decodeStreamMessage = (message) => {
+    if (typeof message === "string") return message;
+    try {
+      if (message instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(message));
+      if (ArrayBuffer.isView(message)) return new TextDecoder().decode(message);
+    } catch (_) {}
+    try {
+      return new TextDecoder().decode(message);
+    } catch (_) {}
+    return "";
+  };
+
+  const forceExit = async (reason) => {
+    if (exiting) return;
+    exiting = true;
+    try { await stopScreenShare(); } catch (_) {}
+    try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
+    try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
+    try { await mainClient.leave(); } catch (_) {}
+    const dest = isProfessor
+      ? `${location.origin}{% url 'Prolean:professor_dashboard' %}?session_id={{ session_id }}`
+      : `{% url 'Prolean:dashboard' %}`;
+    if (reason) {
+      try { sessionStorage.setItem("prolean_live_exit_reason", String(reason)); } catch (_) {}
+    }
+    window.location.href = dest;
+  };
+
+  const ensureDataStream = async () => {
+    if (!mainClient || !hasJoined) return null;
+    if (dataStreamId !== null) return dataStreamId;
+    try {
+      dataStreamId = await mainClient.createDataStream({ reliable: true, ordered: true });
+    } catch (_) {
+      dataStreamId = null;
+    }
+    return dataStreamId;
+  };
+
   const sendRoomSignal = async (payload) => {
-    if (!mainClient || dataStreamId === null) return;
+    if (!mainClient || !hasJoined) return;
+    await ensureDataStream();
+    if (dataStreamId === null) {
+      if (!warnedNoDataStream) {
+        warnedNoDataStream = true;
+        showError("Live sync is limited on this device/browser (hand-raise and live-end signals may not propagate).");
+      }
+      return;
+    }
     try {
       const raw = JSON.stringify(payload || {});
       if (typeof mainClient.sendStreamMessage === "function") {
@@ -1083,6 +1339,7 @@
     try {
       participantLabels.set(String(agoraUid), selfName || (isProfessor ? "Professor" : "You"));
       await mainClient.join(agoraAppId, agoraChannel, agoraToken, agoraUid);
+      hasJoined = true;
       try {
         dataStreamId = await mainClient.createDataStream({ reliable: true, ordered: true });
       } catch (_) {
@@ -1096,6 +1353,10 @@
       setStatus("Connected", "ok");
       syncControlStates();
       rerender();
+      try {
+        const helloName = selfName || (isProfessor ? (professorNameHint || "Professor") : "You");
+        await sendRoomSignal({ t: "hello", uid: String(agoraUid), name: helloName });
+      } catch (_) {}
 
       if (!isProfessor) {
         btnScreen.disabled = true;
@@ -1112,33 +1373,57 @@
   mainClient.on("stream-message", (uid, _streamId, message) => {
     let payload = null;
     try {
-      const txt = typeof message === "string" ? message : new TextDecoder().decode(message);
+      const txt = decodeStreamMessage(message);
       payload = JSON.parse(txt);
     } catch (_) {
       payload = null;
     }
     if (!payload || typeof payload !== "object") return;
     const type = String(payload.t || payload.type || "");
+    if (type === "hello") {
+      const who = String(payload.uid || uid || "");
+      const name = String(payload.name || "").trim();
+      if (who && name) participantLabels.set(who, name.slice(0, 80));
+      if (isProfessor && who && !isProfessorLike(who)) {
+        const stat = getOrInitStat(who);
+        if (name) stat.name = name.slice(0, 80);
+      }
+      rerender();
+      return;
+    }
     if (type === "hand") {
       const who = String(payload.uid || uid || "");
       const raised = !!payload.raised;
+      const wasRaised = raisedHands.has(who);
       if (raised) raisedHands.add(who);
       else raisedHands.delete(who);
+      if (isProfessor && raised && !wasRaised && who && !isProfessorLike(who)) {
+        const stat = getOrInitStat(who);
+        stat.hands = Number(stat.hands || 0) + 1;
+      }
       markPaneBorders();
       syncStudentCardBorders();
       refreshPresenceBoard();
+      renderTrackingPanel();
       return;
     }
     if (type === "live_end") {
-      const dest = isProfessor
-        ? `${location.origin}{% url 'Prolean:professor_dashboard' %}?session_id={{ session_id }}`
-        : `{% url 'Prolean:dashboard' %}`;
-      window.location.href = dest;
+      forceExit("live_end_signal");
     }
   });
 
   mainClient.on("user-published", async (user, mediaType) => {
     await subscribeUser(user, mediaType);
+  });
+  mainClient.on("user-joined", (user) => {
+    const uid = String(user.uid);
+    if (!participantLabels.has(uid)) participantLabels.set(uid, `Student ${uid}`);
+    if (isProfessor && !isProfessorLike(uid)) {
+      const stat = getOrInitStat(uid);
+      stat.online = true;
+      if (!stat.joinedAt) stat.joinedAt = Date.now();
+    }
+    rerender();
   });
   mainClient.on("user-unpublished", (user, mediaType) => {
     const uid = String(user.uid);
@@ -1150,21 +1435,44 @@
   });
   mainClient.on("user-left", (user) => {
     const uid = String(user.uid);
+    if (isProfessor && !isProfessorLike(uid)) {
+      const stat = getOrInitStat(uid);
+      stat.online = false;
+      if (stat.joinedAt) {
+        stat.watchMs = Number(stat.watchMs || 0) + (Date.now() - Number(stat.joinedAt));
+        stat.joinedAt = null;
+      }
+    }
     removeVideoTracksByIdentity(uid);
     audioTracks.delete(uid);
     participantLabels.delete(uid);
     speakingIds.delete(uid);
     raisedHands.delete(uid);
     rerender();
+    if (!isProfessor && uid === String(professorUidHint)) {
+      forceExit("professor_left");
+    }
   });
   mainClient.on("volume-indicator", (volumes) => {
-    speakingIds.clear();
+    const nextSpeaking = new Set();
     volumes.forEach((v) => {
-      if ((v.level || 0) > 5) speakingIds.add(String(v.uid));
+      if ((v.level || 0) > 5) nextSpeaking.add(String(v.uid));
     });
+    if (isProfessor) {
+      nextSpeaking.forEach((id) => {
+        if (!previousSpeaking.has(id) && id && !isProfessorLike(id)) {
+          const stat = getOrInitStat(id);
+          stat.speaks = Number(stat.speaks || 0) + 1;
+        }
+      });
+      previousSpeaking = nextSpeaking;
+    }
+    speakingIds.clear();
+    nextSpeaking.forEach((id) => speakingIds.add(id));
     markPaneBorders();
     syncStudentCardBorders();
     refreshPresenceBoard();
+    renderTrackingPanel();
   });
 
   const startScreenShare = async () => {
@@ -1340,6 +1648,62 @@
   if (!isProfessor && presenceBoard) presenceBoard.classList.add("hidden");
   window.addEventListener("resize", rerender);
   connectAgora();
+
+  const statusUrl = "{% url 'Prolean:external_live_status' session_id %}";
+  const pollStatus = async () => {
+    if (exiting || !hasJoined) return;
+    try {
+      const res = await fetch(statusUrl, { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.ended) {
+        forceExit("live_ended_status");
+      }
+    } catch (_) {}
+  };
+  setInterval(pollStatus, 3500);
+
+  if (isProfessor) {
+    const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
+
+    const tickTracking = () => {
+      if (exiting) return;
+      const students = getStudentEntries();
+      students.forEach((s) => {
+        const stat = getOrInitStat(s.id);
+        if (stat.online && !stat.joinedAt) stat.joinedAt = Date.now();
+      });
+      renderTrackingPanel();
+    };
+
+    const pushTracking = async () => {
+      if (exiting || !hasJoined) return;
+      const students = Array.from(statsByUid.values())
+        .filter((r) => r && r.uid && !isProfessorLike(r.uid))
+        .map((r) => ({
+          uid: String(r.uid),
+          name: String(r.name || identityLabel(r.uid) || `Student ${r.uid}`),
+          watch_ms: Math.round(estimateWatchMs(r)),
+          speaks: Number(r.speaks || 0),
+          hands: Number(r.hands || 0),
+          engagement: computeEngagement(r),
+        }));
+      try {
+        await fetch(statsPushUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          body: JSON.stringify({ students }),
+          credentials: "same-origin",
+        });
+      } catch (_) {}
+    };
+
+    setInterval(tickTracking, 1000);
+    setInterval(pushTracking, 5000);
+  }
 })();
 </script>
 {% endblock %}

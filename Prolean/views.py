@@ -2774,6 +2774,11 @@ def external_professor_live_start(request, session_id):
 
     try:
         mgmt.start_session_live(str(session_id), bearer_token=token.strip())
+        try:
+            cache.delete(f"prolean:external_live_ended_at:{session_id}")
+            cache.delete(f"prolean:external_live_stats:{session_id}")
+        except Exception:
+            pass
         messages.success(request, "Live started successfully.")
         return redirect('Prolean:external_live_room', session_id=str(session_id))
     except Exception as exc:
@@ -2810,6 +2815,14 @@ def external_professor_live_end(request, session_id):
     recording_url = str(request.POST.get("recording_url", "") or "").strip() or None
     try:
         mgmt.end_session_live(str(session_id), bearer_token=token.strip(), recording_url=recording_url)
+        try:
+            cache.set(
+                f"prolean:external_live_ended_at:{session_id}",
+                timezone.now().isoformat(),
+                timeout=60 * 60 * 24,
+            )
+        except Exception:
+            pass
         messages.success(request, "Live ended successfully.")
     except Exception as exc:
         messages.error(request, f"Unable to end live: {exc}")
@@ -3107,6 +3120,86 @@ def external_live_leave(request, session_id):
     if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
         return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
     return redirect('Prolean:dashboard')
+
+
+@login_required
+def external_live_status(request, session_id):
+    ended_at = None
+    try:
+        ended_at = cache.get(f"prolean:external_live_ended_at:{session_id}")
+    except Exception:
+        ended_at = None
+
+    return JsonResponse(
+        {
+            "session_id": str(session_id),
+            "ended": bool(ended_at),
+            "ended_at": ended_at,
+            "server_time": timezone.now().isoformat(),
+        }
+    )
+
+
+@professor_required
+def external_live_stats_get(request, session_id):
+    payload = None
+    try:
+        payload = cache.get(f"prolean:external_live_stats:{session_id}")
+    except Exception:
+        payload = None
+
+    if not isinstance(payload, dict):
+        payload = {"session_id": str(session_id), "updated_at": None, "students": []}
+
+    payload.setdefault("session_id", str(session_id))
+    payload.setdefault("updated_at", None)
+    payload.setdefault("students", [])
+    return JsonResponse(payload)
+
+
+@professor_required
+@require_POST
+def external_live_stats_push(request, session_id):
+    incoming = {}
+    try:
+        incoming = json.loads(request.body or "{}")
+    except Exception:
+        incoming = {}
+
+    students = incoming.get("students") if isinstance(incoming, dict) else None
+    if not isinstance(students, list):
+        return JsonResponse({"ok": False, "error": "Invalid stats payload."}, status=400)
+
+    cleaned = []
+    for row in students[:300]:
+        if not isinstance(row, dict):
+            continue
+        uid = str(row.get("uid") or "").strip()
+        if not uid:
+            continue
+        cleaned.append(
+            {
+                "uid": uid,
+                "name": str(row.get("name") or f"Student {uid}")[:80],
+                "watch_ms": int(row.get("watch_ms") or 0),
+                "speaks": int(row.get("speaks") or 0),
+                "hands": int(row.get("hands") or 0),
+                "engagement": float(row.get("engagement") or 0),
+            }
+        )
+
+    payload = {
+        "session_id": str(session_id),
+        "updated_at": timezone.now().isoformat(),
+        "students": cleaned,
+    }
+
+    try:
+        cache.set(f"prolean:external_live_stats:{session_id}", payload, timeout=60 * 60 * 24)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Unable to store stats."}, status=500)
+
+    return JsonResponse({"ok": True})
 
 @login_required
 def account_status(request):

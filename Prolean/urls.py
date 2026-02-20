@@ -66,6 +66,9 @@ urlpatterns = [
     # Professor Dashboard
     path('professor/', views.professor_dashboard, name='professor_dashboard'),
     path('external/live/<str:session_id>/', views.external_live_room, name='external_live_room'),
+    path('external/live/<str:session_id>/status/', views.external_live_status, name='external_live_status'),
+    path('external/live/<str:session_id>/stats/', views.external_live_stats_get, name='external_live_stats_get'),
+    path('external/live/<str:session_id>/stats/push/', views.external_live_stats_push, name='external_live_stats_push'),
     path('external/live/<str:session_id>/leave/', views.external_live_leave, name='external_live_leave'),
     path('external/professor/sessions/<str:session_id>/live/start/', views.external_professor_live_start, name='external_professor_live_start'),
     path('external/professor/sessions/<str:session_id>/live/pause/', views.external_professor_live_pause, name='external_professor_live_pause'),

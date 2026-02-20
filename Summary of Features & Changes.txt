@@ -445,3 +445,22 @@ Recent Entries
   - Users were stuck seeing repeated 401 "Token expired" warnings instead of being guided to re-login.
 - Validation:
   - Django system check passed.
+
+[2026-02-20 UTC] Area: Prolean | Type: Feature+Fix/External Live (Barka) Tracking + End Enforcement
+- What changed:
+  - Added external live status + tracking endpoints:
+    - `external/live/<session_id>/status/` returns `{ended, ended_at}`.
+    - `external/live/<session_id>/stats/` returns cached live stats for professor dashboard.
+    - `external/live/<session_id>/stats/push/` stores live stats pushed from the room (professor-only).
+  - When an external live is ended (from dashboard or inside the room), the system now sets a server-side `ended_at` flag and students auto-exit the room within ~3.5s via polling.
+  - External live room improvements:
+    - Raised-hand signaling is more reliable (lazy data-stream init + safer message decoding).
+    - Added “Student Tracking” panel in the room (professor view) tracking minutes watched, speaking starts, hand raises, and engagement score.
+    - Students/professor announce their display name to the room (`hello` signal) so tracking shows real names.
+  - Professor dashboard (external mode):
+    - Added a “Live Tracking” card that polls cached stats and renders the live leaderboard table.
+- Why:
+  - Professors needed per-student engagement tracking.
+  - Bug: when professor ends the live, students could continue chatting—now enforced by server status + room exit.
+- Validation:
+  - Django system check passed (`python manage.py check`).
