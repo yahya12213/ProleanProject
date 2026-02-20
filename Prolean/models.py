@@ -1833,6 +1833,37 @@ class AttendanceLog(models.Model):
     def __str__(self):
         return f"{self.student.full_name} @ {self.live_stream}"
 
+
+class ExternalLiveStudentStat(models.Model):
+    """
+    Persistent per-student tracking for external (Barka) live rooms.
+
+    Stored per session_id + participant (agora_uid), optionally linked to a local User.
+    """
+
+    session_id = models.CharField(max_length=64, db_index=True)
+    agora_uid = models.CharField(max_length=32, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_stats")
+
+    display_name = models.CharField(max_length=80, blank=True, default="")
+    watch_seconds = models.PositiveIntegerField(default=0)
+    speaks = models.PositiveIntegerField(default=0)
+    hands = models.PositiveIntegerField(default=0)
+    engagement = models.FloatField(default=0.0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("session_id", "agora_uid")
+        indexes = [
+            models.Index(fields=["session_id", "user"]),
+        ]
+
+    def __str__(self):
+        label = self.display_name or (self.user.username if self.user else self.agora_uid)
+        return f"ExternalLiveStat({self.session_id}) {label}"
+
 class VideoProgress(models.Model):
     """Tracking progress on recorded videos"""
     student = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='video_progress', limit_choices_to={'role': 'STUDENT'})

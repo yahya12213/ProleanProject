@@ -469,3 +469,13 @@ Recent Entries
 - What changed:
   - Removed the “Student Tracking” panel from the external live studio room UI (`Prolean/templates/Prolean/live/external_live_room.html`).
   - Kept tracking collection + professor dashboard live tracking intact (no UI clutter inside the studio).
+
+[2026-02-20 UTC] Area: Prolean | Type: Feature/External Live Tracking Persistence + Professor Students View
+- What changed:
+  - Added DB model + migration to store external live tracking per student: `ExternalLiveStudentStat` (`Prolean/models.py`, `Prolean/migrations/0002_externallivestudentstat.py`).
+  - `external/live/<session_id>/stats/push/` now persists tracking rows into the database (and still caches for live dashboard).
+  - `/professor/students/` (external/Barka mode) now displays watched time, speaks, raised hands, and engagement for each student in the selected session.
+- Why:
+  - Requirement: tracking must be stored per student (not only in cache) and visible from the professor students page.
+- Validation:
+  - Django system check recommended + apply migration in production.

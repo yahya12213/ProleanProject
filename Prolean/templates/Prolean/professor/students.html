@@ -28,10 +28,29 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for st in external_students %}
         <div class="glass-card p-5">
-            <h3 class="font-black text-lg" style="color: var(--prof-text-main);">{{ st.student_name|default:"Étudiant" }}</h3>
-            <p class="text-xs opacity-70 mt-1" style="color: var(--prof-text-muted);">{{ st.student_email|default:"-" }}</p>
-            <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">{{ st.student_phone|default:"-" }}</p>
+            <h3 class="font-black text-lg" style="color: var(--prof-text-main);">{{ st.display_name|default:st.student_name|default:"Étudiant" }}</h3>
+            <p class="text-xs opacity-70 mt-1" style="color: var(--prof-text-muted);">{{ st.display_email|default:st.student_email|default:"-" }}</p>
+            <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">{{ st.display_phone|default:st.student_phone|default:"-" }}</p>
             <div class="mt-4 text-[10px] uppercase tracking-widest font-bold opacity-60">{{ st.formation_title|default:"Formation" }}</div>
+
+            <div class="mt-4 grid grid-cols-2 gap-2">
+                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
+                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Watched</div>
+                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_watch_label|default:"0m" }}</div>
+                </div>
+                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
+                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Engagement</div>
+                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div>
+                </div>
+                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
+                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Speaks</div>
+                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_speaks|default:0 }}</div>
+                </div>
+                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
+                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Hands</div>
+                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_hands|default:0 }}</div>
+                </div>
+            </div>
         </div>
         {% empty %}
         <div class="col-span-full py-20 text-center opacity-60">

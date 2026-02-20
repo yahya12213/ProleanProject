@@ -27,7 +27,7 @@ from .models import (
     TrainingWaitlist, TrainingReview, ThreatIP, RateLimitLog,
     Profile, StudentProfile, ProfessorProfile, AssistantProfile, Session,
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
-    TrainingPreSubscription, Notification, Live, Seance
+    TrainingPreSubscription, Notification, Live, Seance, ExternalLiveStudentStat
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
 from django.contrib.auth import authenticate, login, logout
@@ -3149,7 +3149,20 @@ def external_live_stats_get(request, session_id):
         payload = None
 
     if not isinstance(payload, dict):
-        payload = {"session_id": str(session_id), "updated_at": None, "students": []}
+        rows = ExternalLiveStudentStat.objects.filter(session_id=str(session_id)).select_related("user").order_by("-updated_at")[:300]
+        students = []
+        for row in rows:
+            students.append(
+                {
+                    "uid": row.agora_uid,
+                    "name": row.display_name or (row.user.get_full_name() if row.user else f"Student {row.agora_uid}"),
+                    "watch_ms": int(row.watch_seconds) * 1000,
+                    "speaks": int(row.speaks),
+                    "hands": int(row.hands),
+                    "engagement": float(row.engagement),
+                }
+            )
+        payload = {"session_id": str(session_id), "updated_at": None, "students": students}
 
     payload.setdefault("session_id", str(session_id))
     payload.setdefault("updated_at", None)
@@ -3199,6 +3212,60 @@ def external_live_stats_push(request, session_id):
     except Exception:
         return JsonResponse({"ok": False, "error": "Unable to store stats."}, status=500)
 
+    try:
+        ended_at = cache.get(f"prolean:external_live_ended_at:{session_id}")
+    except Exception:
+        ended_at = None
+
+    if ended_at:
+        return JsonResponse({"ok": True, "ended": True})
+
+    # Persist stats in DB for per-student history and professor/students view.
+    session_id_str = str(session_id)
+    uids = [str(r.get("uid") or "").strip() for r in cleaned]
+    existing = ExternalLiveStudentStat.objects.filter(session_id=session_id_str, agora_uid__in=[u for u in uids if u]).select_related("user")
+    existing_by_uid = {str(r.agora_uid): r for r in existing}
+
+    users_by_id = {}
+    needed_user_ids = set()
+    for uid in uids:
+        try:
+            n = int(uid)
+        except Exception:
+            continue
+        if n >= 10000:
+            needed_user_ids.add(n - 10000)
+    if needed_user_ids:
+        for u in User.objects.filter(id__in=sorted(needed_user_ids)):
+            users_by_id[int(u.id)] = u
+
+    for row in cleaned:
+        uid = str(row.get("uid") or "").strip()
+        if not uid:
+            continue
+        obj = existing_by_uid.get(uid) or ExternalLiveStudentStat(session_id=session_id_str, agora_uid=uid)
+
+        linked_user = None
+        try:
+            n = int(uid)
+            if n >= 10000:
+                linked_user = users_by_id.get(n - 10000)
+        except Exception:
+            linked_user = None
+
+        if linked_user:
+            obj.user = linked_user
+            obj.display_name = linked_user.get_full_name() or (linked_user.username or obj.display_name)
+        else:
+            obj.display_name = str(row.get("name") or obj.display_name or f"Student {uid}")[:80]
+
+        watch_ms = int(row.get("watch_ms") or 0)
+        obj.watch_seconds = max(0, int(round(watch_ms / 1000)))
+        obj.speaks = max(0, int(row.get("speaks") or 0))
+        obj.hands = max(0, int(row.get("hands") or 0))
+        obj.engagement = float(row.get("engagement") or 0)
+        obj.save()
+
     return JsonResponse({"ok": True})
 
 @login_required
@@ -3236,6 +3303,63 @@ def professor_students(request):
                 students = details.get("etudiants") if isinstance(details, dict) else []
                 if not isinstance(students, list):
                     students = []
+            students, _online = _enrich_external_students_with_presence(students)
+
+            stats_rows = []
+            selected_session_id = str(selected_session.get("id")) if isinstance(selected_session, dict) else ""
+            if selected_session_id:
+                stats_rows = list(
+                    ExternalLiveStudentStat.objects.filter(session_id=selected_session_id)
+                    .select_related("user")
+                    .order_by("-updated_at")[:500]
+                )
+
+            stats_by_user_id = {}
+            for row in stats_rows:
+                if row.user_id:
+                    stats_by_user_id[int(row.user_id)] = row
+
+            all_students = Profile.objects.filter(role="STUDENT").select_related("user")
+            local_lookup = {}
+            for profile in all_students:
+                values = [
+                    profile.user.username,
+                    profile.user.email,
+                    profile.full_name,
+                    profile.phone_number,
+                    profile.cin_or_passport,
+                ]
+                for value in values:
+                    normalized = _norm_identifier(value)
+                    if normalized and normalized not in local_lookup:
+                        local_lookup[normalized] = profile.user
+
+            for ext_student in students:
+                if not isinstance(ext_student, dict):
+                    continue
+                matched_user = None
+                for ident in _extract_external_student_identifiers(ext_student):
+                    matched_user = local_lookup.get(ident)
+                    if matched_user:
+                        break
+                stat = stats_by_user_id.get(int(matched_user.id)) if matched_user else None
+                watch_seconds = int(getattr(stat, "watch_seconds", 0) or 0)
+                minutes = max(0, watch_seconds // 60)
+                hours = minutes // 60
+                mins = minutes % 60
+                watch_label = f"{minutes}m" if hours <= 0 else f"{hours}h {mins}m"
+                ext_student["tracking_watch_seconds"] = watch_seconds
+                ext_student["tracking_watch_label"] = watch_label
+                ext_student["tracking_speaks"] = int(getattr(stat, "speaks", 0) or 0)
+                ext_student["tracking_hands"] = int(getattr(stat, "hands", 0) or 0)
+                ext_student["tracking_engagement"] = float(getattr(stat, "engagement", 0.0) or 0.0)
+                ext_student["tracking_updated_at"] = getattr(stat, "updated_at", None)
+                if matched_user:
+                    ext_student["local_user_id"] = int(matched_user.id)
+                    ext_student["local_full_name"] = matched_user.get_full_name() or matched_user.username
+                else:
+                    ext_student["local_user_id"] = None
+                    ext_student["local_full_name"] = None
 
             context = {
                 'external_professor_mode': True,
