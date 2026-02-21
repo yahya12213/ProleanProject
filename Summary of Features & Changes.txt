@@ -485,3 +485,16 @@ Recent Entries
   - Prevents the external live room from auto-exiting due to a stale cached `ended_at` flag by:
     - Clearing the flag on successful join.
     - Having the status endpoint confirm live state with Barka when possible and auto-clear stale flags.
+
+[2026-02-21 UTC] Area: Prolean | Type: Feature/External Live Moderation + Security (Studio Controls)
+- What changed:
+  - Added professor moderation controls inside the external live studio:
+    - Force mute per student (locks their mic button).
+    - Mute all.
+    - Ban/kick a student from the session (stored in DB; can be unbanned from professor dashboard).
+  - Added server-side enforcement for bans:
+    - Banned students cannot join the external live.
+    - In-room polling auto-exits if a ban is applied.
+  - Added video watermark overlay on tiles (name + id + timestamp) to deter screenshots/recording.
+  - Added security logging endpoints + DB audit log for moderation actions and security alerts.
+  - Implemented best-effort phone detection on student webcam using in-browser ML (COCO-SSD via TensorFlow.js); logs and alerts professor when a phone-like object is detected.

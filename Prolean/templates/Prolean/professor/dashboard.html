@@ -516,6 +516,38 @@
                 </div>
             </div>
 
+            <div class="card">
+                <div class="card-head">
+                    <h3><span class="material-symbols-outlined">gpp_bad</span>Banned</h3>
+                    <span class="count">{{ external_bans|length }}</span>
+                </div>
+                <div class="text-xs font-bold mb-2" style="color: var(--prof-text-muted);">Banned students cannot re-join until unbanned.</div>
+                <div class="grid gap-2">
+                    {% for ban in external_bans %}
+                    <div class="flex items-center justify-between gap-2 p-3 rounded-2xl" style="border: 1px solid var(--prof-border); background: var(--prof-surface);">
+                        <div class="min-w-0">
+                            <div class="font-black truncate" style="color: var(--prof-text-main);">
+                                {{ ban.user.get_full_name|default:ban.user.username }}
+                            </div>
+                            <div class="text-[11px] font-bold truncate" style="color: var(--prof-text-muted);">
+                                {% if ban.reason %}{{ ban.reason }}{% else %}No reason{% endif %}
+                            </div>
+                        </div>
+                        <form method="post" action="{% url 'Prolean:external_live_unban_user' external_selected_session.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_id" value="{{ ban.user.id }}">
+                            <button class="btnx ghost" type="submit">
+                                <span class="material-symbols-outlined text-base">undo</span>
+                                Unban
+                            </button>
+                        </form>
+                    </div>
+                    {% empty %}
+                    <div class="text-sm font-bold" style="color: var(--prof-text-muted);">No bans for this session.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
             <div class="card" id="live-tracking-card"
                  {% if external_selected_session and external_selected_session.id %}
                  data-stats-url="{% url 'Prolean:external_live_stats_get' external_selected_session.id %}"

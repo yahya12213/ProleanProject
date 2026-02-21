@@ -27,7 +27,8 @@ from .models import (
     TrainingWaitlist, TrainingReview, ThreatIP, RateLimitLog,
     Profile, StudentProfile, ProfessorProfile, AssistantProfile, Session,
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
-    TrainingPreSubscription, Notification, Live, Seance, ExternalLiveStudentStat
+    TrainingPreSubscription, Notification, Live, Seance,
+    ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
 from django.contrib.auth import authenticate, login, logout
@@ -88,6 +89,16 @@ def professor_required(view_func):
     return _wrapped_view
 
 logger = logging.getLogger(__name__)
+
+
+def _is_user_banned_from_external_session(session_id: str, user: User) -> tuple[bool, str]:
+    try:
+        row = ExternalLiveSessionBan.objects.filter(session_id=str(session_id), user=user, active=True).first()
+    except Exception:
+        row = None
+    if not row:
+        return False, ""
+    return True, str(row.reason or "")
 
 # External authority (Barka) integration
 from Prolean.integration.client import ManagementContractClient
@@ -2641,11 +2652,23 @@ def professor_dashboard(request):
                 except Exception as exc:
                     logger.warning("Could not load live state for professor dashboard: %s", exc)
 
+            bans = []
+            if selected_session and selected_session.get("id"):
+                try:
+                    bans = list(
+                        ExternalLiveSessionBan.objects.filter(session_id=str(selected_session.get("id")), active=True)
+                        .select_related("user", "created_by")
+                        .order_by("-updated_at")[:200]
+                    )
+                except Exception:
+                    bans = []
+
             context = {
                 'external_professor_mode': True,
                 'external_sessions': sessions if isinstance(sessions, list) else [],
                 'external_selected_session': selected_session,
                 'external_students': selected_students,
+                'external_bans': bans,
                 'online_students_count': online_students_count,
                 'external_live_state': external_live_state if isinstance(external_live_state, dict) else None,
                 'students_count': len(selected_students),
@@ -2674,6 +2697,7 @@ def professor_dashboard(request):
                 'external_sessions': [],
                 'external_selected_session': None,
                 'external_students': [],
+                'external_bans': [],
                 'online_students_count': 0,
                 'external_live_state': None,
                 'external_error': str(exc),
@@ -2942,6 +2966,15 @@ def external_live_room(request, session_id):
         messages.error(request, "Live is unavailable: external authority token is missing.")
         return redirect('Prolean:dashboard')
 
+    if hasattr(request.user, "profile") and request.user.profile.role != "PROFESSOR":
+        banned, reason = _is_user_banned_from_external_session(str(session_id), request.user)
+        if banned:
+            msg = "You are banned from this live session."
+            if reason:
+                msg = f"{msg} ({reason})"
+            messages.error(request, msg)
+            return redirect('Prolean:dashboard')
+
     try:
         def _is_transient_external_error(exc: Exception) -> bool:
             msg = str(exc).lower()
@@ -3155,12 +3188,19 @@ def external_live_status(request, session_id):
             pass
         ended_at = None
 
+    banned = False
+    ban_reason = ""
+    if hasattr(request.user, "profile") and request.user.profile.role != "PROFESSOR":
+        banned, ban_reason = _is_user_banned_from_external_session(str(session_id), request.user)
+
     return JsonResponse(
         {
             "session_id": str(session_id),
             "ended": bool(ended_at) or externally_ended,
             "ended_at": ended_at,
             "status": status or None,
+            "banned": bool(banned),
+            "ban_reason": ban_reason or None,
             "server_time": timezone.now().isoformat(),
         }
     )
@@ -3291,6 +3331,109 @@ def external_live_stats_push(request, session_id):
         obj.hands = max(0, int(row.get("hands") or 0))
         obj.engagement = float(row.get("engagement") or 0)
         obj.save()
+
+    return JsonResponse({"ok": True})
+
+
+@professor_required
+@require_POST
+def external_live_ban_user(request, session_id):
+    user_id = str(request.POST.get("user_id", "") or "").strip()
+    reason = str(request.POST.get("reason", "") or "").strip()[:200]
+    if not user_id:
+        return JsonResponse({"ok": False, "error": "Missing user_id."}, status=400)
+    try:
+        target = User.objects.get(id=int(user_id))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid user_id."}, status=400)
+
+    row, _created = ExternalLiveSessionBan.objects.get_or_create(
+        session_id=str(session_id),
+        user=target,
+        defaults={"active": True, "reason": reason, "created_by": request.user},
+    )
+    if not row.active or (reason and row.reason != reason) or (row.created_by_id is None):
+        row.active = True
+        if reason:
+            row.reason = reason
+        if row.created_by_id is None:
+            row.created_by = request.user
+        row.save(update_fields=["active", "reason", "created_by", "updated_at"])
+
+    try:
+        ExternalLiveSecurityEvent.objects.create(
+            session_id=str(session_id),
+            actor=request.user,
+            target=target,
+            event_type="ban",
+            payload={"reason": reason} if reason else {},
+        )
+    except Exception:
+        pass
+
+    accept = str(request.headers.get("accept", "") or "").lower()
+    if "application/json" in accept:
+        return JsonResponse({"ok": True})
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_live_unban_user(request, session_id):
+    user_id = str(request.POST.get("user_id", "") or "").strip()
+    if not user_id:
+        return JsonResponse({"ok": False, "error": "Missing user_id."}, status=400)
+    try:
+        target = User.objects.get(id=int(user_id))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid user_id."}, status=400)
+
+    ExternalLiveSessionBan.objects.filter(session_id=str(session_id), user=target).update(active=False)
+    try:
+        ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=target, event_type="unban", payload={})
+    except Exception:
+        pass
+    accept = str(request.headers.get("accept", "") or "").lower()
+    if "application/json" in accept:
+        return JsonResponse({"ok": True})
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@login_required
+@require_POST
+def external_live_event_log(request, session_id):
+    payload = {}
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+
+    event_type = str((payload or {}).get("event_type") or (payload or {}).get("type") or "").strip()[:60]
+    if not event_type:
+        return JsonResponse({"ok": False, "error": "Missing event_type."}, status=400)
+
+    target_user_id = (payload or {}).get("target_user_id")
+    target = None
+    if target_user_id:
+        try:
+            target = User.objects.get(id=int(target_user_id))
+        except Exception:
+            target = None
+
+    data = (payload or {}).get("payload")
+    if not isinstance(data, dict):
+        data = {}
+
+    try:
+        ExternalLiveSecurityEvent.objects.create(
+            session_id=str(session_id),
+            actor=request.user,
+            target=target,
+            event_type=event_type,
+            payload=data,
+        )
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Unable to store event."}, status=500)
 
     return JsonResponse({"ok": True})
 

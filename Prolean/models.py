@@ -1864,6 +1864,48 @@ class ExternalLiveStudentStat(models.Model):
         label = self.display_name or (self.user.username if self.user else self.agora_uid)
         return f"ExternalLiveStat({self.session_id}) {label}"
 
+
+class ExternalLiveSessionBan(models.Model):
+    """Professor ban list for external (Barka) live sessions."""
+
+    session_id = models.CharField(max_length=64, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_live_bans")
+    active = models.BooleanField(default=True, db_index=True)
+    reason = models.CharField(max_length=200, blank=True, default="")
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_bans_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("session_id", "user")
+        indexes = [
+            models.Index(fields=["session_id", "active"]),
+        ]
+
+    def __str__(self):
+        return f"ExternalLiveBan({self.session_id}) {self.user.username}"
+
+
+class ExternalLiveSecurityEvent(models.Model):
+    """Audit log for external live moderation and security signals."""
+
+    session_id = models.CharField(max_length=64, db_index=True)
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_events")
+    target = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_events_targeted")
+    event_type = models.CharField(max_length=60, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["session_id", "event_type", "created_at"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"ExternalLiveEvent({self.session_id}) {self.event_type}"
+
 class VideoProgress(models.Model):
     """Tracking progress on recorded videos"""
     student = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='video_progress', limit_choices_to={'role': 'STUDENT'})
