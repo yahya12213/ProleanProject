@@ -727,6 +727,7 @@
             <div class="mod-title"><span class="material-symbols-outlined">shield_person</span>Moderation</div>
             <div class="mod-actions">
                 <button id="mute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic_off</span>Mute all</button>
+                <button id="unmute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic</span>Unmute</button>
                 <button id="close-mod" class="mod-btn"><span class="material-symbols-outlined text-base">close</span>Close</button>
             </div>
         </div>
@@ -859,6 +860,7 @@
   const modBody = document.getElementById("mod-body");
   const btnCloseMod = document.getElementById("close-mod");
   const btnMuteAll = document.getElementById("mute-all");
+  const btnUnmuteAll = document.getElementById("unmute-all");
   const swapPanesInput = document.getElementById("swap-panes");
   const rightWidthInput = document.getElementById("right-width");
   const gridColsInput = document.getElementById("grid-cols");
@@ -1089,7 +1091,19 @@
     const id = String(uid);
     let item = statsByUid.get(id);
     if (!item) {
-      item = { uid: id, name: identityLabel(id), online: false, joinedAt: null, watchMs: 0, speaks: 0, hands: 0 };
+      item = {
+        uid: id,
+        name: identityLabel(id),
+        online: false,
+        joinedAt: null,
+        watchMs: 0,
+        speaks: 0,
+        hands: 0,
+        speakingMs: 0,
+        speakingStartedAt: null,
+        handRaisedMs: 0,
+        handRaisedStartedAt: null,
+      };
       statsByUid.set(id, item);
     }
     const label = participantLabels.get(id);
@@ -1101,11 +1115,23 @@
     if (item.online && item.joinedAt) return base + (Date.now() - Number(item.joinedAt));
     return base;
   };
+  const estimateSpeakingMs = (item) => {
+    const base = Number(item.speakingMs || 0);
+    if (item.speakingStartedAt) return base + (Date.now() - Number(item.speakingStartedAt));
+    return base;
+  };
+  const estimateHandRaisedMs = (item) => {
+    const base = Number(item.handRaisedMs || 0);
+    if (item.handRaisedStartedAt) return base + (Date.now() - Number(item.handRaisedStartedAt));
+    return base;
+  };
   const computeEngagement = (item) => {
     const mins = estimateWatchMs(item) / 60000;
     const speaks = Number(item.speaks || 0);
     const hands = Number(item.hands || 0);
-    return Math.max(0, Math.round(mins * 1 + speaks * 2 + hands * 1.5));
+    const speakMins = estimateSpeakingMs(item) / 60000;
+    const handMins = estimateHandRaisedMs(item) / 60000;
+    return Math.max(0, Math.round(mins * 1 + speakMins * 2 + handMins * 1.5 + speaks * 0.2 + hands * 0.2));
   };
   const renderLeftPane = () => {
     professorIdentity = resolveProfessorIdentity();
@@ -1460,8 +1486,50 @@
       muteBtn.title = "Force mute";
       muteBtn.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
       muteBtn.addEventListener("click", async () => {
+        const targetUserId = uidToUserId(s.id);
+        if (targetUserId) {
+          const muteUrl = "{% url 'Prolean:external_live_mute_user' session_id %}";
+          try {
+            await fetch(muteUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                "X-CSRFToken": getCsrfToken(),
+                "Accept": "application/json",
+              },
+              body: `user_id=${encodeURIComponent(String(targetUserId))}`,
+              credentials: "same-origin",
+            });
+          } catch (_) {}
+        }
         await sendRoomSignal({ t: "force_mute", uid: String(s.id), locked: true });
-        await logEvent("moderate_force_mute", { target_uid: String(s.id) }, uidToUserId(s.id));
+        await logEvent("moderate_force_mute", { target_uid: String(s.id) }, targetUserId);
+      });
+
+      const unmuteBtn = document.createElement("button");
+      unmuteBtn.type = "button";
+      unmuteBtn.className = "mod-mini";
+      unmuteBtn.title = "Unlock mic";
+      unmuteBtn.innerHTML = '<span class="material-symbols-outlined">mic</span>';
+      unmuteBtn.addEventListener("click", async () => {
+        const targetUserId = uidToUserId(s.id);
+        if (targetUserId) {
+          const unmuteUrl = "{% url 'Prolean:external_live_unmute_user' session_id %}";
+          try {
+            await fetch(unmuteUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                "X-CSRFToken": getCsrfToken(),
+                "Accept": "application/json",
+              },
+              body: `user_id=${encodeURIComponent(String(targetUserId))}`,
+              credentials: "same-origin",
+            });
+          } catch (_) {}
+        }
+        await sendRoomSignal({ t: "force_mute", uid: String(s.id), locked: false });
+        await logEvent("moderate_unmute_user", { target_uid: String(s.id) }, targetUserId);
       });
 
       const banBtn = document.createElement("button");
@@ -1493,6 +1561,7 @@
       });
 
       btns.appendChild(muteBtn);
+      btns.appendChild(unmuteBtn);
       btns.appendChild(banBtn);
 
       row.appendChild(left);
@@ -1537,6 +1606,7 @@
         });
       } catch (_) {}
       startPhoneDetection();
+      try { pollStatus(); } catch (_) {}
 
       if (!isProfessor) {
         btnScreen.disabled = true;
@@ -1580,6 +1650,14 @@
       if (isProfessor && raised && !wasRaised && who && !isProfessorLike(who)) {
         const stat = getOrInitStat(who);
         stat.hands = Number(stat.hands || 0) + 1;
+        if (!stat.handRaisedStartedAt) stat.handRaisedStartedAt = Date.now();
+      }
+      if (isProfessor && !raised && wasRaised && who && !isProfessorLike(who)) {
+        const stat = getOrInitStat(who);
+        if (stat.handRaisedStartedAt) {
+          stat.handRaisedMs = Number(stat.handRaisedMs || 0) + (Date.now() - Number(stat.handRaisedStartedAt));
+          stat.handRaisedStartedAt = null;
+        }
       }
       markPaneBorders();
       syncStudentCardBorders();
@@ -1590,25 +1668,34 @@
       const targetUid = String(payload.uid || payload.target_uid || "");
       const locked = payload.locked !== false;
       if (targetUid && targetUid === String(agoraUid)) {
-        if (localMicTrack) {
-          try { await localMicTrack.setMuted(true); } catch (_) {}
+        if (locked) {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(true); } catch (_) {}
+          }
+          setMicLocked(true);
+        } else {
+          setMicLocked(false);
         }
-        setMicLocked(!!locked);
         syncControlStates();
-        showError("Your microphone was muted by the professor.");
-        logEvent("forced_mute", { locked: !!locked });
+        showError(locked ? "Your microphone was muted by the professor." : "Microphone lock was removed.");
+        logEvent(locked ? "forced_mute" : "unmute_signal", { locked: !!locked });
       }
       return;
     }
     if (type === "force_mute_all") {
       if (!isProfessor) {
-        if (localMicTrack) {
-          try { await localMicTrack.setMuted(true); } catch (_) {}
+        const locked = payload.locked !== false;
+        if (locked) {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(true); } catch (_) {}
+          }
+          setMicLocked(true);
+        } else {
+          setMicLocked(false);
         }
-        setMicLocked(true);
         syncControlStates();
-        showError("All microphones were muted by the professor.");
-        logEvent("forced_mute_all", {});
+        showError(locked ? "All microphones were muted by the professor." : "Microphone lock was removed.");
+        logEvent(locked ? "forced_mute_all" : "unmute_all_signal", {});
       }
       return;
     }
@@ -1667,6 +1754,14 @@
         stat.watchMs = Number(stat.watchMs || 0) + (Date.now() - Number(stat.joinedAt));
         stat.joinedAt = null;
       }
+      if (stat.speakingStartedAt) {
+        stat.speakingMs = Number(stat.speakingMs || 0) + (Date.now() - Number(stat.speakingStartedAt));
+        stat.speakingStartedAt = null;
+      }
+      if (stat.handRaisedStartedAt) {
+        stat.handRaisedMs = Number(stat.handRaisedMs || 0) + (Date.now() - Number(stat.handRaisedStartedAt));
+        stat.handRaisedStartedAt = null;
+      }
     }
     removeVideoTracksByIdentity(uid);
     audioTracks.delete(uid);
@@ -1689,6 +1784,16 @@
         if (!previousSpeaking.has(id) && id && !isProfessorLike(id)) {
           const stat = getOrInitStat(id);
           stat.speaks = Number(stat.speaks || 0) + 1;
+          if (!stat.speakingStartedAt) stat.speakingStartedAt = Date.now();
+        }
+      });
+      previousSpeaking.forEach((id) => {
+        if (!nextSpeaking.has(id) && id && !isProfessorLike(id)) {
+          const stat = getOrInitStat(id);
+          if (stat.speakingStartedAt) {
+            stat.speakingMs = Number(stat.speakingMs || 0) + (Date.now() - Number(stat.speakingStartedAt));
+            stat.speakingStartedAt = null;
+          }
         }
       });
       previousSpeaking = nextSpeaking;
@@ -1816,8 +1921,38 @@
   if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
   if (btnCloseMod) btnCloseMod.addEventListener("click", closeModeration);
   if (btnMuteAll) btnMuteAll.addEventListener("click", async () => {
+    const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
+    try {
+      await fetch(muteAllUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: "",
+        credentials: "same-origin",
+      });
+    } catch (_) {}
     await sendRoomSignal({ t: "force_mute_all" });
     await logEvent("moderate_force_mute_all", {});
+  });
+  if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
+    const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
+    try {
+      await fetch(unmuteAllUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: "",
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+    await sendRoomSignal({ t: "force_mute_all", locked: false });
+    await logEvent("moderate_unmute_all", {});
   });
   if (btnEndLive) {
     btnEndLive.addEventListener("click", async () => {
@@ -1900,6 +2035,16 @@
         forceExit("banned_status");
         return;
       }
+      if (data && data.mic_locked && !isProfessor) {
+        setMicLocked(true);
+        if (localMicTrack) {
+          try { await localMicTrack.setMuted(true); } catch (_) {}
+        }
+        syncControlStates();
+      } else if (!isProfessor && !data?.mic_locked && isMicLocked()) {
+        setMicLocked(false);
+        syncControlStates();
+      }
       if (data && data.ended) {
         forceExit("live_ended_status");
       }
@@ -1907,8 +2052,8 @@
   };
   setInterval(pollStatus, 3500);
 
-    if (isProfessor) {
-      const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
+  if (isProfessor) {
+    const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
 
     const tickTracking = () => {
       if (exiting) return;
@@ -1927,6 +2072,8 @@
           uid: String(r.uid),
           name: String(r.name || identityLabel(r.uid) || `Student ${r.uid}`),
           watch_ms: Math.round(estimateWatchMs(r)),
+          speaking_ms: Math.round(estimateSpeakingMs(r)),
+          hand_raised_ms: Math.round(estimateHandRaisedMs(r)),
           speaks: Number(r.speaks || 0),
           hands: Number(r.hands || 0),
           engagement: computeEngagement(r),

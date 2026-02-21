@@ -3193,6 +3193,15 @@ def external_live_status(request, session_id):
     if hasattr(request.user, "profile") and request.user.profile.role != "PROFESSOR":
         banned, ban_reason = _is_user_banned_from_external_session(str(session_id), request.user)
 
+    mic_locked = False
+    if hasattr(request.user, "profile") and request.user.profile.role != "PROFESSOR":
+        try:
+            key_all = f"prolean:external_live_mic_lock_all:{session_id}"
+            key_user = f"prolean:external_live_mic_lock_user:{session_id}:{request.user.id}"
+            mic_locked = bool(cache.get(key_all) or cache.get(key_user))
+        except Exception:
+            mic_locked = False
+
     return JsonResponse(
         {
             "session_id": str(session_id),
@@ -3201,6 +3210,7 @@ def external_live_status(request, session_id):
             "status": status or None,
             "banned": bool(banned),
             "ban_reason": ban_reason or None,
+            "mic_locked": bool(mic_locked),
             "server_time": timezone.now().isoformat(),
         }
     )
@@ -3223,6 +3233,8 @@ def external_live_stats_get(request, session_id):
                     "uid": row.agora_uid,
                     "name": row.display_name or (row.user.get_full_name() if row.user else f"Student {row.agora_uid}"),
                     "watch_ms": int(row.watch_seconds) * 1000,
+                    "speaking_ms": int(getattr(row, "speaking_seconds", 0) or 0) * 1000,
+                    "hand_raised_ms": int(getattr(row, "hand_raised_seconds", 0) or 0) * 1000,
                     "speaks": int(row.speaks),
                     "hands": int(row.hands),
                     "engagement": float(row.engagement),
@@ -3261,6 +3273,8 @@ def external_live_stats_push(request, session_id):
                 "uid": uid,
                 "name": str(row.get("name") or f"Student {uid}")[:80],
                 "watch_ms": int(row.get("watch_ms") or 0),
+                "speaking_ms": int(row.get("speaking_ms") or 0),
+                "hand_raised_ms": int(row.get("hand_raised_ms") or 0),
                 "speaks": int(row.get("speaks") or 0),
                 "hands": int(row.get("hands") or 0),
                 "engagement": float(row.get("engagement") or 0),
@@ -3327,12 +3341,105 @@ def external_live_stats_push(request, session_id):
 
         watch_ms = int(row.get("watch_ms") or 0)
         obj.watch_seconds = max(0, int(round(watch_ms / 1000)))
+        speaking_ms = int(row.get("speaking_ms") or 0)
+        obj.speaking_seconds = max(0, int(round(speaking_ms / 1000)))
+        hand_ms = int(row.get("hand_raised_ms") or 0)
+        obj.hand_raised_seconds = max(0, int(round(hand_ms / 1000)))
         obj.speaks = max(0, int(row.get("speaks") or 0))
         obj.hands = max(0, int(row.get("hands") or 0))
         obj.engagement = float(row.get("engagement") or 0)
         obj.save()
 
     return JsonResponse({"ok": True})
+
+
+def _accepts_json(request) -> bool:
+    accept = str(request.headers.get("accept", "") or "").lower()
+    return "application/json" in accept
+
+
+@professor_required
+@require_POST
+def external_live_mute_user(request, session_id):
+    user_id = str(request.POST.get("user_id", "") or "").strip()
+    if not user_id:
+        return JsonResponse({"ok": False, "error": "Missing user_id."}, status=400)
+    try:
+        target = User.objects.get(id=int(user_id))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid user_id."}, status=400)
+
+    try:
+        cache.set(f"prolean:external_live_mic_lock_user:{session_id}:{target.id}", True, timeout=60 * 60 * 8)
+    except Exception:
+        pass
+
+    try:
+        ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=target, event_type="mute_user", payload={})
+    except Exception:
+        pass
+
+    if _accepts_json(request):
+        return JsonResponse({"ok": True})
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_live_unmute_user(request, session_id):
+    user_id = str(request.POST.get("user_id", "") or "").strip()
+    if not user_id:
+        return JsonResponse({"ok": False, "error": "Missing user_id."}, status=400)
+    try:
+        target = User.objects.get(id=int(user_id))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid user_id."}, status=400)
+
+    try:
+        cache.delete(f"prolean:external_live_mic_lock_user:{session_id}:{target.id}")
+    except Exception:
+        pass
+
+    try:
+        ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=target, event_type="unmute_user", payload={})
+    except Exception:
+        pass
+
+    if _accepts_json(request):
+        return JsonResponse({"ok": True})
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_live_mute_all(request, session_id):
+    try:
+        cache.set(f"prolean:external_live_mic_lock_all:{session_id}", True, timeout=60 * 60 * 8)
+    except Exception:
+        pass
+    try:
+        ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=None, event_type="mute_all", payload={})
+    except Exception:
+        pass
+    if _accepts_json(request):
+        return JsonResponse({"ok": True})
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+@require_POST
+def external_live_unmute_all(request, session_id):
+    try:
+        cache.delete(f"prolean:external_live_mic_lock_all:{session_id}")
+    except Exception:
+        pass
+    try:
+        ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=None, event_type="unmute_all", payload={})
+    except Exception:
+        pass
+    if _accepts_json(request):
+        return JsonResponse({"ok": True})
+    return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
 
 
 @professor_required
@@ -3517,8 +3624,25 @@ def professor_students(request):
                 hours = minutes // 60
                 mins = minutes % 60
                 watch_label = f"{minutes}m" if hours <= 0 else f"{hours}h {mins}m"
+
+                speaking_seconds = int(getattr(stat, "speaking_seconds", 0) or 0)
+                sm = max(0, speaking_seconds // 60)
+                sh = sm // 60
+                smins = sm % 60
+                speaking_label = f"{sm}m" if sh <= 0 else f"{sh}h {smins}m"
+
+                hand_seconds = int(getattr(stat, "hand_raised_seconds", 0) or 0)
+                hm = max(0, hand_seconds // 60)
+                hh = hm // 60
+                hmins = hm % 60
+                hand_label = f"{hm}m" if hh <= 0 else f"{hh}h {hmins}m"
+
                 ext_student["tracking_watch_seconds"] = watch_seconds
                 ext_student["tracking_watch_label"] = watch_label
+                ext_student["tracking_speaking_seconds"] = speaking_seconds
+                ext_student["tracking_speaking_label"] = speaking_label
+                ext_student["tracking_hand_seconds"] = hand_seconds
+                ext_student["tracking_hand_label"] = hand_label
                 ext_student["tracking_speaks"] = int(getattr(stat, "speaks", 0) or 0)
                 ext_student["tracking_hands"] = int(getattr(stat, "hands", 0) or 0)
                 ext_student["tracking_engagement"] = float(getattr(stat, "engagement", 0.0) or 0.0)

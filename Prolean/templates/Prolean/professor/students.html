@@ -43,12 +43,14 @@
                     <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div>
                 </div>
                 <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
-                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Speaks</div>
-                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_speaks|default:0 }}</div>
+                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Speaking</div>
+                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_speaking_label|default:"0m" }}</div>
+                    <div class="text-[10px] font-black opacity-60" style="color: var(--prof-text-muted);">{{ st.tracking_speaks|default:0 }} starts</div>
                 </div>
                 <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
-                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Hands</div>
-                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_hands|default:0 }}</div>
+                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Hand up</div>
+                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_hand_label|default:"0m" }}</div>
+                    <div class="text-[10px] font-black opacity-60" style="color: var(--prof-text-muted);">{{ st.tracking_hands|default:0 }} raises</div>
                 </div>
             </div>
         </div>

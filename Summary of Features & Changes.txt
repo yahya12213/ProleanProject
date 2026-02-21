@@ -498,3 +498,8 @@ Recent Entries
   - Added video watermark overlay on tiles (name + id + timestamp) to deter screenshots/recording.
   - Added security logging endpoints + DB audit log for moderation actions and security alerts.
   - Implemented best-effort phone detection on student webcam using in-browser ML (COCO-SSD via TensorFlow.js); logs and alerts professor when a phone-like object is detected.
+
+[2026-02-21 UTC] Area: Prolean | Type: Fix/External Live Moderation + Tracking Durations
+- What changed:
+  - Moderation mute now has server-side enforcement via status polling (works even if Agora data stream messaging fails).
+  - Tracking now stores speaking duration and raised-hand duration per student (in minutes) in DB and displays it in `/professor/students/`.

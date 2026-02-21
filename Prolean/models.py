@@ -1847,6 +1847,8 @@ class ExternalLiveStudentStat(models.Model):
 
     display_name = models.CharField(max_length=80, blank=True, default="")
     watch_seconds = models.PositiveIntegerField(default=0)
+    speaking_seconds = models.PositiveIntegerField(default=0)
+    hand_raised_seconds = models.PositiveIntegerField(default=0)
     speaks = models.PositiveIntegerField(default=0)
     hands = models.PositiveIntegerField(default=0)
     engagement = models.FloatField(default=0.0)
