@@ -53,6 +53,59 @@
                     <div class="text-[10px] font-black opacity-60" style="color: var(--prof-text-muted);">{{ st.tracking_hands|default:0 }} raises</div>
                 </div>
             </div>
+
+            <div class="mt-4 p-4 rounded-2xl bg-surface-hover border border-prof">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[9px] font-black uppercase tracking-widest opacity-60" style="color: var(--prof-text-muted);">One-time join link</div>
+                        <div class="text-xs font-bold mt-1 truncate" style="color: var(--prof-text-main);">
+                            {% if st.join_invite_status %}
+                                Status: <span class="js-invite-status">{{ st.join_invite_status|upper }}</span>
+                            {% else %}
+                                Status: <span class="js-invite-status">NONE</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if external_selected_session and external_selected_session.id and st.local_user_id %}
+                    <button
+                        type="button"
+                        class="js-gen-invite px-4 py-2 rounded-xl bg-brand text-white text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-90 transition"
+                        data-url="{% url 'Prolean:external_live_join_invite_regen' external_selected_session.id st.local_user_id %}"
+                        data-status-url="{% url 'Prolean:external_live_join_invite_status' external_selected_session.id %}"
+                        data-user-id="{{ st.local_user_id }}"
+                    >
+                        Generate & Copy
+                    </button>
+                    {% else %}
+                    <button type="button" class="px-4 py-2 rounded-xl bg-surface-hover border border-prof text-[10px] font-black uppercase tracking-[0.2em] opacity-60 cursor-not-allowed" disabled>
+                        Unavailable
+                    </button>
+                    {% endif %}
+                </div>
+
+                <div class="mt-2 text-[11px] opacity-75 space-y-1" style="color: var(--prof-text-muted);">
+                    {% if not st.local_user_id %}
+                        <div>Cannot generate link: student not matched to a local account.</div>
+                    {% else %}
+                        <div class="js-invite-meta">
+                            {% if st.join_invite_status == 'used' %}
+                                Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}{% if st.join_invite_device %} â€¢ Device: {{ st.join_invite_device }}{% endif %}
+                            {% elif st.join_invite_status == 'unused' %}
+                                Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}
+                            {% elif st.join_invite_status == 'expired' %}
+                                Expired: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}
+                            {% elif st.join_invite_status == 'revoked' %}
+                                Revoked.
+                            {% else %}
+                                No link generated yet.
+                            {% endif %}
+                        </div>
+                        {% if st.join_invite_used_ua and st.join_invite_status == 'used' %}
+                        <div class="text-[10px] opacity-70 break-words">UA: {{ st.join_invite_used_ua }}</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
         </div>
         {% empty %}
         <div class="col-span-full py-20 text-center opacity-60">
@@ -62,6 +115,107 @@
         {% endfor %}
     </div>
 </div>
+<script>
+(() => {
+  const getCsrfToken = () => {
+    try {
+      const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
+    } catch (_) { return ""; }
+  };
+
+  const flash = (btn, text) => {
+    if (!btn) return;
+    const old = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => { btn.textContent = old; }, 1800);
+  };
+
+  document.querySelectorAll(".js-gen-invite").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = String(btn.dataset.url || "");
+      if (!url) return;
+      btn.disabled = true;
+      btn.classList.add("opacity-60", "cursor-not-allowed");
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            "Accept": "application/json",
+          },
+          credentials: "same-origin",
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.ok || !data.join_url) {
+          flash(btn, "Failed");
+          return;
+        }
+        try { await navigator.clipboard.writeText(String(data.join_url)); } catch (_) {}
+
+        const card = btn.closest(".glass-card");
+        if (card) {
+          const status = card.querySelector(".js-invite-status");
+          if (status) status.textContent = "UNUSED";
+          const meta = card.querySelector(".js-invite-meta");
+          if (meta && data.expires_at) {
+            meta.textContent = "Expires: " + String(data.expires_at).replace("T", " ").slice(0, 16);
+          }
+        }
+        flash(btn, "Copied");
+      } catch (_) {
+        flash(btn, "Failed");
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove("opacity-60", "cursor-not-allowed");
+      }
+    });
+  });
+
+  // Poll for status changes (e.g., student used link) without requiring a full refresh.
+  const poll = async () => {
+    const buttons = Array.from(document.querySelectorAll(".js-gen-invite"));
+    if (!buttons.length) return;
+    const statusUrl = String(buttons[0].dataset.statusUrl || "");
+    if (!statusUrl) return;
+    const userIds = buttons.map((b) => String(b.dataset.userId || "")).filter(Boolean);
+    if (!userIds.length) return;
+    try {
+      const url = `${statusUrl}?user_ids=${encodeURIComponent(userIds.join(","))}`;
+      const res = await fetch(url, { method: "GET", headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.ok || !data.rows) return;
+      buttons.forEach((btn) => {
+        const uid = String(btn.dataset.userId || "");
+        const row = data.rows[uid];
+        if (!row) return;
+        const card = btn.closest(".glass-card");
+        if (!card) return;
+        const status = card.querySelector(".js-invite-status");
+        if (status) status.textContent = String(row.status || "").toUpperCase();
+        const meta = card.querySelector(".js-invite-meta");
+        if (meta) {
+          if (row.status === "used") {
+            const used = row.used_at ? String(row.used_at).replace("T", " ").slice(0, 16) : "";
+            const device = row.device ? ` • Device: ${row.device}` : "";
+            meta.textContent = `Used: ${used}${device}`.trim();
+          } else if (row.status === "unused") {
+            const exp = row.expires_at ? String(row.expires_at).replace("T", " ").slice(0, 16) : "";
+            meta.textContent = exp ? `Expires: ${exp}` : "Unused.";
+          } else if (row.status === "expired") {
+            const exp = row.expires_at ? String(row.expires_at).replace("T", " ").slice(0, 16) : "";
+            meta.textContent = exp ? `Expired: ${exp}` : "Expired.";
+          } else if (row.status === "revoked") {
+            meta.textContent = "Revoked.";
+          }
+        }
+      });
+    } catch (_) {}
+  };
+  setInterval(poll, 6000);
+  setTimeout(poll, 1000);
+})();
+</script>
 {% else %}
 <div class="space-y-8">
     <!-- Header with Stats -->

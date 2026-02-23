@@ -495,11 +495,36 @@ Recent Entries
   - Added server-side enforcement for bans:
     - Banned students cannot join the external live.
     - In-room polling auto-exits if a ban is applied.
-  - Added video watermark overlay on tiles (name + id + timestamp) to deter screenshots/recording.
+- Added a dynamic canvas watermark overlay on tiles (website logo + live timestamp) to deter screenshots/recording (no PII).
   - Added security logging endpoints + DB audit log for moderation actions and security alerts.
-  - Implemented best-effort phone detection on student webcam using in-browser ML (COCO-SSD via TensorFlow.js); logs and alerts professor when a phone-like object is detected.
 
 [2026-02-21 UTC] Area: Prolean | Type: Fix/External Live Moderation + Tracking Durations
 - What changed:
   - Moderation mute now has server-side enforcement via status polling (works even if Agora data stream messaging fails).
   - Tracking now stores speaking duration and raised-hand duration per student (in minutes) in DB and displays it in `/professor/students/`.
+
+[2026-02-21 UTC] Area: Prolean | Type: Fix/External Live Moderation State Sync
+- What changed:
+  - Added a professor-only moderation state endpoint: `external/live/<session_id>/mod-state/` returning mic lock state.
+  - External live studio now refreshes moderation state on join/open, and updates mic lock UI indicators immediately after mute/unmute actions.
+- Why:
+  - Keep the moderation drawer and student grid indicators consistent without waiting for polling or reloading.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-02-23 UTC] Area: Prolean | Type: Feature/External Live One-time Student Join Links (Professor UI)
+- What changed:
+  - Added one-time, per-student join link issuance for external live sessions (professor can generate/regenerate per student).
+  - Added join-token consumption endpoint that marks a link as used (one time) and stores device info (UA + client hints).
+  - Professor students page now shows join-link status (none/unused/used/expired/revoked) and device used.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-02-21 UTC] Area: Prolean | Type: Fix/External Live Unmute + Indicators + Security Feed
+- What changed:
+  - Unmute now works even when **Mute all** is active by supporting per-user unlock exceptions.
+  - Added a persistent “Mic locked” badge in the student control bar.
+  - Reduced student status polling interval to 1.5s for faster enforcement when real-time signaling is unreliable.
+  - Added professor-only `security-feed/` polling so security events (e.g., watermark tamper / suspicious client) surface even if Agora data stream messaging fails.
+- Validation:
+  - `python manage.py check` passed.

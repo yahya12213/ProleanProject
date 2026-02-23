@@ -15,6 +15,9 @@ import json
 import re
 import requests
 import time
+import secrets
+import hmac
+import hashlib
 from datetime import datetime, timedelta
 from time import sleep
 import logging
@@ -28,7 +31,7 @@ from .models import (
     Profile, StudentProfile, ProfessorProfile, AssistantProfile, Session,
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
     TrainingPreSubscription, Notification, Live, Seance,
-    ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent
+    ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent, ExternalLiveJoinInvite
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
 from django.contrib.auth import authenticate, login, logout
@@ -3144,6 +3147,206 @@ def external_live_room(request, session_id):
         return redirect('Prolean:dashboard')
 
 
+def _hash_external_live_join_token(raw: str) -> str:
+    raw = str(raw or "").strip()
+    key = str(getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
+    return hmac.new(key, raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _device_label_from_request(request) -> tuple[str, dict]:
+    ua = str(request.META.get("HTTP_USER_AGENT", "") or "")[:800]
+    ch_ua = str(request.headers.get("Sec-CH-UA", "") or "")[:500]
+    ch_platform = str(request.headers.get("Sec-CH-UA-Platform", "") or "")[:60]
+    ch_mobile = str(request.headers.get("Sec-CH-UA-Mobile", "") or "")[:20]
+
+    platform_clean = ch_platform.strip().strip('"')
+    mobile_clean = ch_mobile.strip()
+    label_parts = []
+    if platform_clean:
+        label_parts.append(platform_clean)
+    if mobile_clean:
+        label_parts.append("Mobile" if mobile_clean == "?1" else "Desktop")
+    label = " ".join(label_parts)[:120]
+    return (
+        label,
+        {
+            "ua": ua,
+            "sec_ch_ua": ch_ua,
+            "sec_ch_platform": platform_clean,
+            "sec_ch_mobile": mobile_clean,
+        },
+    )
+
+
+@professor_required
+@require_POST
+def external_live_join_invite_regen(request, session_id, user_id):
+    """Generate (or regenerate) a one-time join link for a student for this external live session."""
+    session_id = str(session_id or "").strip()
+    if not session_id:
+        return JsonResponse({"ok": False, "error": "Missing session_id."}, status=400)
+
+    try:
+        target = User.objects.get(id=int(user_id))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid user_id."}, status=400)
+
+    now = timezone.now()
+    try:
+        # Revoke any still-usable invites for this student/session.
+        ExternalLiveJoinInvite.objects.filter(
+            session_id=session_id,
+            user=target,
+            revoked_at__isnull=True,
+            used_at__isnull=True,
+            expires_at__gt=now,
+        ).update(revoked_at=now)
+    except Exception:
+        pass
+
+    raw = secrets.token_urlsafe(32)
+    token_hash = _hash_external_live_join_token(raw)
+    expires_at = now + timedelta(hours=8)
+    try:
+        ExternalLiveJoinInvite.objects.create(
+            session_id=session_id,
+            user=target,
+            token_hash=token_hash,
+            created_by=request.user,
+            expires_at=expires_at,
+        )
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Unable to create invite."}, status=500)
+
+    join_url = request.build_absolute_uri(reverse("Prolean:external_live_join_with_token", kwargs={"token": raw}))
+    if _accepts_json(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "join_url": join_url,
+                "expires_at": expires_at.isoformat(),
+                "session_id": session_id,
+                "user_id": int(target.id),
+            }
+        )
+
+    messages.success(request, f"Join link generated for {target.get_full_name() or target.username}: {join_url}")
+    return redirect(f"{reverse('Prolean:professor_students')}?session_id={session_id}")
+
+
+@professor_required
+def external_live_join_invite_status(request, session_id):
+    """Fetch latest invite status for a list of users for a given external live session."""
+    session_id = str(session_id or "").strip()
+    if not session_id:
+        return JsonResponse({"ok": False, "error": "Missing session_id."}, status=400)
+
+    raw_ids = str(request.GET.get("user_ids", "") or "").strip()
+    user_ids = []
+    if raw_ids:
+        parts = [p.strip() for p in raw_ids.split(",") if p.strip()]
+        for p in parts[:500]:
+            try:
+                n = int(p)
+                if n > 0:
+                    user_ids.append(n)
+            except Exception:
+                continue
+    user_ids = sorted(set(user_ids))[:500]
+
+    if not user_ids:
+        return JsonResponse({"ok": True, "session_id": session_id, "rows": {}})
+
+    now = timezone.now()
+    rows = {}
+    try:
+        invites = (
+            ExternalLiveJoinInvite.objects.filter(session_id=session_id, user_id__in=user_ids)
+            .order_by("-created_at")[:5000]
+        )
+        latest = {}
+        for inv in invites:
+            if int(inv.user_id) not in latest:
+                latest[int(inv.user_id)] = inv
+        for uid, inv in latest.items():
+            status = "unused"
+            if inv.revoked_at:
+                status = "revoked"
+            elif inv.used_at:
+                status = "used"
+            elif inv.expires_at and inv.expires_at <= now:
+                status = "expired"
+            rows[str(uid)] = {
+                "status": status,
+                "used_at": inv.used_at.isoformat() if inv.used_at else None,
+                "expires_at": inv.expires_at.isoformat() if inv.expires_at else None,
+                "device": str(inv.used_device_label or "")[:120],
+            }
+    except Exception:
+        rows = {}
+
+    return JsonResponse({"ok": True, "session_id": session_id, "rows": rows, "server_time": now.isoformat()})
+
+
+@login_required
+def external_live_join_with_token(request, token):
+    """Consume a one-time student join token and redirect to the external live room."""
+    if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
+        messages.error(request, "This link is for students only.")
+        return redirect("Prolean:professor_dashboard")
+
+    raw = str(token or "").strip()
+    if not raw:
+        messages.error(request, "Invalid join link.")
+        return redirect("Prolean:dashboard")
+
+    token_hash = _hash_external_live_join_token(raw)
+    now = timezone.now()
+    device_label, device_payload = _device_label_from_request(request)
+
+    with transaction.atomic():
+        row = (
+            ExternalLiveJoinInvite.objects.select_for_update()
+            .filter(token_hash=token_hash)
+            .first()
+        )
+        if not row:
+            messages.error(request, "This join link is invalid or expired.")
+            return redirect("Prolean:dashboard")
+        if int(row.user_id) != int(request.user.id):
+            messages.error(request, "This join link does not belong to your account.")
+            return redirect("Prolean:dashboard")
+        if row.revoked_at:
+            messages.error(request, "This join link was revoked. Ask your professor to regenerate it.")
+            return redirect("Prolean:dashboard")
+        if row.expires_at and row.expires_at <= now:
+            messages.error(request, "This join link is expired. Ask your professor to regenerate it.")
+            return redirect("Prolean:dashboard")
+        if row.used_at:
+            messages.error(request, "This join link was already used. Ask your professor to regenerate it.")
+            return redirect("Prolean:dashboard")
+
+        row.used_at = now
+        row.used_user_agent = str(device_payload.get("ua") or "")
+        row.used_device_label = str(device_label or "")[:120]
+        row.used_sec_ch_ua = str(device_payload.get("sec_ch_ua") or "")
+        row.used_sec_ch_platform = str(device_payload.get("sec_ch_platform") or "")[:60]
+        row.used_sec_ch_mobile = str(device_payload.get("sec_ch_mobile") or "")[:20]
+        row.save(
+            update_fields=[
+                "used_at",
+                "used_user_agent",
+                "used_device_label",
+                "used_sec_ch_ua",
+                "used_sec_ch_platform",
+                "used_sec_ch_mobile",
+                "updated_at",
+            ]
+        )
+
+    return redirect("Prolean:external_live_room", session_id=str(row.session_id))
+
+
 @login_required
 @require_POST
 def external_live_leave(request, session_id):
@@ -3198,7 +3401,10 @@ def external_live_status(request, session_id):
         try:
             key_all = f"prolean:external_live_mic_lock_all:{session_id}"
             key_user = f"prolean:external_live_mic_lock_user:{session_id}:{request.user.id}"
-            mic_locked = bool(cache.get(key_all) or cache.get(key_user))
+            all_locked = bool(cache.get(key_all))
+            user_locked = bool(cache.get(key_user))
+            unlocked_user = bool(cache.get(f"prolean:external_live_mic_unlock_user:{session_id}:{request.user.id}"))
+            mic_locked = bool((all_locked and not unlocked_user) or user_locked)
         except Exception:
             mic_locked = False
 
@@ -3358,6 +3564,59 @@ def _accepts_json(request) -> bool:
     return "application/json" in accept
 
 
+def _mic_lock_users_key(session_id: str) -> str:
+    return f"prolean:external_live_mic_lock_users:{session_id}"
+
+def _mic_unlock_users_key(session_id: str) -> str:
+    return f"prolean:external_live_mic_unlock_users:{session_id}"
+
+
+def _get_locked_user_ids(session_id: str) -> set[int]:
+    try:
+        raw = cache.get(_mic_lock_users_key(session_id))
+    except Exception:
+        raw = None
+    if not isinstance(raw, list):
+        return set()
+    out = set()
+    for v in raw:
+        try:
+            out.add(int(v))
+        except Exception:
+            continue
+    return out
+
+
+def _set_locked_user_ids(session_id: str, ids: set[int]) -> None:
+    try:
+        cache.set(_mic_lock_users_key(session_id), sorted({int(x) for x in ids if int(x) > 0}), timeout=60 * 60 * 8)
+    except Exception:
+        return
+
+
+def _get_unlocked_user_ids(session_id: str) -> set[int]:
+    try:
+        raw = cache.get(_mic_unlock_users_key(session_id))
+    except Exception:
+        raw = None
+    if not isinstance(raw, list):
+        return set()
+    out = set()
+    for v in raw:
+        try:
+            out.add(int(v))
+        except Exception:
+            continue
+    return out
+
+
+def _set_unlocked_user_ids(session_id: str, ids: set[int]) -> None:
+    try:
+        cache.set(_mic_unlock_users_key(session_id), sorted({int(x) for x in ids if int(x) > 0}), timeout=60 * 60 * 8)
+    except Exception:
+        return
+
+
 @professor_required
 @require_POST
 def external_live_mute_user(request, session_id):
@@ -3371,6 +3630,23 @@ def external_live_mute_user(request, session_id):
 
     try:
         cache.set(f"prolean:external_live_mic_lock_user:{session_id}:{target.id}", True, timeout=60 * 60 * 8)
+    except Exception:
+        pass
+    try:
+        # If "mute all" is active, remove any per-user unlock exception.
+        cache.delete(f"prolean:external_live_mic_unlock_user:{session_id}:{target.id}")
+    except Exception:
+        pass
+    try:
+        ids = _get_locked_user_ids(str(session_id))
+        ids.add(int(target.id))
+        _set_locked_user_ids(str(session_id), ids)
+    except Exception:
+        pass
+    try:
+        unlocked = _get_unlocked_user_ids(str(session_id))
+        unlocked.discard(int(target.id))
+        _set_unlocked_user_ids(str(session_id), unlocked)
     except Exception:
         pass
 
@@ -3399,6 +3675,26 @@ def external_live_unmute_user(request, session_id):
         cache.delete(f"prolean:external_live_mic_lock_user:{session_id}:{target.id}")
     except Exception:
         pass
+    try:
+        ids = _get_locked_user_ids(str(session_id))
+        ids.discard(int(target.id))
+        _set_locked_user_ids(str(session_id), ids)
+    except Exception:
+        pass
+    # If "mute all" is active, allow unmuting a specific user by adding an unlock exception.
+    try:
+        if bool(cache.get(f"prolean:external_live_mic_lock_all:{session_id}")):
+            cache.set(f"prolean:external_live_mic_unlock_user:{session_id}:{target.id}", True, timeout=60 * 60 * 8)
+            unlocked = _get_unlocked_user_ids(str(session_id))
+            unlocked.add(int(target.id))
+            _set_unlocked_user_ids(str(session_id), unlocked)
+        else:
+            cache.delete(f"prolean:external_live_mic_unlock_user:{session_id}:{target.id}")
+            unlocked = _get_unlocked_user_ids(str(session_id))
+            unlocked.discard(int(target.id))
+            _set_unlocked_user_ids(str(session_id), unlocked)
+    except Exception:
+        pass
 
     try:
         ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=target, event_type="unmute_user", payload={})
@@ -3417,6 +3713,17 @@ def external_live_mute_all(request, session_id):
         cache.set(f"prolean:external_live_mic_lock_all:{session_id}", True, timeout=60 * 60 * 8)
     except Exception:
         pass
+    # Clear any per-user unlock exceptions on mute-all.
+    try:
+        unlocked = _get_unlocked_user_ids(str(session_id))
+        for uid in unlocked:
+            try:
+                cache.delete(f"prolean:external_live_mic_unlock_user:{session_id}:{uid}")
+            except Exception:
+                continue
+        _set_unlocked_user_ids(str(session_id), set())
+    except Exception:
+        pass
     try:
         ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=None, event_type="mute_all", payload={})
     except Exception:
@@ -3433,6 +3740,28 @@ def external_live_unmute_all(request, session_id):
         cache.delete(f"prolean:external_live_mic_lock_all:{session_id}")
     except Exception:
         pass
+    # Clear per-user locks too (best effort) so "unmute all" really unlocks everyone.
+    try:
+        ids = _get_locked_user_ids(str(session_id))
+        for uid in ids:
+            try:
+                cache.delete(f"prolean:external_live_mic_lock_user:{session_id}:{uid}")
+            except Exception:
+                continue
+        _set_locked_user_ids(str(session_id), set())
+    except Exception:
+        pass
+    # Clear per-user unlock exceptions too.
+    try:
+        unlocked = _get_unlocked_user_ids(str(session_id))
+        for uid in unlocked:
+            try:
+                cache.delete(f"prolean:external_live_mic_unlock_user:{session_id}:{uid}")
+            except Exception:
+                continue
+        _set_unlocked_user_ids(str(session_id), set())
+    except Exception:
+        pass
     try:
         ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=None, event_type="unmute_all", payload={})
     except Exception:
@@ -3440,6 +3769,48 @@ def external_live_unmute_all(request, session_id):
     if _accepts_json(request):
         return JsonResponse({"ok": True})
     return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@professor_required
+def external_live_mod_state(request, session_id):
+    lock_all = False
+    try:
+        lock_all = bool(cache.get(f"prolean:external_live_mic_lock_all:{session_id}"))
+    except Exception:
+        lock_all = False
+    ids = sorted(_get_locked_user_ids(str(session_id)))
+    unlocked = sorted(_get_unlocked_user_ids(str(session_id)))
+    return JsonResponse({"ok": True, "lock_all": bool(lock_all), "locked_user_ids": ids, "unlocked_user_ids": unlocked})
+
+
+@professor_required
+def external_live_security_feed(request, session_id):
+    """Lightweight polling endpoint for in-room professor alerts (works even when Agora data stream is unavailable)."""
+    after_id = 0
+    try:
+        after_id = int(request.GET.get("after_id") or 0)
+    except Exception:
+        after_id = 0
+    after_id = max(0, after_id)
+
+    qs = ExternalLiveSecurityEvent.objects.filter(session_id=str(session_id))
+    if after_id:
+        qs = qs.filter(id__gt=after_id)
+    rows = list(qs.order_by("id")[:30])
+
+    events = []
+    for r in rows:
+        events.append(
+            {
+                "id": int(r.id),
+                "event_type": str(r.event_type),
+                "actor_id": int(r.actor_id) if r.actor_id else None,
+                "target_id": int(r.target_id) if r.target_id else None,
+                "created_at": r.created_at.isoformat(),
+                "payload": r.payload if isinstance(r.payload, dict) else {},
+            }
+        )
+    return JsonResponse({"ok": True, "events": events})
 
 
 @professor_required
@@ -3653,6 +4024,54 @@ def professor_students(request):
                 else:
                     ext_student["local_user_id"] = None
                     ext_student["local_full_name"] = None
+
+            # Join-invite status (one-time student links)
+            invite_by_user_id = {}
+            if selected_session_id:
+                try:
+                    user_ids = sorted(
+                        {int(s.get("local_user_id")) for s in students if isinstance(s, dict) and s.get("local_user_id")}
+                    )
+                except Exception:
+                    user_ids = []
+                if user_ids:
+                    try:
+                        rows = (
+                            ExternalLiveJoinInvite.objects.filter(session_id=selected_session_id, user_id__in=user_ids)
+                            .order_by("-created_at")[:2000]
+                        )
+                        for r in rows:
+                            if int(r.user_id) not in invite_by_user_id:
+                                invite_by_user_id[int(r.user_id)] = r
+                    except Exception:
+                        invite_by_user_id = {}
+
+            now = timezone.now()
+            for ext_student in students:
+                if not isinstance(ext_student, dict):
+                    continue
+                uid = ext_student.get("local_user_id")
+                row = invite_by_user_id.get(int(uid)) if uid else None
+                if not row:
+                    ext_student["join_invite_status"] = None
+                    ext_student["join_invite_used_at"] = None
+                    ext_student["join_invite_device"] = None
+                    ext_student["join_invite_expires_at"] = None
+                    continue
+
+                status = "unused"
+                if row.revoked_at:
+                    status = "revoked"
+                elif row.used_at:
+                    status = "used"
+                elif row.expires_at and row.expires_at <= now:
+                    status = "expired"
+
+                ext_student["join_invite_status"] = status
+                ext_student["join_invite_used_at"] = row.used_at
+                ext_student["join_invite_device"] = row.used_device_label or ""
+                ext_student["join_invite_expires_at"] = row.expires_at
+                ext_student["join_invite_used_ua"] = (row.used_user_agent or "")[:180]
 
             context = {
                 'external_professor_mode': True,

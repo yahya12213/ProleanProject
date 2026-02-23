@@ -91,40 +91,49 @@
         gap: 10px;
     }
 
-    .watermark {
+    .wm-canvas {
         position: absolute;
         inset: 0;
+        width: 100%;
+        height: 100%;
         pointer-events: none;
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        padding: 10px;
-        opacity: 0.72;
+        z-index: 5;
         mix-blend-mode: screen;
     }
-    .presenter-room[data-ui-theme="light"] .watermark { mix-blend-mode: multiply; opacity: 0.55; }
-    .wm-chip {
+    .presenter-room[data-ui-theme="light"] .wm-canvas { mix-blend-mode: multiply; }
+
+    .protected-blur video { filter: blur(10px) saturate(0.8) contrast(0.9); }
+
+    .tile-actions {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 6;
         display: inline-flex;
-        flex-direction: column;
-        gap: 2px;
-        max-width: 70%;
-        border-radius: 12px;
-        padding: 6px 8px;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(0, 0, 0, 0.25);
-        color: #e2e8f0;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        filter: drop-shadow(0 8px 18px rgba(0,0,0,.25));
+        gap: 6px;
+        opacity: 0.0;
+        transform: translateY(-2px);
+        transition: opacity .15s ease, transform .15s ease;
     }
-    .presenter-room[data-ui-theme="light"] .wm-chip {
-        background: rgba(255, 255, 255, 0.55);
-        color: #0f172a;
+    .student-card:hover .tile-actions { opacity: 1; transform: translateY(0); }
+    @media (hover: none) {
+        .tile-actions { opacity: 1; transform: translateY(0); }
     }
-    .wm-chip .small { font-size: 9px; opacity: 0.85; letter-spacing: 0.10em; }
-    .wm-chip.right { align-items: flex-end; max-width: 48%; }
+    .tile-act {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: rgba(0,0,0,0.35);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+    }
+    .presenter-room[data-ui-theme="light"] .tile-act { background: rgba(255,255,255,0.55); color: #0f172a; }
+    .tile-act.danger { border-color: rgba(239, 68, 68, 0.40); background: rgba(239, 68, 68, 0.22); }
+    .tile-act[disabled] { opacity: 0.5; cursor: not-allowed; }
 
     .mod-drawer {
         position: fixed;
@@ -436,6 +445,53 @@
         overflow: hidden;
         position: relative;
         background: var(--media-bg);
+    }
+    .student-card.mic-locked {
+        outline: 2px solid rgba(239, 68, 68, 0.65);
+        outline-offset: -2px;
+    }
+    .mic-indicator {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(0,0,0,0.35);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        pointer-events: none;
+        backdrop-filter: blur(8px);
+    }
+    .presenter-room[data-ui-theme="light"] .mic-indicator { background: rgba(255,255,255,0.55); color: #0f172a; }
+    .mic-indicator.off { border-color: rgba(239, 68, 68, 0.40); background: rgba(239, 68, 68, 0.18); }
+
+    .mic-lock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        background: rgba(239, 68, 68, 0.12);
+        color: rgba(254, 226, 226, 0.98);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    .presenter-room[data-ui-theme="light"] .mic-lock-badge {
+        color: #991b1b;
+        background: rgba(239, 68, 68, 0.10);
+        border-color: rgba(239, 68, 68, 0.28);
     }
 
     .agora-video-slot {
@@ -751,6 +807,7 @@
 
     <div class="controls-bar">
         <button id="toggle-audio" class="ctrl-btn" data-state="on" title="Microphone"><span class="material-symbols-outlined">mic</span></button>
+        <span id="mic-lock-badge" class="mic-lock-badge hidden"><span class="material-symbols-outlined" style="font-size:18px">lock</span>Mic locked</span>
         <button id="toggle-video" class="ctrl-btn" data-state="on" title="Camera"><span class="material-symbols-outlined">videocam</span></button>
         <button id="toggle-screen" class="ctrl-btn" title="Screen Share"><span class="material-symbols-outlined">present_to_all</span></button>
         <button id="raise-hand" class="ctrl-btn" title="Raise Hand"><span class="material-symbols-outlined">front_hand</span></button>
@@ -846,6 +903,7 @@
   const btnVideo = document.getElementById("toggle-video");
   const btnScreen = document.getElementById("toggle-screen");
   const btnRaiseHand = document.getElementById("raise-hand");
+  const micLockBadge = document.getElementById("mic-lock-badge");
   const btnEndLive = document.getElementById("end-live");
   const btnSound = document.getElementById("enable-sound");
   const btnFullscreen = document.getElementById("toggle-fullscreen");
@@ -891,6 +949,19 @@
   let hasJoined = false;
   let exiting = false;
   let warnedNoDataStream = false;
+  let mutedByProfessor = false;
+  let micLockAll = false;
+  const micLockedUserIds = new Set();
+  const micUnlockedUserIds = new Set();
+  const modStateUrl = "{% url 'Prolean:external_live_mod_state' session_id %}";
+  const securityFeedUrl = "{% url 'Prolean:external_live_security_feed' session_id %}";
+  const muteUserUrl = "{% url 'Prolean:external_live_mute_user' session_id %}";
+  const unmuteUserUrl = "{% url 'Prolean:external_live_unmute_user' session_id %}";
+  const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
+  const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
+  const banUserUrl = "{% url 'Prolean:external_live_ban_user' session_id %}";
+
+  const watermarkLogoUrl = "https://i.ibb.co/M53HQ07b/cropped-PROLEAN-LOGO.png";
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
@@ -901,6 +972,145 @@
   const normalizeSource = (source) => String(source || "camera");
   const isScreenShare = (source) => normalizeSource(source).startsWith("screen_share");
   const initials = (label) => (String(label || "U").trim()[0] || "U").toUpperCase();
+
+  const watermarkLogoImg = new Image();
+  try { watermarkLogoImg.crossOrigin = "anonymous"; } catch (_) {}
+  watermarkLogoImg.src = watermarkLogoUrl;
+
+  const watermarkEngines = new WeakMap();
+  const attachWatermarkToSlot = (slot) => {
+    if (!slot) return;
+    const existing = watermarkEngines.get(slot);
+    if (existing && existing.canvas && existing.canvas.isConnected) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "wm-canvas";
+    slot.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+    const engine = {
+      slot,
+      canvas,
+      ctx,
+      dpr,
+      x: 20,
+      y: 20,
+      tx: 20,
+      ty: 20,
+      w: 140,
+      h: 44,
+      opacitySeed: Math.random() * Math.PI * 2,
+      nextMoveAt: 0,
+      tamperCount: 0,
+      destroyed: false,
+    };
+    watermarkEngines.set(slot, engine);
+
+    const resize = () => {
+      const rect = slot.getBoundingClientRect();
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    };
+
+    const chooseTarget = (now) => {
+      engine.nextMoveAt = now + (9000 + Math.random() * 6000);
+      const pad = 14;
+      const rect = slot.getBoundingClientRect();
+      const maxX = Math.max(pad, rect.width - engine.w - pad);
+      const maxY = Math.max(pad, rect.height - engine.h - pad);
+      engine.tx = pad + Math.random() * Math.max(0, maxX - pad);
+      engine.ty = pad + Math.random() * Math.max(0, maxY - pad);
+    };
+
+    const isTampered = () => {
+      try {
+        if (!canvas.isConnected) return true;
+        const st = window.getComputedStyle(canvas);
+        if (!st) return true;
+        if (st.display === "none" || st.visibility === "hidden") return true;
+        if (Number(st.opacity || "1") < 0.05) return true;
+        if (canvas.width < 32 || canvas.height < 32) return true;
+      } catch (_) {
+        return true;
+      }
+      return false;
+    };
+
+    const tick = (now) => {
+      if (engine.destroyed) return;
+      if (!ctx) return;
+      if (!canvas.isConnected) {
+        engine.destroyed = true;
+        return;
+      }
+      if (canvas.width === 0 || canvas.height === 0) resize();
+      if (!engine.nextMoveAt || now >= engine.nextMoveAt) chooseTarget(now);
+
+      // Gentle movement
+      engine.x += (engine.tx - engine.x) * 0.006;
+      engine.y += (engine.ty - engine.y) * 0.006;
+
+      // Draw
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+      const alpha = 0.20 + 0.10 * (0.5 + 0.5 * Math.sin((now / 2200) + engine.opacitySeed));
+      ctx.globalAlpha = alpha;
+
+      const x = Math.round(engine.x);
+      const y = Math.round(engine.y);
+      const r = 12;
+      ctx.fillStyle = "rgba(0,0,0,0.30)";
+      ctx.strokeStyle = "rgba(148,163,184,0.22)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + engine.w, y, x + engine.w, y + engine.h, r);
+      ctx.arcTo(x + engine.w, y + engine.h, x, y + engine.h, r);
+      ctx.arcTo(x, y + engine.h, x, y, r);
+      ctx.arcTo(x, y, x + engine.w, y, r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      const padX = 10;
+      const logoSize = 22;
+      if (watermarkLogoImg && watermarkLogoImg.complete && watermarkLogoImg.naturalWidth > 0) {
+        try { ctx.drawImage(watermarkLogoImg, x + padX, y + Math.round((engine.h - logoSize) / 2), logoSize, logoSize); } catch (_) {}
+      }
+
+      const ts = new Date().toLocaleString();
+      ctx.fillStyle = "rgba(226,232,240,0.95)";
+      ctx.font = "900 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+      ctx.textBaseline = "middle";
+      ctx.fillText(ts, x + padX + logoSize + 10, y + Math.round(engine.h / 2));
+
+      // Tamper response
+      if (isTampered()) {
+        engine.tamperCount += 1;
+        slot.classList.add("protected-blur");
+        if (engine.tamperCount === 1) {
+          logEvent("watermark_tamper", { where: "slot" });
+        }
+      } else {
+        slot.classList.remove("protected-blur");
+      }
+
+      requestAnimationFrame(tick);
+    };
+
+    try {
+      resize();
+      chooseTarget(performance.now());
+    } catch (_) {}
+    requestAnimationFrame(tick);
+    window.addEventListener("resize", resize);
+  };
 
   const setStatus = (txt, kind = "warn") => {
     const style = {
@@ -1028,19 +1238,7 @@
     if (fit === "contain") media.classList.add("fit-contain");
     host.appendChild(media);
     data.track.play(media, { fit });
-    const wm = document.createElement("div");
-    wm.className = "watermark";
-    wm.innerHTML = `
-      <div class="wm-chip">
-        <div>${String(label || "").slice(0, 80)}</div>
-        <div class="small">ID ${String(data?.identity || "")}</div>
-      </div>
-      <div class="wm-chip right">
-        <div class="wm-ts">--:--:--</div>
-        <div class="small">prolean</div>
-      </div>
-    `;
-    media.appendChild(wm);
+    attachWatermarkToSlot(media);
     const footer = document.createElement("div");
     footer.className = "student-label";
     footer.textContent = label;
@@ -1180,19 +1378,7 @@
         media.className = "agora-video-slot";
         card.appendChild(media);
         cam.track.play(media, { fit: "cover" });
-        const wm = document.createElement("div");
-        wm.className = "watermark";
-        wm.innerHTML = `
-          <div class="wm-chip">
-            <div>${String(student.name || "").slice(0, 80)}</div>
-            <div class="small">ID ${String(student.id || "")}</div>
-          </div>
-          <div class="wm-chip right">
-            <div class="wm-ts">--:--:--</div>
-            <div class="small">prolean</div>
-          </div>
-        `;
-        media.appendChild(wm);
+        attachWatermarkToSlot(media);
       } else {
         const av = document.createElement("div");
         av.className = "avatar-host";
@@ -1202,6 +1388,41 @@
         av.appendChild(badge);
         card.appendChild(av);
       }
+      if (isProfessor) {
+        const userId = uidToUserId(student.id);
+        const actions = document.createElement("div");
+        actions.className = "tile-actions";
+        const btnMute = document.createElement("button");
+        btnMute.type = "button";
+        btnMute.className = "tile-act";
+        btnMute.dataset.act = "mute";
+        btnMute.title = "Mute / Unmute";
+        btnMute.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
+        const btnKick = document.createElement("button");
+        btnKick.type = "button";
+        btnKick.className = "tile-act danger";
+        btnKick.dataset.act = "kick";
+        btnKick.title = "Kick out";
+        btnKick.innerHTML = '<span class="material-symbols-outlined">person_remove</span>';
+        if (!userId) {
+          btnMute.disabled = true;
+          btnKick.disabled = true;
+          btnMute.title = "Unavailable (no local user mapping)";
+          btnKick.title = "Unavailable (no local user mapping)";
+        } else {
+          btnMute.addEventListener("click", async () => {
+            const locked = isUserMicLocked(Number(userId));
+            if (locked) await moderateUnmuteUser(String(student.id), Number(userId));
+            else await moderateMuteUser(String(student.id), Number(userId));
+          });
+          btnKick.addEventListener("click", async () => {
+            await moderateKickUser(String(student.id), Number(userId));
+          });
+        }
+        actions.appendChild(btnMute);
+        actions.appendChild(btnKick);
+        card.appendChild(actions);
+      }
       const footer = document.createElement("div");
       footer.className = "student-label";
       footer.textContent = student.name;
@@ -1209,6 +1430,7 @@
       grid.appendChild(card);
     }
     host.appendChild(grid);
+    applyMicIndicators();
   };
 
   const syncStudentCardBorders = () => {
@@ -1255,91 +1477,19 @@
     syncModeButtons();
     markPaneBorders();
     syncStudentCardBorders();
+    applyMicIndicators();
   };
   const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); };
-
-  const refreshWatermarkTimestamps = () => {
-    const now = new Date();
-    const ts = now.toLocaleString();
-    document.querySelectorAll(".wm-ts").forEach((el) => { el.textContent = ts; });
-  };
 
   const openModeration = () => {
     if (!isProfessor || !modDrawer) return;
     modDrawer.classList.add("open");
+    refreshModState();
     renderModerationDrawer();
   };
   const closeModeration = () => {
     if (!modDrawer) return;
     modDrawer.classList.remove("open");
-  };
-
-  const loadScript = (src) => new Promise((resolve, reject) => {
-    const el = document.createElement("script");
-    el.src = src;
-    el.async = true;
-    el.onload = () => resolve(true);
-    el.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(el);
-  });
-
-  const startPhoneDetection = async () => {
-    if (isProfessor) return;
-    if (!localCamTrack || typeof localCamTrack.getMediaStreamTrack !== "function") return;
-    const track = localCamTrack.getMediaStreamTrack();
-    if (!track) return;
-
-    let model = null;
-    try {
-      if (!window.tf) {
-        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
-      }
-      if (!window.cocoSsd) {
-        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js");
-      }
-      model = await window.cocoSsd.load();
-    } catch (e) {
-      await logEvent("phone_detection_unavailable", { error: String(e?.message || e || "") });
-      return;
-    }
-
-    const video = document.createElement("video");
-    video.muted = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    video.style.position = "fixed";
-    video.style.left = "-9999px";
-    video.style.top = "-9999px";
-    video.width = 320;
-    video.height = 240;
-    video.srcObject = new MediaStream([track]);
-    document.body.appendChild(video);
-    try { await video.play(); } catch (_) {}
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 320;
-    canvas.height = 240;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-    let streak = 0;
-    const tick = async () => {
-      if (exiting || !hasJoined) return;
-      if (!ctx || video.readyState < 2) return;
-      try {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const preds = await model.detect(canvas);
-        const found = (preds || []).some((p) => String(p.class || "").toLowerCase() === "cell phone" && Number(p.score || 0) >= 0.55);
-        streak = found ? Math.min(6, streak + 1) : Math.max(0, streak - 1);
-        if (streak >= 3) {
-          streak = 0;
-          showError("Security warning: phone-like object detected in your camera. Recording is prohibited.");
-          await logEvent("phone_detected", { confidence: ">=0.55" });
-          await sendRoomSignal({ t: "sec", kind: "phone_detected", uid: String(agoraUid) });
-        }
-      } catch (_) {}
-    };
-
-    setInterval(tick, 5000);
   };
 
   const getCsrfToken = () => {
@@ -1430,12 +1580,142 @@
     return null;
   };
 
+  const postForm = async (url, body) => {
+    try {
+      await fetch(String(url || ""), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: String(body || ""),
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
+
+  const moderateMuteUser = async (targetAgoraUid, targetUserId) => {
+    await postForm(muteUserUrl, `user_id=${encodeURIComponent(String(targetUserId))}`);
+    micUnlockedUserIds.delete(Number(targetUserId));
+    micLockedUserIds.add(Number(targetUserId));
+    applyMicIndicators();
+    renderModerationDrawer();
+    await sendRoomSignal({ t: "force_mute", uid: String(targetAgoraUid), locked: true });
+    await logEvent("moderate_force_mute", { target_uid: String(targetAgoraUid) }, Number(targetUserId));
+  };
+
+  const moderateUnmuteUser = async (targetAgoraUid, targetUserId) => {
+    await postForm(unmuteUserUrl, `user_id=${encodeURIComponent(String(targetUserId))}`);
+    micLockedUserIds.delete(Number(targetUserId));
+    if (micLockAll) micUnlockedUserIds.add(Number(targetUserId));
+    applyMicIndicators();
+    renderModerationDrawer();
+    await sendRoomSignal({ t: "force_mute", uid: String(targetAgoraUid), locked: false });
+    await logEvent("moderate_unmute_user", { target_uid: String(targetAgoraUid) }, Number(targetUserId));
+  };
+
+  const moderateKickUser = async (targetAgoraUid, targetUserId) => {
+    await postForm(banUserUrl, `user_id=${encodeURIComponent(String(targetUserId))}`);
+    await sendRoomSignal({ t: "ban", uid: String(targetAgoraUid) });
+    await logEvent("moderate_ban", { target_uid: String(targetAgoraUid) }, Number(targetUserId));
+  };
+
   const setMicLocked = (locked) => {
     btnAudio.dataset.locked = locked ? "1" : "0";
     btnAudio.classList.toggle("opacity-50", !!locked);
     btnAudio.classList.toggle("cursor-not-allowed", !!locked);
+    if (micLockBadge) micLockBadge.classList.toggle("hidden", !locked);
   };
   const isMicLocked = () => String(btnAudio.dataset.locked || "0") === "1";
+
+  const forceEnableMic = async (source = "unknown") => {
+    if (isProfessor) return false;
+    if (isMicLocked()) return false;
+    try {
+      if (localMicTrack) {
+        try { await localMicTrack.setMuted(false); } catch (_) {}
+        try {
+          if (typeof localMicTrack.setEnabled === "function") await localMicTrack.setEnabled(true);
+        } catch (_) {}
+        syncControlStates();
+        if (!localMicTrack.muted) return true;
+      }
+    } catch (_) {}
+
+    // Fallback: recreate + republish the mic track (some devices/browsers fail to resume a muted track reliably).
+    try {
+      const old = localMicTrack;
+      try { if (old) await mainClient.unpublish([old]); } catch (_) {}
+      try { if (old) old.close(); } catch (_) {}
+      localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      await mainClient.publish([localMicTrack]);
+      syncControlStates();
+      if (!localMicTrack.muted) return true;
+    } catch (e) {
+      try { await logEvent("force_unmute_failed", { source: String(source || "unknown"), error: String(e?.message || e || "") }); } catch (_) {}
+      showError("Mic unlocked, but your device/browser blocked auto-unmute. Tap the mic button to enable audio.");
+      return false;
+    }
+    return true;
+  };
+
+  const isUserMicLocked = (userId) => {
+    const n = Number(userId);
+    if (!Number.isFinite(n) || n <= 0) return false;
+    if (micLockAll) return !micUnlockedUserIds.has(n);
+    return micLockedUserIds.has(n);
+  };
+
+  const applyMicIndicators = () => {
+    if (!isProfessor || !rightHost) return;
+    const cards = rightHost.querySelectorAll(".student-card[data-identity]");
+    cards.forEach((card) => {
+      const uid = String(card.dataset.identity || "");
+      if (!uid) return;
+      const userId = uidToUserId(uid);
+      const locked = userId ? isUserMicLocked(Number(userId)) : false;
+      card.classList.toggle("mic-locked", locked);
+      let badge = card.querySelector(".mic-indicator");
+      if (!badge) {
+        badge = document.createElement("div");
+        badge.className = "mic-indicator";
+        badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">mic</span><span class="txt">Mic</span>';
+        card.appendChild(badge);
+      }
+      badge.classList.toggle("off", locked);
+      const icon = badge.querySelector(".material-symbols-outlined");
+      const txt = badge.querySelector(".txt");
+      if (icon) icon.textContent = locked ? "mic_off" : "mic";
+      if (txt) txt.textContent = locked ? "Muted" : "Mic";
+
+      const actBtn = card.querySelector(".tile-act[data-act='mute'] .material-symbols-outlined");
+      if (actBtn) actBtn.textContent = locked ? "mic" : "mic_off";
+    });
+  };
+
+  const refreshModState = async () => {
+    if (!isProfessor) return;
+    try {
+      const res = await fetch(modStateUrl, { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.ok) return;
+      micLockAll = !!data.lock_all;
+      micLockedUserIds.clear();
+      (data.locked_user_ids || []).forEach((id) => {
+        const n = Number(id);
+        if (Number.isFinite(n)) micLockedUserIds.add(n);
+      });
+      micUnlockedUserIds.clear();
+      (data.unlocked_user_ids || []).forEach((id) => {
+        const n = Number(id);
+        if (Number.isFinite(n)) micUnlockedUserIds.add(n);
+      });
+      applyMicIndicators();
+      renderModerationDrawer();
+    } catch (_) {}
+  };
 
   const subscribeUser = async (user, mediaType) => {
     await mainClient.subscribe(user, mediaType);
@@ -1473,7 +1753,9 @@
       name.textContent = s.name || `Student ${s.id}`;
       const meta = document.createElement("div");
       meta.className = "meta";
-      meta.textContent = `ID ${s.id}`;
+      const userId = uidToUserId(s.id);
+      const locked = userId ? isUserMicLocked(Number(userId)) : false;
+      meta.textContent = locked ? `Muted • ID ${s.id}` : `Open • ID ${s.id}`;
       left.appendChild(name);
       left.appendChild(meta);
 
@@ -1487,23 +1769,8 @@
       muteBtn.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
       muteBtn.addEventListener("click", async () => {
         const targetUserId = uidToUserId(s.id);
-        if (targetUserId) {
-          const muteUrl = "{% url 'Prolean:external_live_mute_user' session_id %}";
-          try {
-            await fetch(muteUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                "X-CSRFToken": getCsrfToken(),
-                "Accept": "application/json",
-              },
-              body: `user_id=${encodeURIComponent(String(targetUserId))}`,
-              credentials: "same-origin",
-            });
-          } catch (_) {}
-        }
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), locked: true });
-        await logEvent("moderate_force_mute", { target_uid: String(s.id) }, targetUserId);
+        if (!targetUserId) return;
+        await moderateMuteUser(String(s.id), Number(targetUserId));
       });
 
       const unmuteBtn = document.createElement("button");
@@ -1513,23 +1780,8 @@
       unmuteBtn.innerHTML = '<span class="material-symbols-outlined">mic</span>';
       unmuteBtn.addEventListener("click", async () => {
         const targetUserId = uidToUserId(s.id);
-        if (targetUserId) {
-          const unmuteUrl = "{% url 'Prolean:external_live_unmute_user' session_id %}";
-          try {
-            await fetch(unmuteUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                "X-CSRFToken": getCsrfToken(),
-                "Accept": "application/json",
-              },
-              body: `user_id=${encodeURIComponent(String(targetUserId))}`,
-              credentials: "same-origin",
-            });
-          } catch (_) {}
-        }
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), locked: false });
-        await logEvent("moderate_unmute_user", { target_uid: String(s.id) }, targetUserId);
+        if (!targetUserId) return;
+        await moderateUnmuteUser(String(s.id), Number(targetUserId));
       });
 
       const banBtn = document.createElement("button");
@@ -1543,21 +1795,7 @@
           showError("Cannot ban this participant (missing local user mapping).");
           return;
         }
-        const banUrl = "{% url 'Prolean:external_live_ban_user' session_id %}";
-        try {
-          await fetch(banUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-              "X-CSRFToken": getCsrfToken(),
-              "Accept": "application/json",
-            },
-            body: `user_id=${encodeURIComponent(String(targetUserId))}`,
-            credentials: "same-origin",
-          });
-        } catch (_) {}
-        await sendRoomSignal({ t: "ban", uid: String(s.id) });
-        await logEvent("moderate_ban", { target_uid: String(s.id) }, targetUserId);
+        await moderateKickUser(String(s.id), Number(targetUserId));
       });
 
       btns.appendChild(muteBtn);
@@ -1594,6 +1832,9 @@
       setStatus("Connected", "ok");
       syncControlStates();
       rerender();
+      if (isProfessor) {
+        try { await refreshModState(); } catch (_) {}
+      }
       try {
         const helloName = selfName || (isProfessor ? (professorNameHint || "Professor") : "You");
         await sendRoomSignal({ t: "hello", uid: String(agoraUid), name: helloName });
@@ -1605,7 +1846,6 @@
           if (key === "printscreen") logEvent("screenshot_key", {});
         });
       } catch (_) {}
-      startPhoneDetection();
       try { pollStatus(); } catch (_) {}
 
       if (!isProfessor) {
@@ -1673,8 +1913,11 @@
             try { await localMicTrack.setMuted(true); } catch (_) {}
           }
           setMicLocked(true);
+          mutedByProfessor = true;
         } else {
           setMicLocked(false);
+          await forceEnableMic("signal_unmute_user");
+          mutedByProfessor = false;
         }
         syncControlStates();
         showError(locked ? "Your microphone was muted by the professor." : "Microphone lock was removed.");
@@ -1690,8 +1933,11 @@
             try { await localMicTrack.setMuted(true); } catch (_) {}
           }
           setMicLocked(true);
+          mutedByProfessor = true;
         } else {
           setMicLocked(false);
+          await forceEnableMic("signal_unmute_all");
+          mutedByProfessor = false;
         }
         syncControlStates();
         showError(locked ? "All microphones were muted by the professor." : "Microphone lock was removed.");
@@ -1891,7 +2137,13 @@
       return;
     }
     if (!localMicTrack) return;
-    await localMicTrack.setMuted(!localMicTrack.muted);
+    try {
+      await localMicTrack.setMuted(!localMicTrack.muted);
+    } catch (e) {
+      try { await logEvent("mic_toggle_failed", { error: String(e?.message || e || "") }); } catch (_) {}
+      showError("Unable to toggle microphone on this device/browser.");
+      return;
+    }
     syncControlStates();
   });
   btnVideo.addEventListener("click", async () => {
@@ -1921,36 +2173,22 @@
   if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
   if (btnCloseMod) btnCloseMod.addEventListener("click", closeModeration);
   if (btnMuteAll) btnMuteAll.addEventListener("click", async () => {
-    const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
-    try {
-      await fetch(muteAllUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "X-CSRFToken": getCsrfToken(),
-          "Accept": "application/json",
-        },
-        body: "",
-        credentials: "same-origin",
-      });
-    } catch (_) {}
+    await postForm(muteAllUrl, "");
+    micLockAll = true;
+    micLockedUserIds.clear();
+    micUnlockedUserIds.clear();
+    applyMicIndicators();
+    renderModerationDrawer();
     await sendRoomSignal({ t: "force_mute_all" });
     await logEvent("moderate_force_mute_all", {});
   });
   if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
-    const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
-    try {
-      await fetch(unmuteAllUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "X-CSRFToken": getCsrfToken(),
-          "Accept": "application/json",
-        },
-        body: "",
-        credentials: "same-origin",
-      });
-    } catch (_) {}
+    await postForm(unmuteAllUrl, "");
+    micLockAll = false;
+    micLockedUserIds.clear();
+    micUnlockedUserIds.clear();
+    applyMicIndicators();
+    renderModerationDrawer();
     await sendRoomSignal({ t: "force_mute_all", locked: false });
     await logEvent("moderate_unmute_all", {});
   });
@@ -2019,8 +2257,6 @@
   if (!isProfessor && presenceBoard) presenceBoard.classList.add("hidden");
   window.addEventListener("resize", rerender);
   connectAgora();
-  refreshWatermarkTimestamps();
-  setInterval(refreshWatermarkTimestamps, 1000);
 
   const statusUrl = "{% url 'Prolean:external_live_status' session_id %}";
   const pollStatus = async () => {
@@ -2040,9 +2276,12 @@
         if (localMicTrack) {
           try { await localMicTrack.setMuted(true); } catch (_) {}
         }
+        mutedByProfessor = true;
         syncControlStates();
       } else if (!isProfessor && !data?.mic_locked && isMicLocked()) {
         setMicLocked(false);
+        await forceEnableMic("status_unlock");
+        mutedByProfessor = false;
         syncControlStates();
       }
       if (data && data.ended) {
@@ -2050,7 +2289,34 @@
       }
     } catch (_) {}
   };
-  setInterval(pollStatus, 3500);
+  setInterval(pollStatus, isProfessor ? 3500 : 1500);
+
+  const pollSecurityFeed = async () => {
+    if (!isProfessor || exiting || !hasJoined) return;
+    if (typeof pollSecurityFeed.lastId !== "number") pollSecurityFeed.lastId = 0;
+    try {
+      const url = `${securityFeedUrl}?after_id=${encodeURIComponent(String(pollSecurityFeed.lastId || 0))}`;
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.ok) return;
+      const events = Array.isArray(data.events) ? data.events : [];
+      events.forEach((ev) => {
+        const id = Number(ev?.id || 0);
+        if (Number.isFinite(id) && id > (pollSecurityFeed.lastId || 0)) pollSecurityFeed.lastId = id;
+        const t = String(ev?.event_type || "");
+        const actorId = Number(ev?.actor_id || 0);
+        const label = actorId ? (participantLabels.get(String(actorId + 10000)) || `Student ${actorId}`) : "Student";
+        if (t === "watermark_tamper") {
+          showError(`Security alert: watermark tamper detected (${label}).`);
+        }
+        if (t === "suspicious_client") {
+          showError(`Security alert: suspicious client (${label}).`);
+        }
+      });
+    } catch (_) {}
+  };
+  setInterval(pollSecurityFeed, 2500);
 
   if (isProfessor) {
     const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
