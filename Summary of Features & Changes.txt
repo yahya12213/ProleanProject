@@ -520,6 +520,13 @@ Recent Entries
 - Validation:
   - `python manage.py check` passed.
 
+[2026-02-23 UTC] Area: Prolean | Type: Fix/External Students Matching + Professor UI Refresh
+- What changed:
+  - Added persistent mapping between Barka stable student IDs and local Prolean users so more external students can generate one-time join links reliably.
+  - Refreshed the overall professor space theme (sidebar + nav + surfaces) for a more distinct, modern look.
+- Validation:
+  - `python manage.py check` passed.
+
 [2026-02-21 UTC] Area: Prolean | Type: Fix/External Live Unmute + Indicators + Security Feed
 - What changed:
   - Unmute now works even when **Mute all** is active by supporting per-user unlock exceptions.

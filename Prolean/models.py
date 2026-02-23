@@ -1942,6 +1942,28 @@ class ExternalLiveJoinInvite(models.Model):
     def __str__(self):
         return f"ExternalLiveJoinInvite({self.session_id}) {self.user.username}"
 
+
+class ExternalAuthorityUserLink(models.Model):
+    """Persistent mapping between an external authority user id and a local Django user."""
+
+    authority = models.CharField(max_length=32, db_index=True)  # e.g. "barka"
+    external_user_id = models.CharField(max_length=80, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_authority_links")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("authority", "external_user_id")
+        indexes = [
+            models.Index(fields=["authority", "external_user_id"]),
+            models.Index(fields=["authority", "user"]),
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"ExternalAuthorityUserLink({self.authority}) {self.external_user_id} -> {self.user.username}"
+
 class VideoProgress(models.Model):
     """Tracking progress on recorded videos"""
     student = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='video_progress', limit_choices_to={'role': 'STUDENT'})

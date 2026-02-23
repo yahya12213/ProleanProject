@@ -31,7 +31,7 @@ from .models import (
     Profile, StudentProfile, ProfessorProfile, AssistantProfile, Session,
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
     TrainingPreSubscription, Notification, Live, Seance,
-    ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent, ExternalLiveJoinInvite
+    ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent, ExternalLiveJoinInvite, ExternalAuthorityUserLink
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
 from django.contrib.auth import authenticate, login, logout
@@ -135,6 +135,27 @@ def _extract_external_student_identifiers(student_row: dict) -> set[str]:
     return identifiers
 
 
+def _extract_external_student_stable_id(student_row: dict) -> str:
+    """Best-effort stable external identifier from Barka payload."""
+    if not isinstance(student_row, dict):
+        return ""
+    # Most Barka payloads include an integer `id` for the student user.
+    for key in ("student_id", "etudiant_id", "user_id", "id"):
+        raw = student_row.get(key)
+        if raw is None:
+            continue
+        val = str(raw).strip()
+        if val:
+            return val[:80]
+    nested = student_row.get("student") or student_row.get("user") or student_row.get("etudiant")
+    if isinstance(nested, dict):
+        raw = nested.get("id") or nested.get("user_id")
+        val = str(raw).strip() if raw is not None else ""
+        if val:
+            return val[:80]
+    return ""
+
+
 def _build_online_student_lookup() -> dict[str, dict]:
     online_by_user_id = get_online_students()
     if not online_by_user_id:
@@ -169,6 +190,7 @@ def _enrich_external_students_with_presence(external_students: list[dict]) -> tu
     enriched: list[dict] = []
     for row in external_students if isinstance(external_students, list) else []:
         entry = dict(row) if isinstance(row, dict) else {"student_name": str(row)}
+        entry["external_user_id"] = _extract_external_student_stable_id(entry)
 
         # Precompute safe display fields so templates don't crash on missing dict keys.
         first_name = str(entry.get("student_first_name") or entry.get("first_name") or "").strip()
@@ -3981,14 +4003,37 @@ def professor_students(request):
                     if normalized and normalized not in local_lookup:
                         local_lookup[normalized] = profile.user
 
+            # Persistent mapping from external authority stable id -> local user.
+            external_link_lookup = {}
+            try:
+                rows = ExternalAuthorityUserLink.objects.filter(authority="barka").select_related("user").order_by("-updated_at")[:50000]
+                for r in rows:
+                    key = str(r.external_user_id or "").strip()
+                    if key and key not in external_link_lookup:
+                        external_link_lookup[key] = r.user
+            except Exception:
+                external_link_lookup = {}
+
             for ext_student in students:
                 if not isinstance(ext_student, dict):
                     continue
                 matched_user = None
+                stable_id = str(ext_student.get("external_user_id") or "").strip()
+                if stable_id and stable_id in external_link_lookup:
+                    matched_user = external_link_lookup[stable_id]
                 for ident in _extract_external_student_identifiers(ext_student):
                     matched_user = local_lookup.get(ident)
                     if matched_user:
                         break
+                if matched_user and stable_id:
+                    try:
+                        ExternalAuthorityUserLink.objects.get_or_create(
+                            authority="barka",
+                            external_user_id=stable_id,
+                            defaults={"user": matched_user},
+                        )
+                    except Exception:
+                        pass
                 stat = stats_by_user_id.get(int(matched_user.id)) if matched_user else None
                 watch_seconds = int(getattr(stat, "watch_seconds", 0) or 0)
                 minutes = max(0, watch_seconds // 60)
