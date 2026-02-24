@@ -63,12 +63,15 @@ class ManagementContractClient:
         """Public wrapper to obtain a server-to-server bearer token when needed."""
         return self._get_service_bearer_token()
 
-    def get_access_snapshot(self, subject_id: str) -> dict[str, Any]:
+    def get_access_snapshot(self, subject_id: str, *, bearer_token: str | None = None) -> dict[str, Any]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
         # Backward compatible: prefer dedicated snapshot endpoint if available.
         endpoint = f"{self.config.base_url}/access/snapshot/{subject_id}"
-        return self._request("GET", endpoint)
+        resolved = (bearer_token or "").strip() if isinstance(bearer_token, str) else ""
+        if not resolved:
+            resolved = self._get_service_bearer_token()
+        return self._request("GET", endpoint, bearer_token=resolved)
 
     def sync_updates(self, cursor: str = "") -> dict[str, Any]:
         if not self.is_configured():
