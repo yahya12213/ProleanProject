@@ -31,6 +31,7 @@ Endpoints (auth required):
 - `POST /api/sessions-formation/:id/live/end` (+ optional `recording_url`) → professor-only
 - `POST /api/sessions-formation/:id/live/join` → professor or enrolled student
 - `POST /api/sessions-formation/:id/live/leave` → participant leave
+- `POST /api/sessions-formation/:id/live/access` (auth) → check enrollment + live state for students (service token)
 
 Config guard (start/join):
 - Validate `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (trim + quote stripping).
