@@ -3617,13 +3617,19 @@ def external_live_join_invite_status(request, session_id):
 
 
 def external_live_join_with_token(request, token):
+    import logging as _log
+    _logger = _log.getLogger("Prolean.views.join")
+    _logger.info("[external_live_join_with_token] Starting join flow for token: %s...", (str(token)[:10] + "...") if token else "NONE")
+
     """Consume a one-time student join token and redirect to the external live room."""
     if request.user.is_authenticated and hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
+        _logger.warning("[external_live_join_with_token] Professor tried to use student join link.")
         messages.error(request, "This link is for students only.")
         return redirect("Prolean:professor_dashboard")
 
     raw = str(token or "").strip()
     if not raw:
+        _logger.error("[external_live_join_with_token] Empty token provided.")
         messages.error(request, "Invalid join link.")
         return redirect("Prolean:dashboard")
 
@@ -3644,6 +3650,7 @@ def external_live_join_with_token(request, token):
 
     token_hash = _hash_external_live_join_token(raw)
     now = timezone.now()
+    _logger.info("[external_live_join_with_token] token_hash=%s", token_hash)
     device_label, device_payload = _device_label_from_request(request)
 
     with transaction.atomic():
@@ -3653,10 +3660,14 @@ def external_live_join_with_token(request, token):
             .first()
         )
         if not row:
+            _logger.error("[external_live_join_with_token] No invite found for token_hash=%s", token_hash)
             messages.error(request, "This join link is invalid or expired.")
             return redirect("Prolean:dashboard")
+        
+        _logger.info("[external_live_join_with_token] Found invite id=%s for user_id=%s", row.id, row.user_id)
         target_user = getattr(row, "user", None)
         if not target_user:
+            _logger.error("[external_live_join_with_token] User not found for invite id=%s", row.id)
             messages.error(request, "Invalid join link.")
             return redirect("Prolean:dashboard")
         try:
@@ -3664,25 +3675,33 @@ def external_live_join_with_token(request, token):
         except Exception:
             target_profile = None
         if target_profile and str(getattr(target_profile, "role", "")).upper() == "PROFESSOR":
+            _logger.warning("[external_live_join_with_token] Link is for user_id=%s which is a PROFESSOR.", row.user_id)
             messages.error(request, "This link is for students only.")
             return redirect("Prolean:dashboard")
         if request.user.is_authenticated and int(row.user_id) != int(request.user.id):
+            _logger.warning("[external_live_join_with_token] User mismatch: auth_user=%s vs link_user=%s", request.user.id, row.user_id)
             messages.error(request, "This join link does not belong to your account.")
             return redirect("Prolean:dashboard")
         if row.revoked_at:
+            _logger.warning("[external_live_join_with_token] Link revoked_at=%s", row.revoked_at)
             messages.error(request, "This join link was revoked. Ask your professor to regenerate it.")
             return redirect("Prolean:dashboard")
         if row.expires_at and row.expires_at <= now:
+            _logger.warning("[external_live_join_with_token] Link expired_at=%s (now=%s)", row.expires_at, now)
             messages.error(request, "This join link is expired. Ask your professor to regenerate it.")
             return redirect("Prolean:dashboard")
         if row.used_at:
+            _logger.warning("[external_live_join_with_token] Link already used_at=%s", row.used_at)
             messages.error(request, "This join link was already used. Ask your professor to regenerate it.")
             return redirect("Prolean:dashboard")
 
         if not request.user.is_authenticated:
             try:
+                _logger.info("[external_live_join_with_token] Attempting login for user_id=%s", target_user.id)
                 login(request, target_user, backend="django.contrib.auth.backends.ModelBackend")
-            except Exception:
+                _logger.info("[external_live_join_with_token] Login successful.")
+            except Exception as exc:
+                _logger.error("[external_live_join_with_token] Login failed: %s", exc)
                 messages.error(request, "Unable to authenticate with this join link.")
                 return redirect("Prolean:login")
 
@@ -3705,15 +3724,18 @@ def external_live_join_with_token(request, token):
         )
 
         try:
+            _logger.info("[external_live_join_with_token] Granting service access for session_id=%s | user_id=%s", row.session_id, row.user_id)
             _grant_external_live_service_access(
                 request,
                 str(row.session_id),
                 user_id=int(row.user_id),
                 expires_at=(row.expires_at or (now + timedelta(hours=8))),
             )
-        except Exception:
+        except Exception as exc:
+            _logger.error("[external_live_join_with_token] _grant_external_live_service_access failed: %s", exc)
             pass
 
+    _logger.info("[external_live_join_with_token] Redirecting to external_live_room for session_id=%s", row.session_id)
     return redirect("Prolean:external_live_room", session_id=str(row.session_id))
 
 
