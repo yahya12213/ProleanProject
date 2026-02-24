@@ -3143,9 +3143,15 @@ def external_live_room(request, session_id):
 
     bearer_token = token.strip() if isinstance(token, str) and token.strip() else ""
     service_mode = False
+    service_cin = ""
     if not bearer_token and _has_external_live_service_access(request, str(session_id)):
+        try:
+            entry = (request.session.get(_external_live_service_access_key()) or {}).get(str(session_id)) or {}
+            service_cin = str(entry.get("cin") or "").strip().upper()
+        except Exception:
+            service_cin = ""
         bearer_token = str(mgmt.get_service_bearer_token() or "").strip()
-        service_mode = bool(bearer_token)
+        service_mode = bool(bearer_token and service_cin)
 
     if not bearer_token:
         messages.error(request, "Live is unavailable: please login to the external authority first.")
@@ -3209,7 +3215,11 @@ def external_live_room(request, session_id):
         payload = None
         last_exc = None
         if service_mode:
-            live_state = mgmt.get_session_live_state(str(session_id), bearer_token=bearer_token)
+            live_state = mgmt.get_session_live_state_for_student(
+                str(session_id),
+                student_cin=service_cin,
+                bearer_token=bearer_token,
+            )
             if not isinstance(live_state, dict):
                 raise ContractError("Live is not available for this session yet.")
             payload = {"live": live_state, "role": "student"}
@@ -3350,9 +3360,21 @@ def _grant_external_live_service_access(request, session_id: str, *, user_id: in
         store = request.session.get(_external_live_service_access_key()) or {}
         if not isinstance(store, dict):
             store = {}
+        cin = ""
+        try:
+            cin = str(getattr(getattr(request, "user", None), "profile", None).cin_or_passport or "")
+        except Exception:
+            cin = ""
+        if not cin:
+            # Fallback: some deployments use username as CIN.
+            try:
+                cin = str(getattr(getattr(request, "user", None), "username", "") or "")
+            except Exception:
+                cin = ""
         store[str(session_id)] = {
             "user_id": int(user_id),
             "expires_at": expires_at.isoformat() if hasattr(expires_at, "isoformat") else str(expires_at),
+            "cin": cin.strip().upper() if isinstance(cin, str) else "",
         }
         request.session[_external_live_service_access_key()] = store
     except Exception:
@@ -3369,6 +3391,10 @@ def _has_external_live_service_access(request, session_id: str) -> bool:
             return False
         uid = entry.get("user_id")
         if not (request.user and request.user.is_authenticated and uid and int(uid) == int(request.user.id)):
+            return False
+        # Require CIN for admin/service validation (Barka resolves enrollment by CIN).
+        cin = str(entry.get("cin") or "").strip()
+        if not cin:
             return False
         exp_raw = entry.get("expires_at")
         if not exp_raw:

@@ -233,6 +233,32 @@ class ManagementContractClient:
             return live if isinstance(live, dict) else None
         raise ContractError("Unexpected live state payload.")
 
+    def get_session_live_state_for_student(
+        self,
+        session_id: str,
+        *,
+        student_cin: str | None = None,
+        student_id: str | None = None,
+        bearer_token: str,
+    ) -> dict[str, Any] | None:
+        """
+        Prolean integration helper:
+        fetch session live state for a specific student using an admin/service token.
+        """
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/access"
+        payload: dict[str, Any] = {}
+        if student_id:
+            payload["student_id"] = str(student_id).strip()
+        if student_cin and "student_id" not in payload:
+            payload["cin"] = str(student_cin).strip()
+        data = self._request("POST", endpoint, bearer_token=bearer_token, json=payload)
+        if isinstance(data, dict):
+            live = data.get("live")
+            return live if isinstance(live, dict) else None
+        raise ContractError("Unexpected live access payload.")
+
     def start_session_live(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
