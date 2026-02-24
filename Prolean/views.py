@@ -3412,6 +3412,54 @@ def _device_label_from_request(request) -> tuple[str, dict]:
     )
 
 
+def _is_probably_link_preview(request) -> bool:
+    """
+    Heuristic detection for link preview bots / prefetchers.
+    Important for one-time links: some apps prefetch URLs, which would consume a
+    one-time token before the real user clicks.
+    """
+    try:
+        method = str(getattr(request, "method", "") or "").upper()
+        if method not in {"GET", "HEAD"}:
+            return False
+
+        ua = str(request.META.get("HTTP_USER_AGENT", "") or "").lower()
+        accept = str(request.META.get("HTTP_ACCEPT", "") or "").lower()
+        purpose = str(request.META.get("HTTP_PURPOSE", "") or "").lower()
+        sec_purpose = str(request.META.get("HTTP_SEC_PURPOSE", "") or "").lower()
+
+        if "prefetch" in purpose or "prefetch" in sec_purpose:
+            return True
+
+        bot_tokens = (
+            "whatsapp",
+            "facebookexternalhit",
+            "facebot",
+            "twitterbot",
+            "slackbot",
+            "discordbot",
+            "telegrambot",
+            "skypeuripreview",
+            "linkedinbot",
+            "pinterest",
+            "embedly",
+            "vkshare",
+            "google web preview",
+            "crawler",
+            "spider",
+            "bot/",
+        )
+        if any(tok in ua for tok in bot_tokens):
+            return True
+
+        # If the client does not accept HTML at all, it is likely a bot.
+        if accept and ("text/html" not in accept and "application/xhtml+xml" not in accept):
+            return True
+    except Exception:
+        return False
+    return False
+
+
 @professor_required
 @require_POST
 def external_live_join_invite_regen(request, session_id, user_id):
@@ -3537,6 +3585,21 @@ def external_live_join_with_token(request, token):
     if not raw:
         messages.error(request, "Invalid join link.")
         return redirect("Prolean:dashboard")
+
+    # Don't consume one-time links for preview bots / prefetchers.
+    if _is_probably_link_preview(request):
+        if str(getattr(request, "method", "") or "").upper() == "HEAD":
+            return HttpResponse("")
+        return HttpResponse(
+            "<!doctype html><html><head>"
+            "<meta charset='utf-8'/>"
+            "<meta name='robots' content='noindex,nofollow'/>"
+            "<meta name='referrer' content='no-referrer'/>"
+            "<title>Join live</title>"
+            "</head><body>Join live session</body></html>",
+            content_type="text/html; charset=utf-8",
+            status=200,
+        )
 
     token_hash = _hash_external_live_join_token(raw)
     now = timezone.now()
