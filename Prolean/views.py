@@ -156,6 +156,149 @@ def _extract_external_student_stable_id(student_row: dict) -> str:
     return ""
 
 
+def _external_student_display_field(student_row: dict, key: str) -> str:
+    if not isinstance(student_row, dict):
+        return ""
+    return str(student_row.get(key) or "").strip()
+
+
+def _build_unique_username(base: str, *, prefix: str = "barka") -> str:
+    base = str(base or "").strip()
+    if not base:
+        base = prefix
+    # Keep username reasonably short and deterministic-ish.
+    cleaned = "".join(ch for ch in base if ch.isalnum() or ch in ("_", "-", ".", "@"))
+    cleaned = cleaned.strip("._-")[:120] or prefix
+
+    candidate = cleaned
+    suffix = 1
+    while User.objects.filter(username=candidate).exists():
+        tail = f"-{suffix}"
+        candidate = f"{cleaned[: max(1, 150 - len(tail))]}{tail}"
+        suffix += 1
+    return candidate[:150]
+
+
+def _safe_set_unique_profile_field(profile, field_name: str, value: str) -> None:
+    value = str(value or "").strip()
+    if not value:
+        return
+    qs = Profile.objects.filter(**{field_name: value})
+    if profile.pk:
+        qs = qs.exclude(pk=profile.pk)
+    if qs.exists():
+        return
+    setattr(profile, field_name, value)
+
+
+def _ensure_local_user_for_external_student(student_row: dict) -> User | None:
+    """
+    Ensure an external (Barka) student has a local Django User+Profile projection.
+    This enables consistent treatment (notifications, join-invites) even if the
+    student was created upstream and never logged into Prolean yet.
+    """
+    if not isinstance(student_row, dict):
+        return None
+
+    stable_id = str(student_row.get("external_user_id") or _extract_external_student_stable_id(student_row) or "").strip()
+    if stable_id:
+        try:
+            link = (
+                ExternalAuthorityUserLink.objects.filter(authority="barka", external_user_id=stable_id)
+                .select_related("user")
+                .first()
+            )
+            if link and link.user:
+                return link.user
+        except Exception:
+            pass
+
+    display_name = (
+        _external_student_display_field(student_row, "display_name")
+        or _external_student_display_field(student_row, "student_name")
+        or _external_student_display_field(student_row, "full_name")
+        or _external_student_display_field(student_row, "name")
+        or "Student"
+    )
+    email = (
+        _external_student_display_field(student_row, "display_email")
+        or _external_student_display_field(student_row, "student_email")
+        or _external_student_display_field(student_row, "email")
+    )
+    phone = (
+        _external_student_display_field(student_row, "display_phone")
+        or _external_student_display_field(student_row, "student_phone")
+        or _external_student_display_field(student_row, "phone")
+    )
+    cin = (
+        _external_student_display_field(student_row, "display_cin")
+        or _external_student_display_field(student_row, "student_cin")
+        or _external_student_display_field(student_row, "cin")
+        or _external_student_display_field(student_row, "cin_or_passport")
+    )
+
+    cin_clean = cin.replace(" ", "").upper() if cin else ""
+    username_seed = cin_clean or email or (f"barka_{stable_id}" if stable_id else "")
+    username = _build_unique_username(username_seed, prefix="barka")
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create(username=username)
+            if email:
+                user.email = email
+            user.set_unusable_password()
+            user.save()
+
+            try:
+                profile = user.profile
+            except Exception:
+                profile, _ = Profile.objects.get_or_create(user=user, defaults={"full_name": display_name or username})
+
+            profile.role = "STUDENT"
+            profile.status = "ACTIVE"
+            profile.full_name = display_name or profile.full_name or user.username
+            _safe_set_unique_profile_field(profile, "cin_or_passport", cin_clean)
+            _safe_set_unique_profile_field(profile, "phone_number", phone)
+            try:
+                profile.save()
+            except Exception:
+                # Keep the auto-generated unique phone_number if the upstream phone/cin conflicts.
+                profile.phone_number = profile.phone_number or f"ext-{user.username}"[:50]
+                profile.save()
+
+            if stable_id:
+                try:
+                    ExternalAuthorityUserLink.objects.get_or_create(
+                        authority="barka",
+                        external_user_id=stable_id,
+                        defaults={"user": user},
+                    )
+                except Exception:
+                    pass
+
+            return user
+    except Exception:
+        return None
+
+
+def _add_user_to_local_lookup(user: User, local_lookup: dict[str, User]) -> None:
+    try:
+        profile = getattr(user, "profile", None)
+    except Exception:
+        profile = None
+    values = [
+        getattr(user, "username", ""),
+        getattr(user, "email", ""),
+        getattr(profile, "full_name", "") if profile else "",
+        getattr(profile, "phone_number", "") if profile else "",
+        getattr(profile, "cin_or_passport", "") if profile else "",
+    ]
+    for value in values:
+        normalized = _norm_identifier(value)
+        if normalized and normalized not in local_lookup:
+            local_lookup[normalized] = user
+
+
 def _build_online_student_lookup() -> dict[str, dict]:
     online_by_user_id = get_online_students()
     if not online_by_user_id:
@@ -2936,7 +3079,14 @@ def external_send_session_notification(request, session_id):
                 found = True
                 break
         if not found:
-            unmatched_count += 1
+            # Best-effort auto-provisioning for external-only students.
+            provisioned = _ensure_local_user_for_external_student(ext_student if isinstance(ext_student, dict) else {})
+            if provisioned:
+                _add_user_to_local_lookup(provisioned, local_lookup)
+                target_user_ids.add(int(provisioned.id))
+                found = True
+            else:
+                unmatched_count += 1
 
     if not target_user_ids:
         messages.warning(request, "No local student accounts matched this external session.")
@@ -2987,9 +3137,19 @@ def presence_heartbeat(request):
 def external_live_room(request, session_id):
     token = request.session.get("barka_token")
     mgmt = ManagementContractClient()
-    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
-        messages.error(request, "Live is unavailable: external authority token is missing.")
-        return redirect('Prolean:dashboard')
+    if not mgmt.is_configured():
+        messages.error(request, "Live is unavailable: external authority is not configured.")
+        return redirect("Prolean:dashboard")
+
+    bearer_token = token.strip() if isinstance(token, str) and token.strip() else ""
+    service_mode = False
+    if not bearer_token and _has_external_live_service_access(request, str(session_id)):
+        bearer_token = str(mgmt.get_service_bearer_token() or "").strip()
+        service_mode = bool(bearer_token)
+
+    if not bearer_token:
+        messages.error(request, "Live is unavailable: please login to the external authority first.")
+        return redirect("Prolean:dashboard")
 
     if hasattr(request.user, "profile") and request.user.profile.role != "PROFESSOR":
         banned, reason = _is_user_banned_from_external_session(str(session_id), request.user)
@@ -3048,24 +3208,30 @@ def external_live_room(request, session_id):
 
         payload = None
         last_exc = None
-        for attempt in range(6):
-            try:
-                payload = mgmt.join_session_live(str(session_id), bearer_token=token.strip())
-                break
-            except UpstreamUnavailable as exc:
-                last_exc = exc
-                if attempt >= 5:
-                    raise
-                sleep(0.6 * (attempt + 1))
-            except ContractError as exc:
-                is_transient = _is_transient_external_error(exc)
-                if not is_transient or attempt >= 5:
-                    raise
-                last_exc = exc
-                sleep(0.6 * (attempt + 1))
+        if service_mode:
+            live_state = mgmt.get_session_live_state(str(session_id), bearer_token=bearer_token)
+            if not isinstance(live_state, dict):
+                raise ContractError("Live is not available for this session yet.")
+            payload = {"live": live_state, "role": "student"}
+        else:
+            for attempt in range(6):
+                try:
+                    payload = mgmt.join_session_live(str(session_id), bearer_token=bearer_token)
+                    break
+                except UpstreamUnavailable as exc:
+                    last_exc = exc
+                    if attempt >= 5:
+                        raise
+                    sleep(0.6 * (attempt + 1))
+                except ContractError as exc:
+                    is_transient = _is_transient_external_error(exc)
+                    if not is_transient or attempt >= 5:
+                        raise
+                    last_exc = exc
+                    sleep(0.6 * (attempt + 1))
 
-        if payload is None and last_exc is not None:
-            raise last_exc
+            if payload is None and last_exc is not None:
+                raise last_exc
 
         live = payload.get("live") if isinstance(payload, dict) else None
         role = payload.get("role") if isinstance(payload, dict) else "student"
@@ -3126,7 +3292,7 @@ def external_live_room(request, session_id):
                 professor_name_hint = n2
         if not professor_identity_hint or not professor_name_hint:
             try:
-                detail = mgmt.get_session_formation_detail(str(session_id), bearer_token=token.strip())
+                detail = mgmt.get_session_formation_detail(str(session_id), bearer_token=bearer_token)
                 p3, n3 = _extract_professor_hints(detail if isinstance(detail, dict) else {})
                 if not professor_identity_hint:
                     professor_identity_hint = p3
@@ -3155,7 +3321,7 @@ def external_live_room(request, session_id):
             "professor_name_hint": professor_name_hint,
         })
     except Exception as exc:
-        if _is_barka_token_expired(exc):
+        if (not service_mode) and _is_barka_token_expired(exc):
             try:
                 request.session.pop("barka_token", None)
                 request.session.pop("barka_permissions", None)
@@ -3173,6 +3339,52 @@ def _hash_external_live_join_token(raw: str) -> str:
     raw = str(raw or "").strip()
     key = str(getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
     return hmac.new(key, raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _external_live_service_access_key() -> str:
+    return "prolean:external_live_service_access"
+
+
+def _grant_external_live_service_access(request, session_id: str, *, user_id: int, expires_at) -> None:
+    try:
+        store = request.session.get(_external_live_service_access_key()) or {}
+        if not isinstance(store, dict):
+            store = {}
+        store[str(session_id)] = {
+            "user_id": int(user_id),
+            "expires_at": expires_at.isoformat() if hasattr(expires_at, "isoformat") else str(expires_at),
+        }
+        request.session[_external_live_service_access_key()] = store
+    except Exception:
+        return
+
+
+def _has_external_live_service_access(request, session_id: str) -> bool:
+    try:
+        store = request.session.get(_external_live_service_access_key()) or {}
+        if not isinstance(store, dict):
+            return False
+        entry = store.get(str(session_id))
+        if not isinstance(entry, dict):
+            return False
+        uid = entry.get("user_id")
+        if not (request.user and request.user.is_authenticated and uid and int(uid) == int(request.user.id)):
+            return False
+        exp_raw = entry.get("expires_at")
+        if not exp_raw:
+            return False
+        exp = None
+        try:
+            exp = timezone.datetime.fromisoformat(str(exp_raw))
+            if timezone.is_naive(exp):
+                exp = timezone.make_aware(exp, timezone.get_current_timezone())
+        except Exception:
+            exp = None
+        if exp and exp <= timezone.now():
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def _device_label_from_request(request) -> tuple[str, dict]:
@@ -3212,6 +3424,11 @@ def external_live_join_invite_regen(request, session_id, user_id):
         target = User.objects.get(id=int(user_id))
     except Exception:
         return JsonResponse({"ok": False, "error": "Invalid user_id."}, status=400)
+    try:
+        if hasattr(target, "profile") and str(getattr(target.profile, "role", "")).upper() != "STUDENT":
+            return JsonResponse({"ok": False, "error": "Join links can be generated for students only."}, status=400)
+    except Exception:
+        pass
 
     now = timezone.now()
     try:
@@ -3310,10 +3527,9 @@ def external_live_join_invite_status(request, session_id):
     return JsonResponse({"ok": True, "session_id": session_id, "rows": rows, "server_time": now.isoformat()})
 
 
-@login_required
 def external_live_join_with_token(request, token):
     """Consume a one-time student join token and redirect to the external live room."""
-    if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
+    if request.user.is_authenticated and hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
         messages.error(request, "This link is for students only.")
         return redirect("Prolean:professor_dashboard")
 
@@ -3335,7 +3551,18 @@ def external_live_join_with_token(request, token):
         if not row:
             messages.error(request, "This join link is invalid or expired.")
             return redirect("Prolean:dashboard")
-        if int(row.user_id) != int(request.user.id):
+        target_user = getattr(row, "user", None)
+        if not target_user:
+            messages.error(request, "Invalid join link.")
+            return redirect("Prolean:dashboard")
+        try:
+            target_profile = getattr(target_user, "profile", None)
+        except Exception:
+            target_profile = None
+        if target_profile and str(getattr(target_profile, "role", "")).upper() == "PROFESSOR":
+            messages.error(request, "This link is for students only.")
+            return redirect("Prolean:dashboard")
+        if request.user.is_authenticated and int(row.user_id) != int(request.user.id):
             messages.error(request, "This join link does not belong to your account.")
             return redirect("Prolean:dashboard")
         if row.revoked_at:
@@ -3347,6 +3574,13 @@ def external_live_join_with_token(request, token):
         if row.used_at:
             messages.error(request, "This join link was already used. Ask your professor to regenerate it.")
             return redirect("Prolean:dashboard")
+
+        if not request.user.is_authenticated:
+            try:
+                login(request, target_user, backend="django.contrib.auth.backends.ModelBackend")
+            except Exception:
+                messages.error(request, "Unable to authenticate with this join link.")
+                return redirect("Prolean:login")
 
         row.used_at = now
         row.used_user_agent = str(device_payload.get("ua") or "")
@@ -3365,6 +3599,16 @@ def external_live_join_with_token(request, token):
                 "updated_at",
             ]
         )
+
+        try:
+            _grant_external_live_service_access(
+                request,
+                str(row.session_id),
+                user_id=int(row.user_id),
+                expires_at=(row.expires_at or (now + timedelta(hours=8))),
+            )
+        except Exception:
+            pass
 
     return redirect("Prolean:external_live_room", session_id=str(row.session_id))
 
@@ -4025,6 +4269,14 @@ def professor_students(request):
                     matched_user = local_lookup.get(ident)
                     if matched_user:
                         break
+                if not matched_user:
+                    # Auto-provision a local projection for external-only students so they can
+                    # receive join-invites and be treated like other students.
+                    matched_user = _ensure_local_user_for_external_student(ext_student)
+                    if matched_user:
+                        _add_user_to_local_lookup(matched_user, local_lookup)
+                        if stable_id:
+                            external_link_lookup.setdefault(stable_id, matched_user)
                 if matched_user and stable_id:
                     try:
                         ExternalAuthorityUserLink.objects.get_or_create(
