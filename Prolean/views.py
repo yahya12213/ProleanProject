@@ -3135,9 +3135,13 @@ def presence_heartbeat(request):
 
 @login_required
 def external_live_room(request, session_id):
+    import logging as _log
+    _logger = _log.getLogger("Prolean.views.live")
+
     token = request.session.get("barka_token")
     mgmt = ManagementContractClient()
     if not mgmt.is_configured():
+        _logger.error("[external_live_room] ManagementContractClient is NOT configured. base_url=%r", mgmt.config.base_url)
         messages.error(request, "Live is unavailable: external authority is not configured.")
         return redirect("Prolean:dashboard")
 
@@ -3152,8 +3156,13 @@ def external_live_room(request, session_id):
             service_cin = ""
         bearer_token = str(mgmt.get_service_bearer_token() or "").strip()
         service_mode = bool(bearer_token and service_cin)
+        _logger.info(
+            "[external_live_room] service_mode=%s | session_id=%s | cin=%s | has_token=%s | base_url=%s",
+            service_mode, session_id, service_cin, bool(bearer_token), mgmt.config.base_url,
+        )
 
     if not bearer_token:
+        _logger.warning("[external_live_room] No bearer_token available for session_id=%s", session_id)
         messages.error(request, "Live is unavailable: please login to the external authority first.")
         return redirect("Prolean:dashboard")
 
@@ -3215,25 +3224,31 @@ def external_live_room(request, session_id):
         payload = None
         last_exc = None
         if service_mode:
+            _logger.info("[external_live_room] Calling get_session_live_state_for_student for session_id=%s", session_id)
             live_state = mgmt.get_session_live_state_for_student(
                 str(session_id),
                 student_cin=service_cin,
                 bearer_token=bearer_token,
             )
+            _logger.info("[external_live_room] live_state result: %r", live_state)
             if not isinstance(live_state, dict):
                 raise ContractError("Live is not available for this session yet.")
             payload = {"live": live_state, "role": "student"}
         else:
+            _logger.info("[external_live_room] Calling join_session_live (regular mode) for session_id=%s", session_id)
             for attempt in range(6):
                 try:
                     payload = mgmt.join_session_live(str(session_id), bearer_token=bearer_token)
+                    _logger.info("[external_live_room] join_session_live success on attempt %d: %r", attempt, payload)
                     break
                 except UpstreamUnavailable as exc:
+                    _logger.warning("[external_live_room] join_session_live upstream unavailable (attempt %d): %s", attempt, exc)
                     last_exc = exc
                     if attempt >= 5:
                         raise
                     sleep(0.6 * (attempt + 1))
                 except ContractError as exc:
+                    _logger.warning("[external_live_room] join_session_live contract error (attempt %d): %s", attempt, exc)
                     is_transient = _is_transient_external_error(exc)
                     if not is_transient or attempt >= 5:
                         raise

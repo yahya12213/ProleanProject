@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import requests
@@ -7,6 +8,8 @@ from django.core.cache import cache
 
 from .exceptions import ContractError, UpstreamUnavailable
 from .settings import get_contract_settings
+
+logger = logging.getLogger("Prolean.integration")
 
 
 class ManagementContractClient:
@@ -325,6 +328,12 @@ class ManagementContractClient:
             cached_service_token = cache.get(self._service_token_cache_key())
         except Exception:
             cached_service_token = None
+        logger.info(
+            "[ManagementContractClient] %s %s | auth=%s | base_url=%s",
+            method, url,
+            "Bearer ..." if "Authorization" in headers else "NONE",
+            self.config.base_url,
+        )
         for _ in range(self.config.max_retries + 1):
             try:
                 response = requests.request(
