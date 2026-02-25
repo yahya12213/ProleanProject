@@ -1908,62 +1908,6 @@ class ExternalLiveSecurityEvent(models.Model):
     def __str__(self):
         return f"ExternalLiveEvent({self.session_id}) {self.event_type}"
 
-
-class ExternalLiveJoinInvite(models.Model):
-    """One-time student join link for an external (Barka) live session."""
-
-    session_id = models.CharField(max_length=64, db_index=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_live_join_invites")
-
-    # Store only a hash; the raw token is shown once on generation.
-    token_hash = models.CharField(max_length=128, unique=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_join_invites_created")
-
-    expires_at = models.DateTimeField(db_index=True)
-    revoked_at = models.DateTimeField(null=True, blank=True, db_index=True)
-    used_at = models.DateTimeField(null=True, blank=True, db_index=True)
-
-    used_user_agent = models.TextField(blank=True, default="")
-    used_device_label = models.CharField(max_length=120, blank=True, default="")
-    used_sec_ch_ua = models.TextField(blank=True, default="")
-    used_sec_ch_platform = models.CharField(max_length=60, blank=True, default="")
-    used_sec_ch_mobile = models.CharField(max_length=20, blank=True, default="")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=["session_id", "user", "created_at"]),
-            models.Index(fields=["session_id", "user", "used_at"]),
-        ]
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"ExternalLiveJoinInvite({self.session_id}) {self.user.username}"
-
-
-class ExternalAuthorityUserLink(models.Model):
-    """Persistent mapping between an external authority user id and a local Django user."""
-
-    authority = models.CharField(max_length=32, db_index=True)  # e.g. "barka"
-    external_user_id = models.CharField(max_length=80, db_index=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_authority_links")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ("authority", "external_user_id")
-        indexes = [
-            models.Index(fields=["authority", "external_user_id"]),
-            models.Index(fields=["authority", "user"]),
-        ]
-        ordering = ["-updated_at"]
-
-    def __str__(self):
-        return f"ExternalAuthorityUserLink({self.authority}) {self.external_user_id} -> {self.user.username}"
-
 class VideoProgress(models.Model):
     """Tracking progress on recorded videos"""
     student = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='video_progress', limit_choices_to={'role': 'STUDENT'})

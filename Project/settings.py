@@ -133,17 +133,7 @@ WSGI_APPLICATION = 'Project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-def _env_db_url(name: str) -> str:
-    raw = os.getenv(name)
-    if raw is None:
-        return ""
-    raw = str(raw).strip()
-    if not raw or raw.lower() in {"none", "null", "unset", "false", "0"}:
-        return ""
-    return raw
-
-
-database_url = _env_db_url('DATABASE_PUBLIC_URL') or _env_db_url('DATABASE_URL')
+database_url = os.getenv('DATABASE_PUBLIC_URL') or os.getenv('DATABASE_URL')
 
 if database_url:
     parsed_db = urlparse(database_url)
@@ -229,41 +219,6 @@ LANGUAGES = [
 MESSAGE_STORAGE = "django.contrib.messages.storage.cookie.CookieStorage"
 LOCALE_PATHS = [BASE_DIR / 'locale']
 
-# Logging
-# Ensure 500 tracebacks are visible in Railway/Gunicorn logs.
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper() or "INFO"
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
-        }
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        }
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": LOG_LEVEL,
-    },
-    "loggers": {
-        "django.request": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False,
-        },
-        "Prolean": {
-            "handlers": ["console"],
-            "level": LOG_LEVEL,
-            "propagate": False,
-        },
-    },
-}
-
 TIME_ZONE = 'Africa/Casablanca'
 
 USE_I18N = True
@@ -307,9 +262,7 @@ EMAIL_SUBJECT_PREFIX = '[Prolean] '
 # Auth Redirects
 LOGIN_REDIRECT_URL = 'Prolean:dashboard'
 LOGOUT_REDIRECT_URL = 'home'
-# Use the namespaced Prolean login route so login_required redirects correctly.
-# (Using a bare string like "login" can become a relative URL depending on resolver context.)
-LOGIN_URL = 'Prolean:login'
+LOGIN_URL = 'login'
 
 # External contract settings (management system as source of truth)
 PROLEAN_MANAGEMENT_API_BASE_URL = os.getenv('PROLEAN_MANAGEMENT_API_BASE_URL', '')
