@@ -1865,11 +1865,14 @@ def dashboard(request):
                         state = mgmt.get_session_live_state(session_id, bearer_token=token.strip())
                         if isinstance(state, dict):
                             external_live_states[session_id] = state
-                    except Exception:
+                        else:
+                            logger.info("External live state for session %s is empty/not live", session_id)
+                    except Exception as exc:
                         # Keep dashboard resilient even if one session state fails.
+                        logger.warning("Failed to resolve live state for session %s: %s", session_id, exc)
                         continue
         except Exception as exc:
-            logger.warning("Could not resolve external live states for student dashboard: %s", exc)
+            logger.error("Could not resolve external live states for student dashboard: %s", exc)
 
     if isinstance(external_formations, list) and external_formations and isinstance(external_live_states, dict):
         session_preview = {}
