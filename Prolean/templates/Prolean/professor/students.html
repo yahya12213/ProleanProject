@@ -57,12 +57,27 @@
             <div class="mt-4 px-4 py-3 rounded-2xl bg-surface-hover border border-prof">
                 <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">One-click join link</div>
                 <div class="text-[10px] opacity-70 mt-1" style="color: var(--prof-text-muted);">CIN: {{ st.display_cin|default:"-" }}</div>
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Generates a secure quick-access link for this student.</div>
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Status: {{ st.join_invite_status|default:"none"|upper }}</div>
+                {% if st.join_invite_created_at %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Generated: {{ st.join_invite_created_at|date:"Y-m-d H:i" }}</div>
+                {% endif %}
+                {% if st.join_invite_expires_at %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>
+                {% endif %}
+                {% if st.join_invite_used_at %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}</div>
+                {% endif %}
+                {% if st.join_invite_used_location %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Location: {{ st.join_invite_used_location }}</div>
+                {% endif %}
+                {% if st.join_invite_used_device %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Device: {{ st.join_invite_used_device }}</div>
+                {% endif %}
                 <div class="mt-3 flex gap-2">
                     <button type="button" class="btnx sky flex-1"
                         {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
                         onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
-                        Generate & Copy
+                        Generate New & Copy
                     </button>
                 </div>
             </div>
