@@ -26,6 +26,14 @@ Project Baseline (Current Working Direction)
 Recent Entries
 --------------
 
+[2026-02-26 UTC] Area: Prolean | Type: Refactor/One-Click Join Link Reliability
+- Removed the previous one-time invite consumption flow and database dependency for join links.
+- Implemented stateless signed one-click links with expiry (`EXTERNAL_LIVE_ONE_CLICK_TTL_SECONDS`).
+- Student join now validates signed token, provisions local student account by CIN, checks external live access, then redirects.
+- Simplified professor students page by removing invite history/status table and keeping direct Generate & Copy action.
+- Validation:
+  - Updated Django tests to cover signed link generation/reuse and invalid-token throttling.
+
 [2026-02-26 UTC] Area: Prolean | Type: Feature/Security
 - Added secure one-click join links for external live sessions (Barka):
   - Professor can generate a one-time, time-limited link per student (by CIN) from `/professor/students/`.

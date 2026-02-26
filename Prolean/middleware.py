@@ -30,8 +30,8 @@ class ExternalAuthorityGuardMiddleware:
         if request.method not in self.SAFE_METHODS:
             if request.path in self.SKIP_MUTATION_PATHS:
                 return self.get_response(request)
-            # One-click join link issuance is a local operation; allow it even when
-            # external authority is unavailable (professor can regenerate later).
+            # One-click join link generation is local; allow it even when
+            # external authority is unavailable.
             if request.path.startswith("/external/live/invite/"):
                 return self.get_response(request)
             if request.path.startswith("/external/live/") and request.path.endswith("/leave/"):

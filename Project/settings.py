@@ -287,7 +287,7 @@ PROLEAN_STRICT_AUTHORITY_MODE = os.getenv('PROLEAN_STRICT_AUTHORITY_MODE', 'fals
 PROLEAN_READ_ONLY_ON_OUTAGE = os.getenv('PROLEAN_READ_ONLY_ON_OUTAGE', 'true').lower() == 'true'
 
 # One-click join links (external live)
-EXTERNAL_LIVE_JOIN_INVITE_TTL_SECONDS = _env_int("EXTERNAL_LIVE_JOIN_INVITE_TTL_SECONDS", 8 * 60 * 60)  # 8h
+EXTERNAL_LIVE_ONE_CLICK_TTL_SECONDS = _env_int("EXTERNAL_LIVE_ONE_CLICK_TTL_SECONDS", 8 * 60 * 60)  # 8h
 
 # Agora (live streaming provider)
 # Support multiple env key variants to avoid deployment misconfiguration.
