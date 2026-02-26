@@ -26,6 +26,20 @@ Project Baseline (Current Working Direction)
 Recent Entries
 --------------
 
+[2026-02-26 UTC] Area: Prolean | Type: Feature/Security
+- Added secure one-click join links for external live sessions (Barka):
+  - Professor can generate a one-time, time-limited link per student (by CIN) from `/professor/students/`.
+  - Raw tokens are never stored (only HMAC-SHA256 hash persisted).
+  - Single-use enforced (atomic mark used + reuse blocked).
+  - Brute-force protected via per-IP rate limiting + attempt logging.
+  - Captures usage metadata: device info, IP, and rough location (best-effort).
+  - Service-mode fallback allows low-tech users to join without Barka login (uses server-to-server token + Barka live access check).
+- Added maintenance command: `python manage.py cleanup_external_live_join_invites`.
+- Why:
+  - Reduce friction for low-tech users (click → join) while keeping production security guarantees.
+- Validation:
+  - `python -m compileall` and Django tests for invite generation/consumption/rate limiting.
+
 [2026-02-16 UTC] Area: Barka | Type: Feature
 - Added session live lifecycle contract endpoints:
   - get live state

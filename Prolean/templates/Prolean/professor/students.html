@@ -15,6 +15,56 @@
         <span class="text-2xl font-black text-brand">{{ external_students|length }}</span>
     </div>
 
+    {% if join_invites %}
+    <div class="glass-card p-6">
+        <div class="flex items-center justify-between gap-4">
+            <h3 class="text-sm font-black uppercase tracking-widest opacity-70" style="color: var(--prof-text-muted);">One-click join links</h3>
+            <span class="text-xs font-bold opacity-60" style="color: var(--prof-text-muted);">{{ join_invites|length }} latest</span>
+        </div>
+        <div class="mt-4 overflow-auto">
+            <table class="min-w-full text-xs">
+                <thead class="sticky top-0 bg-white/50 dark:bg-slate-900/50">
+                    <tr class="text-left opacity-70" style="color: var(--prof-text-muted);">
+                        <th class="py-2 pr-4 font-black uppercase tracking-widest">Student</th>
+                        <th class="py-2 pr-4 font-black uppercase tracking-widest">Status</th>
+                        <th class="py-2 pr-4 font-black uppercase tracking-widest">Expires</th>
+                        <th class="py-2 pr-4 font-black uppercase tracking-widest">Used at</th>
+                        <th class="py-2 pr-4 font-black uppercase tracking-widest">Device</th>
+                        <th class="py-2 pr-4 font-black uppercase tracking-widest">IP / Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in join_invites %}
+                    <tr class="border-t border-prof">
+                        <td class="py-2 pr-4 font-bold" style="color: var(--prof-text-main);">
+                            {{ row.student_name|default:row.student_cin|default:"Student" }}
+                            <div class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">{{ row.student_cin|default:"-" }}</div>
+                        </td>
+                        <td class="py-2 pr-4 font-black uppercase tracking-widest">{{ row.status|default:"-" }}</td>
+                        <td class="py-2 pr-4 opacity-80" style="color: var(--prof-text-muted);">
+                            {% if row.expires_at %}{{ row.expires_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                        </td>
+                        <td class="py-2 pr-4 opacity-80" style="color: var(--prof-text-muted);">
+                            {% if row.used_at %}{{ row.used_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                        </td>
+                        <td class="py-2 pr-4 opacity-80" style="color: var(--prof-text-muted);">
+                            {{ row.device|default:"-" }}
+                            {% if row.browser or row.os %}
+                            <div class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">{{ row.browser|default:"" }} {{ row.os|default:"" }} {{ row.device_type|default:"" }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="py-2 pr-4 opacity-80" style="color: var(--prof-text-muted);">
+                            {{ row.ip|default:"-" }}
+                            {% if row.location %}<div class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">{{ row.location }}</div>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     {% if external_sessions %}
     <div class="flex flex-wrap gap-3">
         {% for sess in external_sessions %}
@@ -51,6 +101,27 @@
                     <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Hand up</div>
                     <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_hand_label|default:"0m" }}</div>
                     <div class="text-[10px] font-black opacity-60" style="color: var(--prof-text-muted);">{{ st.tracking_hands|default:0 }} raises</div>
+                </div>
+            </div>
+
+            <div class="mt-4 px-4 py-3 rounded-2xl bg-surface-hover border border-prof">
+                <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">One-click join link</div>
+                <div class="mt-1 text-xs font-black" style="color: var(--prof-text-main);">Status: {{ st.join_invite_status|default:"none"|upper }}</div>
+                <div class="text-[10px] opacity-70 mt-1" style="color: var(--prof-text-muted);">CIN: {{ st.display_cin|default:"-" }}</div>
+                {% if st.join_invite_expires_at %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>
+                {% endif %}
+                {% if st.join_invite_used_at %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">
+                    Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}{% if st.join_invite_location %} ({{ st.join_invite_location }}){% endif %}
+                </div>
+                {% endif %}
+                <div class="mt-3 flex gap-2">
+                    <button type="button" class="btnx sky flex-1"
+                        {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
+                        onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
+                        Generate & Copy
+                    </button>
                 </div>
             </div>
         </div>
@@ -171,5 +242,49 @@
         {% endfor %}
     </div>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% if external_professor_mode %}
+<script>
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+  }
+  async function generateJoinLink(sessionId, cin, name, btn) {
+    try {
+      if (!sessionId || !cin) return;
+      if (btn) btn.disabled = true;
+      const resp = await fetch(`/external/live/invite/${encodeURIComponent(sessionId)}/regen/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({ cin, name }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!data || !data.ok || !data.join_url) {
+        alert((data && data.error) ? data.error : 'Unable to generate link.');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(String(data.join_url));
+      } catch (e) {
+        prompt('Copy this link:', String(data.join_url));
+      }
+      alert('Join link copied.');
+      window.location.reload();
+    } catch (e) {
+      alert('Unable to generate link.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+</script>
 {% endif %}
 {% endblock %}

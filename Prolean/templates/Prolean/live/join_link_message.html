@@ -1,0 +1,20 @@
+{% extends "Prolean/base.html" %}
+
+{% block title %}{{ title|default:"Join live" }} - Prolean{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center px-6 py-16">
+  <div class="max-w-lg w-full glass-card p-8 text-center">
+    <h1 class="text-2xl font-black mb-3" style="color: var(--text-primary, #0f172a);">
+      {{ title|default:"Join live" }}
+    </h1>
+    <p class="text-sm opacity-80 mb-6" style="color: var(--text-secondary, #475569);">
+      {{ message|default:"" }}
+    </p>
+    <a href="{{ cta_url|default:'/' }}" class="btnx sky inline-flex items-center justify-center px-6 py-3 rounded-xl font-black">
+      {{ cta_label|default:"Continue" }}
+    </a>
+  </div>
+</div>
+{% endblock %}
+

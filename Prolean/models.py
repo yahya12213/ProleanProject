@@ -1908,6 +1908,103 @@ class ExternalLiveSecurityEvent(models.Model):
     def __str__(self):
         return f"ExternalLiveEvent({self.session_id}) {self.event_type}"
 
+
+class ExternalLiveJoinInvite(models.Model):
+    """
+    One-time, time-limited join link for an external (Barka) live session.
+
+    Security:
+    - Store only a hash (token_hash); raw tokens are shown only at creation time.
+    - Mark used/revoked atomically to enforce single-use semantics.
+    """
+
+    session_id = models.CharField(max_length=64, db_index=True)
+    student_cin = models.CharField(max_length=50, db_index=True, blank=True, default="")
+    student_name = models.CharField(max_length=120, blank=True, default="")
+    student_email = models.EmailField(blank=True, default="")
+    student_phone = models.CharField(max_length=50, blank=True, default="")
+
+    # Optional local link (projection) once the student uses the link.
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_join_invites")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_join_invites_created")
+
+    token_hash = models.CharField(max_length=128, unique=True)
+    expires_at = models.DateTimeField(db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    used_user_agent = models.TextField(blank=True, default="")
+    used_device_label = models.CharField(max_length=120, blank=True, default="")
+    used_sec_ch_ua = models.TextField(blank=True, default="")
+    used_sec_ch_platform = models.CharField(max_length=60, blank=True, default="")
+    used_sec_ch_mobile = models.CharField(max_length=20, blank=True, default="")
+    used_ip = models.CharField(max_length=64, blank=True, default="")
+    used_location = models.CharField(max_length=160, blank=True, default="")
+    used_browser = models.CharField(max_length=60, blank=True, default="")
+    used_os = models.CharField(max_length=60, blank=True, default="")
+    used_device_type = models.CharField(max_length=20, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["session_id", "created_at"]),
+            models.Index(fields=["session_id", "student_cin"]),
+            models.Index(fields=["session_id", "used_at"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        cin = (self.student_cin or "").strip() or "unknown"
+        return f"ExternalLiveJoinInvite({self.session_id}) {cin}"
+
+
+class ExternalLiveJoinAttempt(models.Model):
+    """Security log for one-click join attempts (valid/invalid/reused/brute-force)."""
+
+    STATUS_CHOICES = [
+        ("success", "Success"),
+        ("invalid", "Invalid"),
+        ("expired", "Expired"),
+        ("revoked", "Revoked"),
+        ("used", "Already used"),
+        ("rate_limited", "Rate limited"),
+        ("preview_bot", "Preview bot"),
+        ("error", "Error"),
+    ]
+
+    invite = models.ForeignKey(
+        ExternalLiveJoinInvite,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="attempts",
+    )
+    session_id = models.CharField(max_length=64, db_index=True, blank=True, default="")
+    student_cin = models.CharField(max_length=50, db_index=True, blank=True, default="")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="external_live_join_attempts")
+    token_hash = models.CharField(max_length=128, db_index=True, blank=True, default="")
+
+    ip_address = models.CharField(max_length=64, blank=True, default="")
+    location = models.CharField(max_length=160, blank=True, default="")
+    user_agent = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, db_index=True)
+    detail = models.CharField(max_length=220, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["session_id", "created_at"]),
+            models.Index(fields=["ip_address", "created_at"]),
+            models.Index(fields=["token_hash", "created_at"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"ExternalLiveJoinAttempt({self.status}) {self.session_id} {self.ip_address}"
+
 class VideoProgress(models.Model):
     """Tracking progress on recorded videos"""
     student = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='video_progress', limit_choices_to={'role': 'STUDENT'})

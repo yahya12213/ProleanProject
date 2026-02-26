@@ -56,12 +56,19 @@ class ManagementContractClient:
             return token
         return ""
 
-    def get_access_snapshot(self, subject_id: str) -> dict[str, Any]:
+    def get_service_bearer_token(self) -> str:
+        """Public wrapper: obtain a server-to-server token when needed."""
+        return self._get_service_bearer_token()
+
+    def get_access_snapshot(self, subject_id: str, *, bearer_token: str | None = None) -> dict[str, Any]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
         # Backward compatible: prefer dedicated snapshot endpoint if available.
         endpoint = f"{self.config.base_url}/access/snapshot/{subject_id}"
-        return self._request("GET", endpoint)
+        resolved = (bearer_token or "").strip() if isinstance(bearer_token, str) else ""
+        if not resolved:
+            resolved = self._get_service_bearer_token()
+        return self._request("GET", endpoint, bearer_token=resolved)
 
     def sync_updates(self, cursor: str = "") -> dict[str, Any]:
         if not self.is_configured():
@@ -229,6 +236,31 @@ class ManagementContractClient:
             return live if isinstance(live, dict) else None
         raise ContractError("Unexpected live state payload.")
 
+    def get_session_live_state_for_student(
+        self,
+        session_id: str,
+        *,
+        student_cin: str,
+        bearer_token: str,
+    ) -> dict[str, Any] | None:
+        """
+        Prolean integration helper:
+        fetch session live state for a specific student using an admin/service token.
+        """
+        if not self.is_configured():
+            raise ContractError("Management contract URL is not configured.")
+        endpoint = f"{self.config.base_url}/sessions-formation/{session_id}/live/access"
+        data = self._request(
+            "POST",
+            endpoint,
+            bearer_token=bearer_token,
+            json={"cin": str(student_cin or "").strip().upper()},
+        )
+        if isinstance(data, dict):
+            live = data.get("live")
+            return live if isinstance(live, dict) else None
+        raise ContractError("Unexpected live access payload.")
+
     def start_session_live(self, session_id: str, *, bearer_token: str) -> dict[str, Any]:
         if not self.is_configured():
             raise ContractError("Management contract URL is not configured.")
@@ -281,13 +313,20 @@ class ManagementContractClient:
         headers = kwargs.pop("headers", {})
         bearer_token = kwargs.pop("bearer_token", None)
         skip_auth = bool(kwargs.pop("skip_auth", False))
+        bearer_token = bearer_token.strip() if isinstance(bearer_token, str) else bearer_token
         if bearer_token:
             headers["Authorization"] = f"Bearer {bearer_token}"
-        elif not skip_auth and self.config.api_token:
-            headers["Authorization"] = f"Bearer {self.config.api_token}"
+        elif not skip_auth and self.config.api_token and self._looks_like_jwt(str(self.config.api_token).strip()):
+            headers["Authorization"] = f"Bearer {str(self.config.api_token).strip()}"
         headers["Accept"] = "application/json"
 
         last_exception: Exception | None = None
+        cached_service_token = None
+        try:
+            cached_service_token = cache.get(self._service_token_cache_key())
+        except Exception:
+            cached_service_token = None
+        refreshed_service_token = False
         for _ in range(self.config.max_retries + 1):
             try:
                 response = requests.request(
@@ -300,6 +339,27 @@ class ManagementContractClient:
             except requests.RequestException as exc:
                 last_exception = exc
                 continue
+
+            if response.status_code == 401 and bearer_token and not refreshed_service_token:
+                # If we used a cached service token and it expired, refresh once and retry.
+                body = ""
+                try:
+                    body = (response.text or "")[:600].lower()
+                except Exception:
+                    body = ""
+                token_expired = ("token expired" in body) or ("token_expired" in body)
+                if token_expired and isinstance(cached_service_token, str) and cached_service_token.strip():
+                    if str(bearer_token).strip() == cached_service_token.strip():
+                        try:
+                            cache.delete(self._service_token_cache_key())
+                        except Exception:
+                            pass
+                        new_token = self._get_service_bearer_token()
+                        if new_token and new_token.strip() and new_token.strip() != str(bearer_token).strip():
+                            bearer_token = new_token.strip()
+                            headers["Authorization"] = f"Bearer {bearer_token}"
+                            refreshed_service_token = True
+                            continue
 
             if response.status_code in (502, 503, 504):
                 last_exception = UpstreamUnavailable(

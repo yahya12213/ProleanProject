@@ -15,6 +15,9 @@ import json
 import re
 import requests
 import time
+import secrets
+import hmac
+import hashlib
 from datetime import datetime, timedelta
 from time import sleep
 import logging
@@ -42,6 +45,7 @@ from .presence import touch_user_presence, get_online_students
 import uuid
 
 from Prolean import models
+from .models import ExternalLiveJoinInvite, ExternalLiveJoinAttempt
 
 from functools import wraps
 
@@ -130,6 +134,157 @@ def _extract_external_student_identifiers(student_row: dict) -> set[str]:
         if normalized:
             identifiers.add(normalized)
     return identifiers
+
+
+def _norm_cin(value: str) -> str:
+    cin = str(value or "").strip().upper()
+    return cin.replace(" ", "")
+
+
+def _hash_external_live_join_token(raw: str) -> str:
+    raw = str(raw or "").strip()
+    key = str(getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
+    return hmac.new(key, raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _device_label_from_request(request) -> tuple[str, dict]:
+    ua = str(request.META.get("HTTP_USER_AGENT", "") or "")[:800]
+    ch_ua = str(request.headers.get("Sec-CH-UA", "") or "")[:500]
+    ch_platform = str(request.headers.get("Sec-CH-UA-Platform", "") or "")[:60]
+    ch_mobile = str(request.headers.get("Sec-CH-UA-Mobile", "") or "")[:20]
+
+    platform_clean = ch_platform.strip().strip('"')
+    mobile_clean = ch_mobile.strip()
+    label_parts = []
+    if platform_clean:
+        label_parts.append(platform_clean)
+    if mobile_clean:
+        label_parts.append("Mobile" if mobile_clean == "?1" else "Desktop")
+    label = " ".join(label_parts)[:120]
+    return (
+        label,
+        {
+            "ua": ua,
+            "sec_ch_ua": ch_ua,
+            "sec_ch_platform": platform_clean,
+            "sec_ch_mobile": mobile_clean,
+        },
+    )
+
+
+def _parse_device_from_ua(user_agent: str) -> tuple[str, str, str]:
+    ua = str(user_agent or "").lower()
+    device_type = "desktop"
+    if "mobile" in ua or "android" in ua or "iphone" in ua:
+        device_type = "mobile"
+    if "ipad" in ua or "tablet" in ua:
+        device_type = "tablet"
+
+    os_name = ""
+    if "windows" in ua:
+        os_name = "Windows"
+    elif "android" in ua:
+        os_name = "Android"
+    elif "iphone" in ua or "ipad" in ua or "ios" in ua:
+        os_name = "iOS"
+    elif "mac os" in ua or "macintosh" in ua:
+        os_name = "macOS"
+    elif "linux" in ua:
+        os_name = "Linux"
+
+    browser = ""
+    if "edg/" in ua or "edge" in ua:
+        browser = "Edge"
+    elif "chrome/" in ua and "chromium" not in ua and "edg/" not in ua:
+        browser = "Chrome"
+    elif "firefox/" in ua:
+        browser = "Firefox"
+    elif "safari/" in ua and "chrome/" not in ua and "chromium" not in ua:
+        browser = "Safari"
+
+    return browser[:60], os_name[:60], device_type[:20]
+
+
+def _is_probably_link_preview(request) -> bool:
+    try:
+        method = str(getattr(request, "method", "") or "").upper()
+        if method not in {"GET", "HEAD"}:
+            return False
+        ua = str(request.META.get("HTTP_USER_AGENT", "") or "").lower()
+        accept = str(request.META.get("HTTP_ACCEPT", "") or "").lower()
+        purpose = str(request.META.get("HTTP_PURPOSE", "") or "").lower()
+        sec_purpose = str(request.META.get("HTTP_SEC_PURPOSE", "") or "").lower()
+        if "prefetch" in purpose or "prefetch" in sec_purpose:
+            return True
+        bot_tokens = (
+            "whatsapp",
+            "facebookexternalhit",
+            "facebot",
+            "twitterbot",
+            "slackbot",
+            "discordbot",
+            "telegrambot",
+            "skypeuripreview",
+            "linkedinbot",
+            "pinterest",
+            "embedly",
+            "vkshare",
+            "google web preview",
+            "crawler",
+            "spider",
+            "bot/",
+        )
+        if any(tok in ua for tok in bot_tokens):
+            return True
+        if accept and ("text/html" not in accept and "application/xhtml+xml" not in accept):
+            return True
+    except Exception:
+        return False
+    return False
+
+
+def _external_live_service_access_key() -> str:
+    return "prolean:external_live_service_access"
+
+
+def _grant_external_live_service_access(request, session_id: str, *, cin: str, expires_at) -> None:
+    try:
+        store = request.session.get(_external_live_service_access_key()) or {}
+        if not isinstance(store, dict):
+            store = {}
+        store[str(session_id)] = {
+            "cin": _norm_cin(cin),
+            "expires_at": expires_at.isoformat() if hasattr(expires_at, "isoformat") else str(expires_at),
+        }
+        request.session[_external_live_service_access_key()] = store
+    except Exception:
+        return
+
+
+def _get_external_live_service_access(request, session_id: str) -> tuple[str, str]:
+    try:
+        store = request.session.get(_external_live_service_access_key()) or {}
+        if not isinstance(store, dict):
+            return "", ""
+        entry = store.get(str(session_id))
+        if not isinstance(entry, dict):
+            return "", ""
+        cin = _norm_cin(entry.get("cin") or "")
+        exp_raw = str(entry.get("expires_at") or "").strip()
+        if not cin or not exp_raw:
+            return "", ""
+        exp = None
+        try:
+            exp = timezone.datetime.fromisoformat(exp_raw)
+            if timezone.is_naive(exp):
+                exp = timezone.make_aware(exp, timezone.get_current_timezone())
+        except Exception:
+            exp = None
+        if exp and exp <= timezone.now():
+            return "", ""
+        return cin, exp_raw
+    except Exception:
+        return "", ""
 
 
 def _build_online_student_lookup() -> dict[str, dict]:
@@ -1793,7 +1948,7 @@ def dashboard(request):
                 external_formations = []
                 external_pending_assignment = True
     except Exception as exc:
-        if _is_barka_token_expired(exc):
+        if (not service_mode) and _is_barka_token_expired(exc):
             try:
                 request.session.pop("barka_token", None)
                 request.session.pop("barka_permissions", None)
@@ -2961,13 +3116,401 @@ def presence_heartbeat(request):
     return JsonResponse({"status": "success"})
 
 
+@professor_required
+@require_POST
+def external_live_join_invite_regen(request, session_id):
+    """
+    Professor generates/regenerates a one-time join link for a student (by CIN)
+    for an external (Barka) live session.
+    """
+    session_id = str(session_id or "").strip()
+    if not session_id:
+        return JsonResponse({"ok": False, "error": "Missing session_id."}, status=400)
+
+    payload = {}
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+
+    cin = _norm_cin(payload.get("cin") or payload.get("student_cin") or payload.get("username") or "")
+    if not cin:
+        return JsonResponse({"ok": False, "error": "Missing student CIN."}, status=400)
+
+    student_name = str(payload.get("name") or payload.get("full_name") or payload.get("student_name") or "").strip()[:120]
+    student_email = str(payload.get("email") or payload.get("student_email") or "").strip()[:254]
+    student_phone = str(payload.get("phone") or payload.get("student_phone") or "").strip()[:50]
+
+    now = timezone.now()
+    ttl_seconds = int(getattr(settings, "EXTERNAL_LIVE_JOIN_INVITE_TTL_SECONDS", 8 * 60 * 60) or (8 * 60 * 60))
+    ttl_seconds = max(60, min(ttl_seconds, 72 * 60 * 60))
+    expires_at = now + timedelta(seconds=ttl_seconds)
+
+    try:
+        ExternalLiveJoinInvite.objects.filter(
+            session_id=session_id,
+            student_cin=cin,
+            revoked_at__isnull=True,
+            used_at__isnull=True,
+            expires_at__gt=now,
+        ).update(revoked_at=now)
+    except Exception:
+        pass
+
+    raw = secrets.token_urlsafe(32)
+    token_hash = _hash_external_live_join_token(raw)
+    try:
+        inv = ExternalLiveJoinInvite.objects.create(
+            session_id=session_id,
+            student_cin=cin,
+            student_name=student_name,
+            student_email=student_email,
+            student_phone=student_phone,
+            token_hash=token_hash,
+            created_by=request.user,
+            expires_at=expires_at,
+        )
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Unable to create invite."}, status=500)
+
+    join_url = request.build_absolute_uri(reverse("Prolean:external_live_join_with_token", kwargs={"token": raw}))
+    return JsonResponse(
+        {
+            "ok": True,
+            "join_url": join_url,
+            "expires_at": inv.expires_at.isoformat(),
+            "session_id": inv.session_id,
+            "student_cin": inv.student_cin,
+        }
+    )
+
+
+@professor_required
+def external_live_join_invite_list(request, session_id):
+    """List join invites for a session (raw tokens are never returned)."""
+    session_id = str(session_id or "").strip()
+    if not session_id:
+        return JsonResponse({"ok": False, "error": "Missing session_id."}, status=400)
+    now = timezone.now()
+    rows = []
+    for inv in ExternalLiveJoinInvite.objects.filter(session_id=session_id).order_by("-created_at")[:1000]:
+        status = "unused"
+        if inv.revoked_at:
+            status = "revoked"
+        elif inv.used_at:
+            status = "used"
+        elif inv.expires_at and inv.expires_at <= now:
+            status = "expired"
+        rows.append(
+            {
+                "id": int(inv.id),
+                "student_cin": inv.student_cin,
+                "student_name": inv.student_name,
+                "status": status,
+                "created_at": inv.created_at.isoformat() if inv.created_at else None,
+                "expires_at": inv.expires_at.isoformat() if inv.expires_at else None,
+                "used_at": inv.used_at.isoformat() if inv.used_at else None,
+                "device": inv.used_device_label,
+                "browser": inv.used_browser,
+                "os": inv.used_os,
+                "device_type": inv.used_device_type,
+                "ip": inv.used_ip,
+                "location": inv.used_location,
+            }
+        )
+    return JsonResponse({"ok": True, "session_id": session_id, "rows": rows, "server_time": now.isoformat()})
+
+
+def external_live_join_with_token(request, token):
+    """Consume a one-time student join token and redirect to the external live room."""
+    raw = str(token or "").strip()
+    ip_address = get_client_ip(request)
+    location_payload = get_location_from_ip(ip_address)
+    location_label = ""
+    try:
+        city = str((location_payload or {}).get("city") or "").strip()
+        country = str((location_payload or {}).get("country") or "").strip()
+        location_label = ", ".join([p for p in (city, country) if p])[:160]
+    except Exception:
+        location_label = ""
+
+    if _is_probably_link_preview(request):
+        try:
+            ExternalLiveJoinAttempt.objects.create(
+                status="preview_bot",
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=str(request.META.get("HTTP_USER_AGENT", "") or "")[:800],
+                detail="preview/prefetch",
+            )
+        except Exception:
+            pass
+        if str(getattr(request, "method", "") or "").upper() == "HEAD":
+            return HttpResponse("")
+        return HttpResponse(
+            "<!doctype html><html><head><meta charset='utf-8'/>"
+            "<meta name='robots' content='noindex,nofollow'/>"
+            "<title>Join live</title></head><body>Join live session</body></html>",
+            content_type="text/html; charset=utf-8",
+            status=200,
+        )
+
+    # Rate-limit brute force attempts by IP.
+    allowed, remaining = RateLimiter.check_rate_limit(ip_address, "external_live_join_with_token", limit=20, period_minutes=1)
+    if not allowed:
+        try:
+            ExternalLiveJoinAttempt.objects.create(
+                status="rate_limited",
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=str(request.META.get("HTTP_USER_AGENT", "") or "")[:800],
+                detail=f"retry_after={remaining}",
+            )
+        except Exception:
+            pass
+        return render(
+            request,
+            "Prolean/live/join_link_message.html",
+            {
+                "title": "Too many attempts",
+                "message": "Please wait a moment and try again.",
+                "cta_label": "Go to home",
+                "cta_url": reverse("Prolean:home"),
+            },
+            status=429,
+        )
+
+    if not raw or len(raw) < 10:
+        try:
+            ExternalLiveJoinAttempt.objects.create(
+                status="invalid",
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=str(request.META.get("HTTP_USER_AGENT", "") or "")[:800],
+                detail="missing_or_short",
+            )
+        except Exception:
+            pass
+        return render(
+            request,
+            "Prolean/live/join_link_message.html",
+            {
+                "title": "Invalid link",
+                "message": "This join link is invalid. Ask your professor to regenerate it.",
+                "cta_label": "Go to home",
+                "cta_url": reverse("Prolean:home"),
+            },
+            status=400,
+        )
+
+    token_hash = _hash_external_live_join_token(raw)
+    now = timezone.now()
+    device_label, device_payload = _device_label_from_request(request)
+    user_agent = str(device_payload.get("ua") or "")
+    browser, os_name, device_type = _parse_device_from_ua(user_agent)
+
+    with transaction.atomic():
+        inv = ExternalLiveJoinInvite.objects.select_for_update().filter(token_hash=token_hash).first()
+        if not inv:
+            try:
+                ExternalLiveJoinAttempt.objects.create(
+                    status="invalid",
+                    token_hash=token_hash,
+                    ip_address=ip_address,
+                    location=location_label,
+                    user_agent=user_agent,
+                    detail="not_found",
+                )
+            except Exception:
+                pass
+            return render(
+                request,
+                "Prolean/live/join_link_message.html",
+                {
+                    "title": "Invalid or expired link",
+                    "message": "This join link is invalid or expired. Ask your professor to regenerate it.",
+                    "cta_label": "Go to home",
+                    "cta_url": reverse("Prolean:home"),
+                },
+                status=400,
+            )
+
+        if inv.revoked_at:
+            ExternalLiveJoinAttempt.objects.create(
+                invite=inv,
+                status="revoked",
+                session_id=inv.session_id,
+                student_cin=inv.student_cin,
+                user=inv.user,
+                token_hash=token_hash,
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=user_agent,
+            )
+            return render(
+                request,
+                "Prolean/live/join_link_message.html",
+                {
+                    "title": "Link revoked",
+                    "message": "This join link was revoked. Ask your professor to regenerate it.",
+                    "cta_label": "Go to home",
+                    "cta_url": reverse("Prolean:home"),
+                },
+                status=400,
+            )
+        if inv.expires_at and inv.expires_at <= now:
+            ExternalLiveJoinAttempt.objects.create(
+                invite=inv,
+                status="expired",
+                session_id=inv.session_id,
+                student_cin=inv.student_cin,
+                user=inv.user,
+                token_hash=token_hash,
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=user_agent,
+            )
+            return render(
+                request,
+                "Prolean/live/join_link_message.html",
+                {
+                    "title": "Link expired",
+                    "message": "This join link is expired. Ask your professor to regenerate it.",
+                    "cta_label": "Go to home",
+                    "cta_url": reverse("Prolean:home"),
+                },
+                status=400,
+            )
+        if inv.used_at:
+            ExternalLiveJoinAttempt.objects.create(
+                invite=inv,
+                status="used",
+                session_id=inv.session_id,
+                student_cin=inv.student_cin,
+                user=inv.user,
+                token_hash=token_hash,
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=user_agent,
+                detail="reuse_attempt",
+            )
+            return render(
+                request,
+                "Prolean/live/join_link_message.html",
+                {
+                    "title": "Link already used",
+                    "message": "This join link was already used. Ask your professor to regenerate it.",
+                    "cta_label": "Go to home",
+                    "cta_url": reverse("Prolean:home"),
+                },
+                status=400,
+            )
+
+        cin = _norm_cin(inv.student_cin)
+        if not cin:
+            ExternalLiveJoinAttempt.objects.create(
+                invite=inv,
+                status="error",
+                session_id=inv.session_id,
+                token_hash=token_hash,
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=user_agent,
+                detail="missing_cin",
+            )
+            return render(
+                request,
+                "Prolean/live/join_link_message.html",
+                {
+                    "title": "Invalid link",
+                    "message": "This join link is invalid. Ask your professor to regenerate it.",
+                    "cta_label": "Go to home",
+                    "cta_url": reverse("Prolean:home"),
+                },
+                status=400,
+            )
+
+        # Ensure a local Django account exists for the student.
+        user = inv.user
+        if not user:
+            user, _ = User.objects.get_or_create(username=cin)
+            if inv.student_email and not user.email:
+                user.email = inv.student_email
+                user.save(update_fields=["email"])
+            try:
+                profile = user.profile
+                profile.role = "STUDENT"
+                profile.status = "ACTIVE"
+                if inv.student_name:
+                    profile.full_name = inv.student_name
+                if not profile.cin_or_passport:
+                    profile.cin_or_passport = cin
+                if inv.student_phone and not profile.phone_number:
+                    profile.phone_number = inv.student_phone
+                profile.save()
+            except Exception:
+                pass
+            inv.user = user
+
+        # Mark as used and store metadata.
+        inv.used_at = now
+        inv.used_user_agent = user_agent
+        inv.used_device_label = str(device_label or "")[:120]
+        inv.used_sec_ch_ua = str(device_payload.get("sec_ch_ua") or "")
+        inv.used_sec_ch_platform = str(device_payload.get("sec_ch_platform") or "")[:60]
+        inv.used_sec_ch_mobile = str(device_payload.get("sec_ch_mobile") or "")[:20]
+        inv.used_ip = str(ip_address or "")[:64]
+        inv.used_location = location_label
+        inv.used_browser = browser
+        inv.used_os = os_name
+        inv.used_device_type = device_type
+        inv.save()
+
+        ExternalLiveJoinAttempt.objects.create(
+            invite=inv,
+            status="success",
+            session_id=inv.session_id,
+            student_cin=inv.student_cin,
+            user=user,
+            token_hash=token_hash,
+            ip_address=ip_address,
+            location=location_label,
+            user_agent=user_agent,
+        )
+
+    # Switch to the correct student account (low-tech UX).
+    try:
+        if request.user.is_authenticated and request.user.id != user.id:
+            logout(request)
+        login(request, user)
+    except Exception:
+        return redirect("Prolean:login")
+
+    _grant_external_live_service_access(request, str(inv.session_id), cin=cin, expires_at=inv.expires_at)
+    return redirect("Prolean:external_live_room", session_id=str(inv.session_id))
+
+
 @login_required
 def external_live_room(request, session_id):
     token = request.session.get("barka_token")
     mgmt = ManagementContractClient()
-    if not (mgmt.is_configured() and isinstance(token, str) and token.strip()):
-        messages.error(request, "Live is unavailable: external authority token is missing.")
-        return redirect('Prolean:dashboard')
+    if not mgmt.is_configured():
+        messages.error(request, "Live is unavailable: external authority is not configured.")
+        return redirect("Prolean:dashboard")
+
+    bearer_token = token.strip() if isinstance(token, str) and token.strip() else ""
+    service_cin, _exp = _get_external_live_service_access(request, str(session_id))
+    service_mode = bool((not bearer_token) and service_cin)
+    service_token = ""
+    if service_mode:
+        service_token = str(mgmt.get_service_bearer_token() or "").strip()
+        if not service_token:
+            messages.error(request, "Live is unavailable: please login again.")
+            return redirect("Prolean:login")
+
+    if not bearer_token and not service_mode:
+        messages.error(request, "Live is unavailable: please login first or use a join link.")
+        return redirect("Prolean:dashboard")
 
     if hasattr(request.user, "profile") and request.user.profile.role != "PROFESSOR":
         banned, reason = _is_user_banned_from_external_session(str(session_id), request.user)
@@ -3026,24 +3569,34 @@ def external_live_room(request, session_id):
 
         payload = None
         last_exc = None
-        for attempt in range(6):
-            try:
-                payload = mgmt.join_session_live(str(session_id), bearer_token=token.strip())
-                break
-            except UpstreamUnavailable as exc:
-                last_exc = exc
-                if attempt >= 5:
-                    raise
-                sleep(0.6 * (attempt + 1))
-            except ContractError as exc:
-                is_transient = _is_transient_external_error(exc)
-                if not is_transient or attempt >= 5:
-                    raise
-                last_exc = exc
-                sleep(0.6 * (attempt + 1))
+        if service_mode:
+            live_state = mgmt.get_session_live_state_for_student(
+                str(session_id),
+                student_cin=service_cin,
+                bearer_token=service_token,
+            )
+            if not isinstance(live_state, dict):
+                raise ContractError("Live is not available for this session yet.")
+            payload = {"live": live_state, "role": "student"}
+        else:
+            for attempt in range(6):
+                try:
+                    payload = mgmt.join_session_live(str(session_id), bearer_token=bearer_token)
+                    break
+                except UpstreamUnavailable as exc:
+                    last_exc = exc
+                    if attempt >= 5:
+                        raise
+                    sleep(0.6 * (attempt + 1))
+                except ContractError as exc:
+                    is_transient = _is_transient_external_error(exc)
+                    if not is_transient or attempt >= 5:
+                        raise
+                    last_exc = exc
+                    sleep(0.6 * (attempt + 1))
 
-        if payload is None and last_exc is not None:
-            raise last_exc
+            if payload is None and last_exc is not None:
+                raise last_exc
 
         live = payload.get("live") if isinstance(payload, dict) else None
         role = payload.get("role") if isinstance(payload, dict) else "student"
@@ -3171,15 +3724,30 @@ def external_live_status(request, session_id):
     except Exception:
         ended_at = None
 
-    # If we have a token, confirm live state with the external authority to avoid stale cache forcing exits.
+    # Confirm live state with the external authority to avoid stale cache forcing exits.
     token = request.session.get("barka_token")
     mgmt = ManagementContractClient()
     live_state = None
-    if mgmt.is_configured() and isinstance(token, str) and token.strip():
-        try:
-            live_state = mgmt.get_session_live_state(str(session_id), bearer_token=token.strip())
-        except Exception:
-            live_state = None
+    if mgmt.is_configured():
+        bearer = token.strip() if isinstance(token, str) and token.strip() else ""
+        if bearer:
+            try:
+                live_state = mgmt.get_session_live_state(str(session_id), bearer_token=bearer)
+            except Exception:
+                live_state = None
+        else:
+            cin, _exp = _get_external_live_service_access(request, str(session_id))
+            if cin:
+                try:
+                    service_token = str(mgmt.get_service_bearer_token() or "").strip()
+                    if service_token:
+                        live_state = mgmt.get_session_live_state_for_student(
+                            str(session_id),
+                            student_cin=cin,
+                            bearer_token=service_token,
+                        )
+                except Exception:
+                    live_state = None
 
     status = str((live_state or {}).get("status") or "").strip().lower() if isinstance(live_state, dict) else ""
     externally_ended = status == "ended"
@@ -3657,11 +4225,81 @@ def professor_students(request):
                     ext_student["local_user_id"] = None
                     ext_student["local_full_name"] = None
 
+            # Join-link status and invite list for this external session (by CIN).
+            join_invites = []
+            latest_by_cin = {}
+            if selected_session_id:
+                now = timezone.now()
+                try:
+                    invites = (
+                        ExternalLiveJoinInvite.objects.filter(session_id=selected_session_id)
+                        .select_related("user", "created_by")
+                        .order_by("-created_at")[:5000]
+                    )
+                    for inv in invites:
+                        status = "unused"
+                        if inv.revoked_at:
+                            status = "revoked"
+                        elif inv.used_at:
+                            status = "used"
+                        elif inv.expires_at and inv.expires_at <= now:
+                            status = "expired"
+                        cin_key = _norm_cin(inv.student_cin)
+                        if cin_key and cin_key not in latest_by_cin:
+                            latest_by_cin[cin_key] = inv
+                        join_invites.append(
+                            {
+                                "student_cin": inv.student_cin,
+                                "student_name": inv.student_name,
+                                "status": status,
+                                "created_at": inv.created_at,
+                                "expires_at": inv.expires_at,
+                                "used_at": inv.used_at,
+                                "device": inv.used_device_label,
+                                "browser": inv.used_browser,
+                                "os": inv.used_os,
+                                "device_type": inv.used_device_type,
+                                "ip": inv.used_ip,
+                                "location": inv.used_location,
+                            }
+                        )
+                except Exception:
+                    join_invites = []
+                    latest_by_cin = {}
+
+            for ext_student in students:
+                if not isinstance(ext_student, dict):
+                    continue
+                cin_key = _norm_cin(ext_student.get("display_cin") or ext_student.get("cin") or ext_student.get("cin_or_passport") or "")
+                inv = latest_by_cin.get(cin_key) if cin_key else None
+                if not inv:
+                    ext_student["join_invite_status"] = "none"
+                    ext_student["join_invite_expires_at"] = None
+                    ext_student["join_invite_used_at"] = None
+                    ext_student["join_invite_device"] = None
+                    ext_student["join_invite_ip"] = None
+                    ext_student["join_invite_location"] = None
+                else:
+                    status = "unused"
+                    if inv.revoked_at:
+                        status = "revoked"
+                    elif inv.used_at:
+                        status = "used"
+                    elif inv.expires_at and inv.expires_at <= timezone.now():
+                        status = "expired"
+                    ext_student["join_invite_status"] = status
+                    ext_student["join_invite_expires_at"] = inv.expires_at
+                    ext_student["join_invite_used_at"] = inv.used_at
+                    ext_student["join_invite_device"] = inv.used_device_label
+                    ext_student["join_invite_ip"] = inv.used_ip
+                    ext_student["join_invite_location"] = inv.used_location
+
             context = {
                 'external_professor_mode': True,
                 'external_sessions': sessions if isinstance(sessions, list) else [],
                 'external_selected_session': selected_session,
                 'external_students': students,
+                'join_invites': join_invites[:400],
                 'students': [],
                 'all_sessions': [],
                 'selected_session': None,

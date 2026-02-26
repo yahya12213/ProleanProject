@@ -133,7 +133,17 @@ WSGI_APPLICATION = 'Project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-database_url = os.getenv('DATABASE_PUBLIC_URL') or os.getenv('DATABASE_URL')
+def _env_db_url(name: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return ""
+    raw = str(raw).strip()
+    if not raw or raw.lower() in {"none", "null", "unset", "false", "0"}:
+        return ""
+    return raw
+
+
+database_url = _env_db_url('DATABASE_PUBLIC_URL') or _env_db_url('DATABASE_URL')
 
 if database_url:
     parsed_db = urlparse(database_url)
@@ -275,6 +285,9 @@ PROLEAN_EXTERNAL_ACCESS_CACHE_TTL_SECONDS = int(os.getenv('PROLEAN_EXTERNAL_ACCE
 PROLEAN_EXTERNAL_HEALTH_CACHE_TTL_SECONDS = int(os.getenv('PROLEAN_EXTERNAL_HEALTH_CACHE_TTL_SECONDS', '30'))
 PROLEAN_STRICT_AUTHORITY_MODE = os.getenv('PROLEAN_STRICT_AUTHORITY_MODE', 'false').lower() == 'true'
 PROLEAN_READ_ONLY_ON_OUTAGE = os.getenv('PROLEAN_READ_ONLY_ON_OUTAGE', 'true').lower() == 'true'
+
+# One-click join links (external live)
+EXTERNAL_LIVE_JOIN_INVITE_TTL_SECONDS = _env_int("EXTERNAL_LIVE_JOIN_INVITE_TTL_SECONDS", 8 * 60 * 60)  # 8h
 
 # Agora (live streaming provider)
 # Support multiple env key variants to avoid deployment misconfiguration.
