@@ -534,3 +534,9 @@ Recent Entries
   - Added backend logging to show the real exception when invite creation fails.
 - Why:
   - Prevents runtime `Unable to create invite.` errors caused by schema drift in production.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Add Missing Core Columns for Join Invites (Production Recovery)
+- What changed:
+  - Added migration `Prolean/migrations/0007_external_live_join_invites_add_core_columns.py` to add missing core columns (`session_id`, `student_cin`) on the invite table when production schema was incomplete.
+- Why:
+  - Fixes production error: `column "student_cin" of relation "Prolean_externallivejoininvite" does not exist`.
