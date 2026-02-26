@@ -38,13 +38,6 @@ Recent Entries
 - Added missing Barka endpoint `POST /api/sessions-formation/:id/live/access` to validate enrollment by CIN for service-mode joins.
 - Prolean join-link page now shows correct reasons (not enrolled vs live not started vs upstream down) instead of generic access denied.
 
-[2026-02-26 UTC] Area: Prolean | Type: Fix/One-Time Join Links + Professor Tracking
-- Restored one-time join link behavior (single-use token) for external lives.
-- Link generation now stores invite records and revokes previous active link for the same student/session.
-- Link consumption now marks `used_at` and captures usage metadata (IP, device, browser/OS, location).
-- Professor students page now shows per-student join-link status (unused/used/expired/revoked) and usage details.
-- Student dashboard live CTA visibility hardened by normalizing CIN matching and more tolerant external session-id extraction.
-
 [2026-02-26 UTC] Area: Prolean | Type: Feature/Security
 - Added secure one-click join links for external live sessions (Barka):
   - Professor can generate a one-time, time-limited link per student (by CIN) from `/professor/students/`.
