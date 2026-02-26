@@ -540,3 +540,9 @@ Recent Entries
   - Added migration `Prolean/migrations/0007_external_live_join_invites_add_core_columns.py` to add missing core columns (`session_id`, `student_cin`) on the invite table when production schema was incomplete.
 - Why:
   - Fixes production error: `column "student_cin" of relation "Prolean_externallivejoininvite" does not exist`.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Broad Recovery for Duplicate-Case Join Tables
+- What changed:
+  - Added migration `Prolean/migrations/0008_external_live_join_invites_patch_all_tables.py` to patch *all* candidate join-invite/join-attempt tables across schemas (mixed-case and lowercase) and add the core columns used at runtime.
+- Why:
+  - Some production DBs ended up with both quoted and unquoted versions of the table name; patching only one could leave the table Django uses still missing columns.
