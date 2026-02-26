@@ -138,7 +138,12 @@ def _extract_external_student_identifiers(student_row: dict) -> set[str]:
 
 def _norm_cin(value: str) -> str:
     cin = str(value or "").strip().upper()
-    return cin.replace(" ", "")
+    cin = "".join(ch for ch in cin if ch.isalnum())
+    if not cin:
+        return ""
+    if cin in {"NA", "NAN", "N_A"}:
+        return ""
+    return cin
 
 
 def _hash_external_live_join_token(raw: str) -> str:
@@ -335,7 +340,7 @@ def _enrich_external_students_with_presence(external_students: list[dict]) -> tu
         )
         entry["display_email"] = str(entry.get("student_email") or entry.get("email") or "").strip()
         entry["display_phone"] = str(entry.get("student_phone") or entry.get("phone") or "").strip()
-        entry["display_cin"] = str(entry.get("student_cin") or entry.get("cin") or entry.get("cin_or_passport") or "").strip()
+        entry["display_cin"] = _norm_cin(entry.get("student_cin") or entry.get("cin") or entry.get("cin_or_passport") or "")
 
         identifiers = _extract_external_student_identifiers(entry)
         online_payload = None
@@ -3315,6 +3320,12 @@ def external_live_join_with_token(request, token):
     user_agent = str(device_payload.get("ua") or "")
     browser, os_name, device_type = _parse_device_from_ua(user_agent)
 
+    # Phase 1: validate invite and ensure a local user exists (do NOT consume token yet).
+    inv = None
+    user = None
+    cin = ""
+    session_id = ""
+    expires_at = None
     with transaction.atomic():
         inv = ExternalLiveJoinInvite.objects.select_for_update().filter(token_hash=token_hash).first()
         if not inv:
@@ -3457,32 +3468,111 @@ def external_live_join_with_token(request, token):
             except Exception:
                 pass
             inv.user = user
+            inv.save(update_fields=["user"])
 
-        # Mark as used and store metadata.
-        inv.used_at = now
-        inv.used_user_agent = user_agent
-        inv.used_device_label = str(device_label or "")[:120]
-        inv.used_sec_ch_ua = str(device_payload.get("sec_ch_ua") or "")
-        inv.used_sec_ch_platform = str(device_payload.get("sec_ch_platform") or "")[:60]
-        inv.used_sec_ch_mobile = str(device_payload.get("sec_ch_mobile") or "")[:20]
-        inv.used_ip = str(ip_address or "")[:64]
-        inv.used_location = location_label
-        inv.used_browser = browser
-        inv.used_os = os_name
-        inv.used_device_type = device_type
-        inv.save()
+        session_id = str(inv.session_id or "").strip()
+        expires_at = inv.expires_at
 
-        ExternalLiveJoinAttempt.objects.create(
-            invite=inv,
-            status="success",
-            session_id=inv.session_id,
-            student_cin=inv.student_cin,
-            user=user,
-            token_hash=token_hash,
-            ip_address=ip_address,
-            location=location_label,
-            user_agent=user_agent,
-        )
+    # Optional access check (prevents burning the link if the student isn't allowed).
+    mgmt = ManagementContractClient()
+    if mgmt.is_configured():
+        service_token = str(mgmt.get_service_bearer_token() or "").strip()
+        if service_token:
+            try:
+                live_state = mgmt.get_session_live_state_for_student(
+                    str(session_id),
+                    student_cin=cin,
+                    bearer_token=service_token,
+                )
+                if not isinstance(live_state, dict):
+                    raise ContractError("Live is not available for this session yet.")
+            except Exception as exc:
+                try:
+                    ExternalLiveJoinAttempt.objects.create(
+                        invite=inv,
+                        status="error",
+                        session_id=session_id,
+                        student_cin=str(getattr(inv, "student_cin", "") or ""),
+                        user=user,
+                        token_hash=token_hash,
+                        ip_address=ip_address,
+                        location=location_label,
+                        user_agent=user_agent,
+                        detail=str(exc)[:220],
+                    )
+                except Exception:
+                    pass
+                return render(
+                    request,
+                    "Prolean/live/join_link_message.html",
+                    {
+                        "title": "Unable to join live",
+                        "message": "Access denied for this session. Ask your professor to regenerate the link or verify your enrollment.",
+                        "cta_label": "Go to home",
+                        "cta_url": reverse("Prolean:home"),
+                    },
+                    status=403,
+                )
+
+    # Phase 2: consume the token (single-use) only after validation.
+    with transaction.atomic():
+        inv2 = ExternalLiveJoinInvite.objects.select_for_update().filter(id=getattr(inv, "id", None)).first()
+        if not inv2 or inv2.revoked_at or inv2.used_at or (inv2.expires_at and inv2.expires_at <= timezone.now()):
+            try:
+                ExternalLiveJoinAttempt.objects.create(
+                    invite=inv2 or inv,
+                    status="used",
+                    session_id=session_id,
+                    student_cin=str(getattr(inv2 or inv, "student_cin", "") or ""),
+                    user=user,
+                    token_hash=token_hash,
+                    ip_address=ip_address,
+                    location=location_label,
+                    user_agent=user_agent,
+                    detail="race_or_reuse",
+                )
+            except Exception:
+                pass
+            return render(
+                request,
+                "Prolean/live/join_link_message.html",
+                {
+                    "title": "Link already used",
+                    "message": "This join link was already used. Ask your professor to regenerate it.",
+                    "cta_label": "Go to home",
+                    "cta_url": reverse("Prolean:home"),
+                },
+                status=400,
+            )
+
+        inv2.used_at = now
+        inv2.used_user_agent = user_agent
+        inv2.used_device_label = str(device_label or "")[:120]
+        inv2.used_sec_ch_ua = str(device_payload.get("sec_ch_ua") or "")
+        inv2.used_sec_ch_platform = str(device_payload.get("sec_ch_platform") or "")[:60]
+        inv2.used_sec_ch_mobile = str(device_payload.get("sec_ch_mobile") or "")[:20]
+        inv2.used_ip = str(ip_address or "")[:64]
+        inv2.used_location = location_label
+        inv2.used_browser = browser
+        inv2.used_os = os_name
+        inv2.used_device_type = device_type
+        inv2.user = user
+        inv2.save()
+
+        try:
+            ExternalLiveJoinAttempt.objects.create(
+                invite=inv2,
+                status="success",
+                session_id=inv2.session_id,
+                student_cin=inv2.student_cin,
+                user=user,
+                token_hash=token_hash,
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
 
     # Switch to the correct student account (low-tech UX).
     try:
@@ -3492,8 +3582,8 @@ def external_live_join_with_token(request, token):
     except Exception:
         return redirect("Prolean:login")
 
-    _grant_external_live_service_access(request, str(inv.session_id), cin=cin, expires_at=inv.expires_at)
-    return redirect("Prolean:external_live_room", session_id=str(inv.session_id))
+    _grant_external_live_service_access(request, str(session_id), cin=cin, expires_at=expires_at)
+    return redirect("Prolean:external_live_room", session_id=str(session_id))
 
 
 @login_required

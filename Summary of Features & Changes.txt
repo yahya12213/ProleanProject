@@ -546,3 +546,10 @@ Recent Entries
   - Added migration `Prolean/migrations/0008_external_live_join_invites_patch_all_tables.py` to patch *all* candidate join-invite/join-attempt tables across schemas (mixed-case and lowercase) and add the core columns used at runtime.
 - Why:
   - Some production DBs ended up with both quoted and unquoted versions of the table name; patching only one could leave the table Django uses still missing columns.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Do Not Burn Join Links On Access Denied
+- What changed:
+  - Improved CIN normalization to reject placeholders like `-` and only keep alphanumeric characters.
+  - Join token consumption is now two-phase: the system checks external access (when configured) before marking the invite as used, so failed joins don't invalidate the link.
+- Why:
+  - Links were being marked as `used` even when the student couldn't actually join the live, causing unnecessary regeneration.
