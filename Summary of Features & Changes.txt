@@ -526,3 +526,11 @@ Recent Entries
   - Railway deploys could fail with: `relation "Prolean_externallivejoininvite" already exists`.
 - Validation:
   - Local test run (forcing SQLite): `DATABASE_PUBLIC_URL=unset DATABASE_URL=unset python manage.py test Prolean`.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Production Schema Guard for Join Invites
+- What changed:
+  - Added a best-effort schema recovery migration `Prolean/migrations/0006_external_live_join_invites_schema_guard.py` to add missing columns/indexes when the join-invite tables existed with an older schema.
+  - Hardened the guard to target the real table name even if it was created as lowercase vs mixed-case, and set migrations to run non-atomically to avoid aborted-transaction deploy failures.
+  - Added backend logging to show the real exception when invite creation fails.
+- Why:
+  - Prevents runtime `Unable to create invite.` errors caused by schema drift in production.
