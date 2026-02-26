@@ -7,8 +7,40 @@ def _table_exists(schema_editor, table_name: str) -> bool:
     vendor = getattr(schema_editor.connection, "vendor", "")
     with schema_editor.connection.cursor() as cursor:
         if vendor == "postgresql":
-            cursor.execute("SELECT to_regclass(%s)", [table_name])
-            return cursor.fetchone()[0] is not None
+            # IMPORTANT: Do NOT use to_regclass(%s) with an unquoted identifier here.
+            # PostgreSQL folds unquoted identifiers to lower-case, while Django can
+            # create quoted mixed-case table names (e.g. "Prolean_externallivejoininvite").
+            # Instead, look up relname directly to preserve case.
+            schema = ""
+            relname = table_name
+            if "." in table_name:
+                schema, relname = table_name.split(".", 1)
+                schema = schema.strip().strip('"')
+                relname = relname.strip().strip('"')
+            if schema:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE c.relkind = 'r' AND n.nspname = %s AND c.relname = %s
+                    LIMIT 1
+                    """,
+                    [schema, relname],
+                )
+                return cursor.fetchone() is not None
+            cursor.execute(
+                """
+                SELECT 1
+                FROM pg_class c
+                WHERE c.relkind = 'r'
+                  AND c.relname = %s
+                  AND pg_table_is_visible(c.oid)
+                LIMIT 1
+                """,
+                [relname],
+            )
+            return cursor.fetchone() is not None
         if vendor == "sqlite":
             cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name = %s",
@@ -31,18 +63,20 @@ class CreateModelIfNotExists(migrations.CreateModel):
         model = to_state.apps.get_model(app_label, self.name)
         table = model._meta.db_table
         if _table_exists(schema_editor, table):
-            # Best-effort: add missing indexes without crashing deploy.
-            for idx in getattr(model._meta, "indexes", []) or []:
-                try:
-                    schema_editor.add_index(model, idx)
-                except Exception:
-                    pass
             return
         try:
             schema_editor.create_model(model)
         except Exception as exc:
+            # If a previous deploy already created the table, CREATE TABLE will fail.
+            # In PostgreSQL, that failure aborts the current transaction and will cause:
+            #   psycopg2.errors.InFailedSqlTransaction
+            # unless we explicitly rollback before continuing.
             msg = str(exc).lower()
             if "already exists" in msg or "duplicate" in msg:
+                try:
+                    schema_editor.connection.rollback()
+                except Exception:
+                    pass
                 return
             raise
 
