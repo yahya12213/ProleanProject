@@ -82,6 +82,7 @@ class CreateModelIfNotExists(migrations.CreateModel):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("Prolean", "0004_externallivestudentstat_hand_raised_seconds_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

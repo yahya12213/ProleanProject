@@ -94,6 +94,7 @@ def backwards(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("Prolean", "0005_external_live_join_invites"),
     ]
@@ -101,4 +102,3 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(forwards, backwards),
     ]
-
