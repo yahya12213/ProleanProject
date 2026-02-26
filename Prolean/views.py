@@ -201,6 +201,42 @@ def _parse_device_from_ua(user_agent: str) -> tuple[str, str, str]:
     return browser[:60], os_name[:60], device_type[:20]
 
 
+def _is_probably_link_preview(request) -> bool:
+    try:
+        method = str(getattr(request, "method", "") or "").upper()
+        if method not in {"GET", "HEAD"}:
+            return False
+        ua = str(request.META.get("HTTP_USER_AGENT", "") or "").lower()
+        accept = str(request.META.get("HTTP_ACCEPT", "") or "").lower()
+        purpose = str(request.META.get("HTTP_PURPOSE", "") or "").lower()
+        sec_purpose = str(request.META.get("HTTP_SEC_PURPOSE", "") or "").lower()
+        if "prefetch" in purpose or "prefetch" in sec_purpose:
+            return True
+        bot_tokens = (
+            "whatsapp",
+            "facebookexternalhit",
+            "facebot",
+            "twitterbot",
+            "slackbot",
+            "discordbot",
+            "telegrambot",
+            "skypeuripreview",
+            "linkedinbot",
+            "pinterest",
+            "embedly",
+            "crawler",
+            "spider",
+            "bot/",
+        )
+        if any(tok in ua for tok in bot_tokens):
+            return True
+        if accept and ("text/html" not in accept and "application/xhtml+xml" not in accept):
+            return True
+    except Exception:
+        return False
+    return False
+
+
 def _external_live_service_access_key() -> str:
     return "prolean:external_live_service_access"
 
@@ -3207,6 +3243,27 @@ def external_live_join_with_token(request, token):
     city = str((location_payload or {}).get("city") or "").strip()
     country = str((location_payload or {}).get("country") or "").strip()
     location_label = ", ".join([p for p in (city, country) if p])[:160]
+    if _is_probably_link_preview(request):
+        try:
+            ExternalLiveJoinAttempt.objects.create(
+                status="preview_bot",
+                ip_address=ip_address,
+                location=location_label,
+                user_agent=str(request.META.get("HTTP_USER_AGENT", "") or "")[:800],
+                detail="preview/prefetch",
+            )
+        except Exception:
+            pass
+        if str(getattr(request, "method", "") or "").upper() == "HEAD":
+            return HttpResponse("")
+        return HttpResponse(
+            "<!doctype html><html><head><meta charset='utf-8'/>"
+            "<meta name='robots' content='noindex,nofollow'/>"
+            "<title>Join live</title></head><body>Join live session</body></html>",
+            content_type="text/html; charset=utf-8",
+            status=200,
+        )
+
     allowed, remaining = RateLimiter.check_rate_limit(ip_address, "external_live_join_with_token", limit=20, period_minutes=1)
     if not allowed:
         try:
