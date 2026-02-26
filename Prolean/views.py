@@ -3235,9 +3235,19 @@ def external_live_join_with_token(request, token):
             except ContractError as exc:
                 detail = str(exc or "")
                 lowered = detail.lower()
-                # If the contract does not support /live/access yet, don't block joins.
+                # If the contract does not support /live/access yet, fail with a clear message.
                 if " 404" in lowered or "not found" in lowered or "cannot post" in lowered:
-                    live_state = None
+                    return render(
+                        request,
+                        "Prolean/live/join_link_message.html",
+                        {
+                            "title": "Live service update required",
+                            "message": "The live access endpoint is unavailable right now. Ask admin to redeploy Barka API, then try your join link again.",
+                            "cta_label": "Go to home",
+                            "cta_url": reverse("Prolean:home"),
+                        },
+                        status=503,
+                    )
                 else:
                     msg = "Access denied for this session. Verify your enrollment (CIN) with your professor."
                     if "access denied" in lowered or "not enrolled" in lowered or "enrolled" in lowered:
@@ -3358,11 +3368,18 @@ def external_live_room(request, session_id):
         payload = None
         last_exc = None
         if service_mode:
-            live_state = mgmt.get_session_live_state_for_student(
-                str(session_id),
-                student_cin=service_cin,
-                bearer_token=service_token,
-            )
+            try:
+                live_state = mgmt.get_session_live_state_for_student(
+                    str(session_id),
+                    student_cin=service_cin,
+                    bearer_token=service_token,
+                )
+            except ContractError as exc:
+                detail = str(exc or "")
+                lowered = detail.lower()
+                if " 404" in lowered or "not found" in lowered or "cannot post" in lowered:
+                    raise ContractError("Live access endpoint is unavailable. Ask admin to redeploy Barka API.")
+                raise
             if not isinstance(live_state, dict):
                 raise ContractError("Live is not available for this session yet.")
             payload = {"live": live_state, "role": "student"}
@@ -3482,7 +3499,10 @@ def external_live_room(request, session_id):
                 pass
             messages.warning(request, "Session expired. Please login again.")
             return redirect("Prolean:login")
-        messages.error(request, f"Unable to join live: {exc}")
+        text = str(exc or "")
+        if "/live/access" in text.lower() and ("cannot post" in text.lower() or "404" in text.lower()):
+            text = "Live access endpoint is unavailable. Ask admin to redeploy Barka API."
+        messages.error(request, f"Unable to join live: {text}")
         if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR":
             return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
         return redirect('Prolean:dashboard')
