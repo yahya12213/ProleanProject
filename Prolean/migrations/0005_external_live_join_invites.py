@@ -3,6 +3,50 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def _table_exists(schema_editor, table_name: str) -> bool:
+    vendor = getattr(schema_editor.connection, "vendor", "")
+    with schema_editor.connection.cursor() as cursor:
+        if vendor == "postgresql":
+            cursor.execute("SELECT to_regclass(%s)", [table_name])
+            return cursor.fetchone()[0] is not None
+        if vendor == "sqlite":
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name = %s",
+                [table_name],
+            )
+            return cursor.fetchone() is not None
+        if vendor == "mysql":
+            cursor.execute("SHOW TABLES LIKE %s", [table_name])
+            return cursor.fetchone() is not None
+    return False
+
+
+class CreateModelIfNotExists(migrations.CreateModel):
+    """
+    CreateModel variant that won't fail if the table already exists.
+    Useful for recovering from manual/previous schema changes in production.
+    """
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        table = model._meta.db_table
+        if _table_exists(schema_editor, table):
+            # Best-effort: add missing indexes without crashing deploy.
+            for idx in getattr(model._meta, "indexes", []) or []:
+                try:
+                    schema_editor.add_index(model, idx)
+                except Exception:
+                    pass
+            return
+        try:
+            schema_editor.create_model(model)
+        except Exception as exc:
+            msg = str(exc).lower()
+            if "already exists" in msg or "duplicate" in msg:
+                return
+            raise
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("Prolean", "0004_externallivestudentstat_hand_raised_seconds_and_more"),
@@ -10,7 +54,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
+        CreateModelIfNotExists(
             name="ExternalLiveJoinInvite",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
@@ -58,9 +102,14 @@ class Migration(migrations.Migration):
             ],
             options={
                 "ordering": ["-created_at"],
+                "indexes": [
+                    models.Index(fields=["session_id", "created_at"], name="Prolean_ext_session_created_idx"),
+                    models.Index(fields=["session_id", "student_cin"], name="Prolean_ext_session_cin_idx"),
+                    models.Index(fields=["session_id", "used_at"], name="Prolean_ext_session_used_idx"),
+                ],
             },
         ),
-        migrations.CreateModel(
+        CreateModelIfNotExists(
             name="ExternalLiveJoinAttempt",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
@@ -112,35 +161,12 @@ class Migration(migrations.Migration):
             ],
             options={
                 "ordering": ["-created_at"],
+                "indexes": [
+                    models.Index(fields=["session_id", "created_at"], name="Prolean_attempt_session_created_idx"),
+                    models.Index(fields=["ip_address", "created_at"], name="Prolean_attempt_ip_created_idx"),
+                    models.Index(fields=["token_hash", "created_at"], name="Prolean_attempt_token_created_idx"),
+                    models.Index(fields=["status", "created_at"], name="Prolean_attempt_status_created_idx"),
+                ],
             },
         ),
-        migrations.AddIndex(
-            model_name="externallivejoininvite",
-            index=models.Index(fields=["session_id", "created_at"], name="Prolean_ext_session_created_idx"),
-        ),
-        migrations.AddIndex(
-            model_name="externallivejoininvite",
-            index=models.Index(fields=["session_id", "student_cin"], name="Prolean_ext_session_cin_idx"),
-        ),
-        migrations.AddIndex(
-            model_name="externallivejoininvite",
-            index=models.Index(fields=["session_id", "used_at"], name="Prolean_ext_session_used_idx"),
-        ),
-        migrations.AddIndex(
-            model_name="externallivejoinattempt",
-            index=models.Index(fields=["session_id", "created_at"], name="Prolean_attempt_session_created_idx"),
-        ),
-        migrations.AddIndex(
-            model_name="externallivejoinattempt",
-            index=models.Index(fields=["ip_address", "created_at"], name="Prolean_attempt_ip_created_idx"),
-        ),
-        migrations.AddIndex(
-            model_name="externallivejoinattempt",
-            index=models.Index(fields=["token_hash", "created_at"], name="Prolean_attempt_token_created_idx"),
-        ),
-        migrations.AddIndex(
-            model_name="externallivejoinattempt",
-            index=models.Index(fields=["status", "created_at"], name="Prolean_attempt_status_created_idx"),
-        ),
     ]
-

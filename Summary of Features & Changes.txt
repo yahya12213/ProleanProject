@@ -517,3 +517,12 @@ Recent Entries
 - What changed:
   - Moderation mute now has server-side enforcement via status polling (works even if Agora data stream messaging fails).
   - Tracking now stores speaking duration and raised-hand duration per student (in minutes) in DB and displays it in `/professor/students/`.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Idempotent Migration for One-Click Join Tables
+- What changed:
+  - Updated migration `Prolean/migrations/0005_external_live_join_invites.py` to be safe when the tables already exist (e.g., earlier deploy attempts/manual schema changes).
+  - Moved the indexes into the `CreateModel` `options` and adds indexes best-effort when the table already exists.
+- Why:
+  - Railway deploys could fail with: `relation "Prolean_externallivejoininvite" already exists`.
+- Validation:
+  - Local test run (forcing SQLite): `DATABASE_PUBLIC_URL=unset DATABASE_URL=unset python manage.py test Prolean`.
