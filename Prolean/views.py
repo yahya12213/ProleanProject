@@ -3170,7 +3170,13 @@ def external_live_join_invite_regen(request, session_id):
             created_by=request.user,
             expires_at=expires_at,
         )
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "External live join invite creation failed (session_id=%s, cin=%s): %s",
+            session_id,
+            cin,
+            exc,
+        )
         return JsonResponse({"ok": False, "error": "Unable to create invite."}, status=500)
 
     join_url = request.build_absolute_uri(reverse("Prolean:external_live_join_with_token", kwargs={"token": raw}))
