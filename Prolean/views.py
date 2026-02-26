@@ -241,6 +241,10 @@ def _external_live_service_access_key() -> str:
     return "prolean:external_live_service_access"
 
 
+def _external_live_join_fallback_key(token_hash: str) -> str:
+    return f"prolean:external_live_join_fallback:{token_hash}"
+
+
 def _grant_external_live_service_access(request, session_id: str, *, cin: str, expires_at) -> None:
     try:
         store = request.session.get(_external_live_service_access_key()) or {}
@@ -3170,24 +3174,43 @@ def external_live_join_invite_regen(request, session_id):
 
     raw = secrets.token_urlsafe(32)
     token_hash = _hash_external_live_join_token(raw)
-    inv = ExternalLiveJoinInvite.objects.create(
-        session_id=session_id,
-        student_cin=cin,
-        student_name=student_name,
-        student_email=student_email,
-        student_phone=student_phone,
-        token_hash=token_hash,
-        created_by=request.user,
-        expires_at=expires_at,
-    )
+    inv = None
+    used_fallback = False
+    try:
+        inv = ExternalLiveJoinInvite.objects.create(
+            session_id=session_id,
+            student_cin=cin,
+            student_name=student_name,
+            student_email=student_email,
+            student_phone=student_phone,
+            token_hash=token_hash,
+            created_by=request.user,
+            expires_at=expires_at,
+        )
+    except Exception as exc:
+        logger.warning("Join invite DB create failed, using cache fallback: %s", exc)
+        used_fallback = True
+        cache.set(
+            _external_live_join_fallback_key(token_hash),
+            {
+                "session_id": session_id,
+                "student_cin": cin,
+                "student_name": student_name,
+                "student_email": student_email,
+                "student_phone": student_phone,
+                "expires_at": expires_at.isoformat(),
+            },
+            timeout=ttl_seconds,
+        )
     join_url = request.build_absolute_uri(reverse("Prolean:external_live_join_with_token", kwargs={"token": raw}))
     return JsonResponse(
         {
             "ok": True,
             "join_url": join_url,
-            "expires_at": inv.expires_at.isoformat(),
+            "expires_at": (inv.expires_at.isoformat() if inv else expires_at.isoformat()),
             "session_id": session_id,
             "student_cin": cin,
+            "tracking": ("db" if not used_fallback else "cache"),
         }
     )
 
@@ -3317,6 +3340,7 @@ def external_live_join_with_token(request, token):
     browser, os_name, device_type = _parse_device_from_ua(user_agent)
 
     inv = None
+    fallback_entry = None
     user = None
     cin = ""
     session_id = ""
@@ -3324,99 +3348,169 @@ def external_live_join_with_token(request, token):
     with transaction.atomic():
         inv = ExternalLiveJoinInvite.objects.select_for_update().filter(token_hash=token_hash).first()
         if not inv:
-            try:
-                ExternalLiveJoinAttempt.objects.create(
-                    status="invalid",
-                    token_hash=token_hash,
-                    ip_address=ip_address,
-                    location=location_label,
-                    user_agent=user_agent,
-                    detail="not_found",
+            fallback_entry = cache.get(_external_live_join_fallback_key(token_hash))
+            if not isinstance(fallback_entry, dict):
+                try:
+                    ExternalLiveJoinAttempt.objects.create(
+                        status="invalid",
+                        token_hash=token_hash,
+                        ip_address=ip_address,
+                        location=location_label,
+                        user_agent=user_agent,
+                        detail="not_found",
+                    )
+                except Exception:
+                    pass
+                return render(
+                    request,
+                    "Prolean/live/join_link_message.html",
+                    {
+                        "title": "Invalid or expired link",
+                        "message": "This join link is invalid or expired. Ask your professor to regenerate it.",
+                        "cta_label": "Go to home",
+                        "cta_url": reverse("Prolean:home"),
+                    },
+                    status=400,
                 )
-            except Exception:
-                pass
-            return render(
-                request,
-                "Prolean/live/join_link_message.html",
-                {
-                    "title": "Invalid or expired link",
-                    "message": "This join link is invalid or expired. Ask your professor to regenerate it.",
-                    "cta_label": "Go to home",
-                    "cta_url": reverse("Prolean:home"),
-                },
-                status=400,
-            )
 
-        cin = _norm_cin(inv.student_cin)
-        session_id = str(inv.session_id or "").strip()
-        expires_at = inv.expires_at
-        if inv.revoked_at:
-            status = "revoked"
-            message = "This join link was revoked. Ask your professor to regenerate it."
-            title = "Link revoked"
-        elif inv.expires_at and inv.expires_at <= now:
-            status = "expired"
-            message = "This join link is expired. Ask your professor to regenerate it."
-            title = "Link expired"
-        elif inv.used_at:
-            status = "used"
-            message = "This join link was already used. Ask your professor to regenerate it."
-            title = "Link already used"
-        elif not cin:
-            status = "error"
-            message = "This join link is invalid. Ask your professor to regenerate it."
-            title = "Invalid link"
-        else:
-            status = ""
-
-        if status:
-            try:
-                ExternalLiveJoinAttempt.objects.create(
-                    invite=inv,
-                    status=status,
-                    session_id=session_id,
-                    student_cin=inv.student_cin,
-                    user=inv.user,
-                    token_hash=token_hash,
-                    ip_address=ip_address,
-                    location=location_label,
-                    user_agent=user_agent,
+            used_once_key = f"{_external_live_join_fallback_key(token_hash)}:used"
+            first_use = cache.add(used_once_key, "1", timeout=max(60, _external_live_one_click_ttl_seconds()))
+            if not first_use:
+                return render(
+                    request,
+                    "Prolean/live/join_link_message.html",
+                    {
+                        "title": "Link already used",
+                        "message": "This join link was already used. Ask your professor to regenerate it.",
+                        "cta_label": "Go to home",
+                        "cta_url": reverse("Prolean:home"),
+                    },
+                    status=400,
                 )
-            except Exception:
-                pass
-            return render(
-                request,
-                "Prolean/live/join_link_message.html",
-                {
-                    "title": title,
-                    "message": message,
-                    "cta_label": "Go to home",
-                    "cta_url": reverse("Prolean:home"),
-                },
-                status=400,
-            )
 
-        user = inv.user
-        if not user:
+            cin = _norm_cin(fallback_entry.get("student_cin"))
+            session_id = str(fallback_entry.get("session_id") or "").strip()
+            exp_raw = str(fallback_entry.get("expires_at") or "").strip()
+            if exp_raw:
+                try:
+                    expires_at = timezone.datetime.fromisoformat(exp_raw)
+                    if timezone.is_naive(expires_at):
+                        expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
+                except Exception:
+                    expires_at = now + timedelta(seconds=_external_live_one_click_ttl_seconds())
+            else:
+                expires_at = now + timedelta(seconds=_external_live_one_click_ttl_seconds())
+            if not cin or not session_id or (expires_at and expires_at <= now):
+                return render(
+                    request,
+                    "Prolean/live/join_link_message.html",
+                    {
+                        "title": "Invalid or expired link",
+                        "message": "This join link is invalid or expired. Ask your professor to regenerate it.",
+                        "cta_label": "Go to home",
+                        "cta_url": reverse("Prolean:home"),
+                    },
+                    status=400,
+                )
             user, _ = User.objects.get_or_create(username=cin)
-            if inv.student_email and not user.email:
-                user.email = inv.student_email
+            student_name_fb = str(fallback_entry.get("student_name") or "").strip()[:120]
+            student_email_fb = str(fallback_entry.get("student_email") or "").strip()[:254]
+            student_phone_fb = str(fallback_entry.get("student_phone") or "").strip()[:50]
+            if student_email_fb and not user.email:
+                user.email = student_email_fb
                 user.save(update_fields=["email"])
             try:
                 profile = user.profile
                 profile.role = "STUDENT"
                 profile.status = "ACTIVE"
-                if inv.student_name:
-                    profile.full_name = inv.student_name
+                if student_name_fb:
+                    profile.full_name = student_name_fb
                 if not profile.cin_or_passport:
                     profile.cin_or_passport = cin
-                if inv.student_phone and not profile.phone_number:
-                    profile.phone_number = inv.student_phone
+                if student_phone_fb and not profile.phone_number:
+                    profile.phone_number = student_phone_fb
                 profile.save()
             except Exception:
                 pass
-            inv.user = user
-            inv.save(update_fields=["user"])
+            cache.delete(_external_live_join_fallback_key(token_hash))
+            inv = None
+            # Skip DB-backed state checks below for fallback mode.
+            status = ""
+            message = ""
+            title = ""
+            pass
+
+        if inv:
+            cin = _norm_cin(inv.student_cin)
+            session_id = str(inv.session_id or "").strip()
+            expires_at = inv.expires_at
+            if inv.revoked_at:
+                status = "revoked"
+                message = "This join link was revoked. Ask your professor to regenerate it."
+                title = "Link revoked"
+            elif inv.expires_at and inv.expires_at <= now:
+                status = "expired"
+                message = "This join link is expired. Ask your professor to regenerate it."
+                title = "Link expired"
+            elif inv.used_at:
+                status = "used"
+                message = "This join link was already used. Ask your professor to regenerate it."
+                title = "Link already used"
+            elif not cin:
+                status = "error"
+                message = "This join link is invalid. Ask your professor to regenerate it."
+                title = "Invalid link"
+            else:
+                status = ""
+
+            if status:
+                try:
+                    ExternalLiveJoinAttempt.objects.create(
+                        invite=inv,
+                        status=status,
+                        session_id=session_id,
+                        student_cin=inv.student_cin,
+                        user=inv.user,
+                        token_hash=token_hash,
+                        ip_address=ip_address,
+                        location=location_label,
+                        user_agent=user_agent,
+                    )
+                except Exception:
+                    pass
+                return render(
+                    request,
+                    "Prolean/live/join_link_message.html",
+                    {
+                        "title": title,
+                        "message": message,
+                        "cta_label": "Go to home",
+                        "cta_url": reverse("Prolean:home"),
+                    },
+                    status=400,
+                )
+
+            user = inv.user
+            if not user:
+                user, _ = User.objects.get_or_create(username=cin)
+                if inv.student_email and not user.email:
+                    user.email = inv.student_email
+                    user.save(update_fields=["email"])
+                try:
+                    profile = user.profile
+                    profile.role = "STUDENT"
+                    profile.status = "ACTIVE"
+                    if inv.student_name:
+                        profile.full_name = inv.student_name
+                    if not profile.cin_or_passport:
+                        profile.cin_or_passport = cin
+                    if inv.student_phone and not profile.phone_number:
+                        profile.phone_number = inv.student_phone
+                    profile.save()
+                except Exception:
+                    pass
+                inv.user = user
+                inv.save(update_fields=["user"])
 
     # Access check before consuming token to avoid burning link on denied access.
     mgmt = ManagementContractClient()
