@@ -1867,7 +1867,7 @@ def dashboard(request):
                 external_formations = []
                 external_pending_assignment = True
     except Exception as exc:
-        if (not service_mode) and _is_barka_token_expired(exc):
+        if _is_barka_token_expired(exc):
             try:
                 request.session.pop("barka_token", None)
                 request.session.pop("barka_permissions", None)
@@ -1927,13 +1927,13 @@ def dashboard(request):
     if external_authority_mode and isinstance(external_formations, list) and external_formations:
         try:
             token = request.session.get("barka_token")
+            mgmt = ManagementContractClient()
+            session_ids = {
+                str(row.get("session_id")).strip()
+                for row in external_formations
+                if isinstance(row, dict) and row.get("session_id")
+            }
             if isinstance(token, str) and token.strip():
-                mgmt = ManagementContractClient()
-                session_ids = {
-                    str(row.get("session_id")).strip()
-                    for row in external_formations
-                    if isinstance(row, dict) and row.get("session_id")
-                }
                 for session_id in session_ids:
                     try:
                         state = mgmt.get_session_live_state(session_id, bearer_token=token.strip())
@@ -1942,9 +1942,28 @@ def dashboard(request):
                         else:
                             logger.info("External live state for session %s is empty/not live", session_id)
                     except Exception as exc:
-                        # Keep dashboard resilient even if one session state fails.
                         logger.warning("Failed to resolve live state for session %s: %s", session_id, exc)
                         continue
+            else:
+                service_token = str(mgmt.get_service_bearer_token() or "").strip()
+                cin_default = str(getattr(request.user, "username", "") or "").strip().upper()
+                if service_token and cin_default:
+                    for session_id in session_ids:
+                        try:
+                            cin_hint, _exp = _get_external_live_service_access(request, session_id)
+                            cin = str(cin_hint or cin_default).strip().upper()
+                            state = mgmt.get_session_live_state_for_student(
+                                session_id,
+                                student_cin=cin,
+                                bearer_token=service_token,
+                            )
+                            if isinstance(state, dict):
+                                external_live_states[session_id] = state
+                            else:
+                                logger.info("External live state for session %s is empty/not live (service mode)", session_id)
+                        except Exception as exc:
+                            logger.warning("Failed to resolve live state for session %s (service mode): %s", session_id, exc)
+                            continue
         except Exception as exc:
             logger.error("Could not resolve external live states for student dashboard: %s", exc)
 

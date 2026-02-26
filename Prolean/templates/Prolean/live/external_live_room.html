@@ -1587,11 +1587,36 @@
         dataStreamId = null;
       }
       mainClient.enableAudioVolumeIndicator();
-      localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
-      localCamTrack = await AgoraRTC.createCameraVideoTrack();
-      await mainClient.publish([localMicTrack, localCamTrack]);
-      addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
+      const tracksToPublish = [];
+      let mediaWarning = "";
+      try {
+        localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        tracksToPublish.push(localMicTrack);
+      } catch (micErr) {
+        localMicTrack = null;
+        mediaWarning = "Microphone is unavailable. You joined without mic.";
+      }
+      try {
+        localCamTrack = await AgoraRTC.createCameraVideoTrack();
+        tracksToPublish.push(localCamTrack);
+        addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
+      } catch (camErr) {
+        localCamTrack = null;
+        const camText = String(camErr?.message || camErr || "").toLowerCase();
+        if (camText.includes("notreadable")) {
+          mediaWarning = "Camera is busy or blocked by another app. You joined without camera.";
+        } else {
+          mediaWarning = "Camera is unavailable. You joined without camera.";
+        }
+      }
+      if (!tracksToPublish.length) {
+        throw new Error("Unable to access microphone and camera on this device.");
+      }
+      await mainClient.publish(tracksToPublish);
       setStatus("Connected", "ok");
+      if (mediaWarning) {
+        showError(mediaWarning);
+      }
       syncControlStates();
       rerender();
       try {
