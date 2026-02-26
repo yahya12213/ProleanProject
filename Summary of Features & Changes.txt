@@ -34,6 +34,10 @@ Recent Entries
 - Validation:
   - Updated Django tests to cover signed link generation/reuse and invalid-token throttling.
 
+[2026-02-26 UTC] Area: Barka + Prolean | Type: Fix/Join Link Access Check
+- Added missing Barka endpoint `POST /api/sessions-formation/:id/live/access` to validate enrollment by CIN for service-mode joins.
+- Prolean join-link page now shows correct reasons (not enrolled vs live not started vs upstream down) instead of generic access denied.
+
 [2026-02-26 UTC] Area: Prolean | Type: Feature/Security
 - Added secure one-click join links for external live sessions (Barka):
   - Professor can generate a one-time, time-limited link per student (by CIN) from `/professor/students/`.

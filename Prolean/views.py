@@ -3197,7 +3197,7 @@ def external_live_join_with_token(request, token):
     now = timezone.now()
     expires_at = now + timedelta(seconds=_external_live_one_click_ttl_seconds())
 
-    # Optional access check (prevents burning the link if the student isn't allowed).
+    # Optional access check (best-effort; depends on Barka supporting /live/access).
     mgmt = ManagementContractClient()
     if mgmt.is_configured():
         service_token = str(mgmt.get_service_bearer_token() or "").strip()
@@ -3208,9 +3208,52 @@ def external_live_join_with_token(request, token):
                     student_cin=cin,
                     bearer_token=service_token,
                 )
-                if not isinstance(live_state, dict):
-                    raise ContractError("Live is not available for this session yet.")
-            except Exception as exc:
+                if live_state is None:
+                    return render(
+                        request,
+                        "Prolean/live/join_link_message.html",
+                        {
+                            "title": "Live not started",
+                            "message": "No live stream is active for this session yet. Ask your professor to start the live, then try again.",
+                            "cta_label": "Go to home",
+                            "cta_url": reverse("Prolean:home"),
+                        },
+                        status=404,
+                    )
+            except UpstreamUnavailable:
+                return render(
+                    request,
+                    "Prolean/live/join_link_message.html",
+                    {
+                        "title": "Live temporarily unavailable",
+                        "message": "The live authority service is temporarily unavailable. Please try again in a moment.",
+                        "cta_label": "Go to home",
+                        "cta_url": reverse("Prolean:home"),
+                    },
+                    status=503,
+                )
+            except ContractError as exc:
+                detail = str(exc or "")
+                lowered = detail.lower()
+                # If the contract does not support /live/access yet, don't block joins.
+                if " 404" in lowered or "not found" in lowered or "cannot post" in lowered:
+                    live_state = None
+                else:
+                    msg = "Access denied for this session. Verify your enrollment (CIN) with your professor."
+                    if "access denied" in lowered or "not enrolled" in lowered or "enrolled" in lowered:
+                        msg = "You are not enrolled in this session (CIN mismatch or not assigned). Ask your professor to verify your enrollment."
+                    return render(
+                        request,
+                        "Prolean/live/join_link_message.html",
+                        {
+                            "title": "Unable to join live",
+                            "message": msg,
+                            "cta_label": "Go to home",
+                            "cta_url": reverse("Prolean:home"),
+                        },
+                        status=403,
+                    )
+            except Exception:
                 return render(
                     request,
                     "Prolean/live/join_link_message.html",
