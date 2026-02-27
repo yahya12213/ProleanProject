@@ -831,25 +831,6 @@
                 }
             }
 
-            function askForLocationPermission(message) {
-                const msg = String(message || 'Please enable location to show your exact city.');
-                if (window.Swal && typeof window.Swal.fire === 'function') {
-                    window.Swal.fire({
-                        icon: 'info',
-                        title: 'Enable Location',
-                        text: msg,
-                        showCancelButton: true,
-                        confirmButtonText: 'Try Again',
-                        cancelButtonText: 'Not now',
-                        confirmButtonColor: '#10b981'
-                    }).then((res) => {
-                        if (res.isConfirmed && window.requestProleanGpsLocation) {
-                            window.requestProleanGpsLocation(true);
-                        }
-                    });
-                }
-            }
-
             const sendBrowserLocation = (position) => {
                 const coords = position && position.coords ? position.coords : null;
                 if (!coords) return;
@@ -882,12 +863,6 @@
                     sendBrowserLocation,
                     (err) => {
                         setLocationLoadingState('Location off');
-                        const code = Number(err && err.code);
-                        if (code === 1) {
-                            askForLocationPermission('Location is blocked. Please allow location access in your browser.');
-                        } else {
-                            askForLocationPermission('Unable to detect your exact location. Please allow location access and try again.');
-                        }
                     },
                     { enableHighAccuracy: true, timeout: 12000, maximumAge: 10 * 60 * 1000 }
                 );
