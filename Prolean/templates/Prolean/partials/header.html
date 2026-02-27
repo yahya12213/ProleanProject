@@ -54,8 +54,8 @@
                     <span class="material-symbols-outlined text-[18px] leading-none text-slate-600 dark:text-slate-300">currency_exchange</span>
                     <span class="current-currency">MAD</span>
                     <span class="text-slate-400 dark:text-slate-500">•</span>
-                    <span id="currency-location-label" class="max-w-[90px] truncate text-xs font-black {% if 'browser_gps' in user_location.source|default:'' %}text-emerald-600 dark:text-emerald-400{% else %}text-amber-600 dark:text-amber-400{% endif %}">
-                        {{ user_location.city|default:'Casablanca' }}
+                    <span id="currency-location-label" class="max-w-[90px] truncate text-xs font-black text-slate-500 dark:text-slate-400 animate-pulse">
+                        Locating...
                     </span>
                     <span class="material-symbols-outlined text-base leading-none text-slate-500 dark:text-slate-400">expand_more</span>
                 </button>
@@ -231,8 +231,8 @@
                                 <span class="currency-indicator">MAD</span>
                                 <span>- Dirham</span>
                                 <span class="text-neutral-400">•</span>
-                                <span id="mobile-currency-location-label" class="max-w-[90px] truncate text-xs font-black {% if 'browser_gps' in user_location.source|default:'' %}text-emerald-500{% else %}text-amber-500{% endif %}">
-                                    {{ user_location.city|default:'Casablanca' }}
+                                <span id="mobile-currency-location-label" class="max-w-[90px] truncate text-xs font-black text-neutral-400 animate-pulse">
+                                    Locating...
                                 </span>
                             </span>
                             <span class="material-symbols-outlined text-base leading-none">expand_more</span>

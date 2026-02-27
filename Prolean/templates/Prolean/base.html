@@ -799,19 +799,35 @@
             }
 
             function setLocationBadge(city, source) {
-                const fromGps = String(source || '').startsWith('browser_gps');
                 const currencyLocation = document.getElementById('currency-location-label');
                 const mobileCurrencyLocation = document.getElementById('mobile-currency-location-label');
                 if (currencyLocation && city) {
                     currencyLocation.textContent = city;
+                    currencyLocation.classList.remove('animate-pulse');
                     currencyLocation.classList.remove('text-emerald-600', 'dark:text-emerald-400', 'text-amber-600', 'dark:text-amber-400');
-                    currencyLocation.classList.add(fromGps ? 'text-emerald-600' : 'text-amber-600');
-                    currencyLocation.classList.add(fromGps ? 'dark:text-emerald-400' : 'dark:text-amber-400');
+                    currencyLocation.classList.add('text-emerald-600', 'dark:text-emerald-400');
                 }
                 if (mobileCurrencyLocation && city) {
                     mobileCurrencyLocation.textContent = city;
+                    mobileCurrencyLocation.classList.remove('animate-pulse');
                     mobileCurrencyLocation.classList.remove('text-emerald-500', 'text-amber-500');
-                    mobileCurrencyLocation.classList.add(fromGps ? 'text-emerald-500' : 'text-amber-500');
+                    mobileCurrencyLocation.classList.add('text-emerald-500');
+                }
+            }
+
+            function setLocationLoadingState(label) {
+                const text = String(label || 'Locating...');
+                const currencyLocation = document.getElementById('currency-location-label');
+                const mobileCurrencyLocation = document.getElementById('mobile-currency-location-label');
+                if (currencyLocation) {
+                    currencyLocation.textContent = text;
+                    currencyLocation.classList.remove('text-emerald-600', 'dark:text-emerald-400');
+                    currencyLocation.classList.add('text-slate-500', 'dark:text-slate-400', 'animate-pulse');
+                }
+                if (mobileCurrencyLocation) {
+                    mobileCurrencyLocation.textContent = text;
+                    mobileCurrencyLocation.classList.remove('text-emerald-500');
+                    mobileCurrencyLocation.classList.add('text-neutral-400', 'animate-pulse');
                 }
             }
 
@@ -845,12 +861,15 @@
                 if (!window.isSecureContext || !navigator.geolocation || shouldSkip) return;
                 navigator.geolocation.getCurrentPosition(
                     sendBrowserLocation,
-                    () => {},
+                    () => {
+                        setLocationLoadingState('Location off');
+                    },
                     { enableHighAccuracy: true, timeout: 12000, maximumAge: 10 * 60 * 1000 }
                 );
             };
 
             if (window.requestProleanGpsLocation) {
+                setLocationLoadingState('Locating...');
                 window.requestProleanGpsLocation(true);
                 setInterval(() => window.requestProleanGpsLocation(false), ttlMs);
             }
