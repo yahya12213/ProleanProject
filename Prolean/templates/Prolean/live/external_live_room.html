@@ -101,6 +101,7 @@
         padding: 10px;
         opacity: 0.72;
         mix-blend-mode: screen;
+        overflow: hidden;
     }
     .presenter-room[data-ui-theme="light"] .watermark { mix-blend-mode: multiply; opacity: 0.55; }
     .wm-chip {
@@ -125,6 +126,20 @@
     }
     .wm-chip .small { font-size: 9px; opacity: 0.85; letter-spacing: 0.10em; }
     .wm-chip.right { align-items: flex-end; max-width: 48%; }
+    .wm-float-left { animation: wmFloatLeft 5.8s ease-in-out infinite; }
+    .wm-float-right { animation: wmFloatRight 6.4s ease-in-out infinite; }
+    @keyframes wmFloatLeft {
+        0% { transform: translate3d(0, 0, 0); }
+        35% { transform: translate3d(8px, -5px, 0); }
+        70% { transform: translate3d(-5px, 4px, 0); }
+        100% { transform: translate3d(0, 0, 0); }
+    }
+    @keyframes wmFloatRight {
+        0% { transform: translate3d(0, 0, 0); }
+        40% { transform: translate3d(-9px, 4px, 0); }
+        75% { transform: translate3d(5px, -5px, 0); }
+        100% { transform: translate3d(0, 0, 0); }
+    }
 
     .mod-drawer {
         position: fixed;
@@ -856,6 +871,7 @@
   const liveRole = String("{{ live_role|escapejs }}").toLowerCase();
   const isProfessor = liveRole === "professor";
   const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
+  const selfCin = "{{ user.profile.cin_or_passport|default:''|escapejs }}";
   const professorNameHint = "{{ professor_name_hint|default:'Professor'|escapejs }}";
 
   const roomRoot = document.getElementById("room-root");
@@ -909,6 +925,7 @@
   const SCREEN_UID_OFFSET = 1000;
 
   const participantLabels = new Map();
+  const participantCins = new Map();
   const videoTracks = new Map();
   const audioTracks = new Map();
   const speakingIds = new Set();
@@ -925,6 +942,7 @@
   let hasJoined = false;
   let exiting = false;
   let warnedNoDataStream = false;
+  let helloIntervalId = null;
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
   const isMobileViewport = () => window.matchMedia("(max-width: 1100px)").matches;
@@ -936,6 +954,11 @@
   const normalizeSource = (source) => String(source || "camera");
   const isScreenShare = (source) => normalizeSource(source).startsWith("screen_share");
   const initials = (label) => (String(label || "U").trim()[0] || "U").toUpperCase();
+  const normalizeCin = (value) => String(value || "").trim().toUpperCase();
+  const cinLabel = (identity) => {
+    const cin = participantCins.get(String(identity));
+    return cin ? `CIN ${cin}` : "CIN N/A";
+  };
 
   const setStatus = (txt, kind = "warn") => {
     const style = {
@@ -1066,11 +1089,11 @@
     const wm = document.createElement("div");
     wm.className = "watermark";
     wm.innerHTML = `
-      <div class="wm-chip">
+      <div class="wm-chip wm-float-left">
         <div>${String(label || "").slice(0, 80)}</div>
-        <div class="small">ID ${String(data?.identity || "")}</div>
+        <div class="small">${cinLabel(data?.identity || "")}</div>
       </div>
-      <div class="wm-chip right">
+      <div class="wm-chip right wm-float-right">
         <div class="wm-ts">--:--:--</div>
         <div class="small">prolean</div>
       </div>
@@ -1078,7 +1101,8 @@
     media.appendChild(wm);
     const footer = document.createElement("div");
     footer.className = "student-label";
-    footer.textContent = label;
+    const labelCin = cinLabel(data?.identity || "");
+    footer.textContent = `${label}${labelCin !== "CIN N/A" ? ` · ${labelCin}` : ""}`;
     host.appendChild(footer);
   };
 
@@ -1218,11 +1242,11 @@
         const wm = document.createElement("div");
         wm.className = "watermark";
         wm.innerHTML = `
-          <div class="wm-chip">
+          <div class="wm-chip wm-float-left">
             <div>${String(student.name || "").slice(0, 80)}</div>
-            <div class="small">ID ${String(student.id || "")}</div>
+            <div class="small">${cinLabel(student.id || "")}</div>
           </div>
-          <div class="wm-chip right">
+          <div class="wm-chip right wm-float-right">
             <div class="wm-ts">--:--:--</div>
             <div class="small">prolean</div>
           </div>
@@ -1268,7 +1292,8 @@
       }
       const footer = document.createElement("div");
       footer.className = "student-label";
-      footer.textContent = student.name;
+      const studentCin = cinLabel(student.id || "");
+      footer.textContent = `${student.name}${studentCin !== "CIN N/A" ? ` · ${studentCin}` : ""}`;
       card.appendChild(footer);
       grid.appendChild(card);
     }
@@ -1433,6 +1458,10 @@
   const forceExit = async (reason) => {
     if (exiting) return;
     exiting = true;
+    if (helloIntervalId) {
+      clearInterval(helloIntervalId);
+      helloIntervalId = null;
+    }
     try { await stopScreenShare(); } catch (_) {}
     try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
     try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
@@ -1472,6 +1501,11 @@
         await mainClient.sendStreamMessage(dataStreamId, raw);
       }
     } catch (_) {}
+  };
+  const sendHelloSignal = async () => {
+    const helloName = selfName || (isProfessor ? (professorNameHint || "Professor") : "You");
+    const helloCin = normalizeCin(selfCin);
+    await sendRoomSignal({ t: "hello", uid: String(agoraUid), name: helloName, cin: helloCin });
   };
 
   const eventUrl = "{% url 'Prolean:external_live_event_log' session_id %}";
@@ -1595,7 +1629,7 @@
       name.textContent = s.name || `Student ${s.id}`;
       const meta = document.createElement("div");
       meta.className = "meta";
-      meta.textContent = `ID ${s.id}`;
+      meta.textContent = cinLabel(s.id);
       left.appendChild(name);
       left.appendChild(meta);
 
@@ -1648,6 +1682,8 @@
     setStatus(uiText.connecting, "warn");
     try {
       participantLabels.set(String(agoraUid), selfName || (isProfessor ? "Professor" : "You"));
+      const ownCin = normalizeCin(selfCin);
+      if (ownCin) participantCins.set(String(agoraUid), ownCin);
       await mainClient.join(agoraAppId, agoraChannel, agoraToken, agoraUid);
       hasJoined = true;
       try {
@@ -1689,9 +1725,11 @@
       syncControlStates();
       rerender();
       try {
-        const helloName = selfName || (isProfessor ? (professorNameHint || "Professor") : "You");
-        await sendRoomSignal({ t: "hello", uid: String(agoraUid), name: helloName });
+        await sendHelloSignal();
       } catch (_) {}
+      if (!helloIntervalId) {
+        helloIntervalId = setInterval(() => { sendHelloSignal().catch(() => {}); }, 20000);
+      }
       try {
         document.addEventListener("contextmenu", (e) => { e.preventDefault(); }, { capture: true });
         document.addEventListener("keydown", (e) => {
@@ -1727,7 +1765,9 @@
     if (type === "hello") {
       const who = String(payload.uid || uid || "");
       const name = String(payload.name || "").trim();
+      const cin = normalizeCin(payload.cin || "");
       if (who && name) participantLabels.set(who, name.slice(0, 80));
+      if (who && cin) participantCins.set(who, cin.slice(0, 50));
       if (isProfessor && who && !isProfessorLike(who)) {
         const stat = getOrInitStat(who);
         if (name) stat.name = name.slice(0, 80);
@@ -1848,6 +1888,7 @@
   mainClient.on("user-joined", (user) => {
     const uid = String(user.uid);
     if (!participantLabels.has(uid)) participantLabels.set(uid, `Student ${uid}`);
+    sendHelloSignal().catch(() => {});
     if (isProfessor && !isProfessorLike(uid)) {
       const stat = getOrInitStat(uid);
       stat.online = true;
@@ -1885,6 +1926,7 @@
     removeVideoTracksByIdentity(uid);
     audioTracks.delete(uid);
     participantLabels.delete(uid);
+    participantCins.delete(uid);
     speakingIds.delete(uid);
     raisedHands.delete(uid);
     rerender();
