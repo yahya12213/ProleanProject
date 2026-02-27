@@ -26,7 +26,7 @@
                 <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if '/formations/' in request.path %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
                    href="{% url 'Prolean:training_catalog' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„ØªÙƒÙˆÙŠÙ†Ø§Øª{% elif CURRENT_LANGUAGE == 'en' %}Trainings{% else %}Formations{% endif %}</a>
                 <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if '/migration/' in request.path %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
-                   href="{% url 'Prolean:migration_services' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</a>
+                   href="{% url 'Prolean:migration_services' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Imigration{% else %}Imigration{% endif %}</a>
                 <a class="px-3 py-2 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 {% if '/centres-contact/' in request.path %}active-nav bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white{% endif %}" 
                    href="{% url 'Prolean:contact_centers' %}">{% if CURRENT_LANGUAGE == 'ar' %}Ø§ØªØµÙ„ Ø¨Ù†Ø§{% elif CURRENT_LANGUAGE == 'en' %}Contact{% else %}Contact{% endif %}</a>
             </nav>
@@ -215,7 +215,7 @@
                 </a>
                 <a class="mobile-menu-link {% if '/migration/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:migration_services' %}">
                     <span class="material-symbols-outlined">flight_takeoff</span>
-                    <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Migration{% else %}Migration{% endif %}</span>
+                    <span>{% if CURRENT_LANGUAGE == 'ar' %}Ø§Ù„Ù‡Ø¬Ø±Ø©{% elif CURRENT_LANGUAGE == 'en' %}Imigration{% else %}Imigration{% endif %}</span>
                 </a>
                 <a class="mobile-menu-link {% if '/centres-contact/' in request.path %}active-nav{% endif %}" href="{% url 'Prolean:contact_centers' %}">
                     <span class="material-symbols-outlined">support_agent</span>

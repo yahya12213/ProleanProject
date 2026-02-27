@@ -152,6 +152,21 @@ def get_location_from_ip(ip_address):
     cache.set(cache_key, default_location, timeout=300)
     return default_location
 
+
+def get_location_from_request(request):
+    """Prefer browser GPS+OSM location stored in session, fallback to IP-based lookup."""
+    try:
+        session_location = request.session.get('browser_geo_location')
+        if isinstance(session_location, dict):
+            city = str(session_location.get('city') or '').strip()
+            country = str(session_location.get('country') or '').strip()
+            if city and country:
+                return session_location
+    except Exception:
+        pass
+    ip_address = get_client_ip(request)
+    return get_location_from_ip(ip_address)
+
 def currency_rates(request):
     """Add currency rates to context"""
     rates = {}
@@ -178,8 +193,7 @@ def currency_rates(request):
 
 def user_location(request):
     """Add user location to context"""
-    ip_address = get_client_ip(request)
-    location = get_location_from_ip(ip_address)
+    location = get_location_from_request(request)
     
     return {
         'user_location': location,

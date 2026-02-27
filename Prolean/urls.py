@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/track-click/", views.track_click_event, name="track_click_event"),
     path("api/track-call/", views.track_phone_call, name="track_phone_call"),
     path("api/track-whatsapp/", views.track_whatsapp_click, name="track_whatsapp_click"),
+    path("api/location/browser/", views.browser_location_update, name="browser_location_update"),
     path("api/training/<int:training_id>/reviews/", views.get_training_reviews, name="get_training_reviews"),
     path("api/review/helpful/", views.mark_review_helpful, name="mark_review_helpful"),
     path("api/dashboard/updates/", views.check_updates_ajax, name="check_updates_ajax"),

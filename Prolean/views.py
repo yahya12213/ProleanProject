@@ -41,7 +41,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import translation
 from django.utils.http import url_has_allowed_host_and_scheme
-from .context_processors import get_client_ip, get_location_from_ip
+from .context_processors import get_client_ip, get_location_from_ip, get_location_from_request
 from .presence import touch_user_presence, get_online_students
 import uuid
 
@@ -528,7 +528,7 @@ from .models import (
     CompanyBankAccount, TrainingPreSubscription
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm
-from .context_processors import get_client_ip, get_location_from_ip
+from .context_processors import get_client_ip, get_location_from_ip, get_location_from_request
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -1426,7 +1426,7 @@ def track_click_event(request):
             return JsonResponse({'success': False})
         
         ip_address = get_client_ip(request)
-        user_location = get_location_from_ip(ip_address)
+        user_location = get_location_from_request(request)
         
         ClickEvent.objects.create(
             element_type=data.get('element_type', 'button'),
@@ -1455,7 +1455,7 @@ def track_phone_call(request):
             return JsonResponse({'success': False})
         
         ip_address = get_client_ip(request)
-        user_location = get_location_from_ip(ip_address)
+        user_location = get_location_from_request(request)
         
         PhoneCall.objects.create(
             phone_number=data.get('phone_number', ''),
@@ -1483,7 +1483,7 @@ def track_whatsapp_click(request):
             return JsonResponse({'success': False})
         
         ip_address = get_client_ip(request)
-        user_location = get_location_from_ip(ip_address)
+        user_location = get_location_from_request(request)
         
         WhatsAppClick.objects.create(
             phone_number=data.get('phone_number', '+212779259942'),
@@ -1498,6 +1498,89 @@ def track_whatsapp_click(request):
         
     except:
         return JsonResponse({'success': False})
+
+
+@require_POST
+def browser_location_update(request):
+    """Store browser GPS location resolved via OpenStreetMap reverse geocoding."""
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+
+    try:
+        lat = float(payload.get("latitude"))
+        lon = float(payload.get("longitude"))
+    except Exception:
+        return JsonResponse({"success": False, "error": "Missing latitude/longitude."}, status=400)
+
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return JsonResponse({"success": False, "error": "Invalid coordinates."}, status=400)
+
+    cache_key = f"osm:reverse:{round(lat, 5)}:{round(lon, 5)}"
+    resolved = cache.get(cache_key)
+    if not isinstance(resolved, dict):
+        try:
+            response = requests.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={
+                    "format": "jsonv2",
+                    "lat": lat,
+                    "lon": lon,
+                    "zoom": 18,
+                    "addressdetails": 1,
+                },
+                headers={
+                    "User-Agent": "ProleanCentre/1.0 (+https://proleanproject-production.up.railway.app/)",
+                    "Accept-Language": "fr,en,ar",
+                },
+                timeout=5,
+            )
+            response.raise_for_status()
+            data = response.json() if response.content else {}
+            address = data.get("address") if isinstance(data, dict) else {}
+            if not isinstance(address, dict):
+                address = {}
+            city = (
+                address.get("city")
+                or address.get("town")
+                or address.get("village")
+                or address.get("municipality")
+                or address.get("county")
+                or address.get("state_district")
+                or ""
+            )
+            region = address.get("state") or address.get("region") or ""
+            country = address.get("country") or "Maroc"
+            country_code = str(address.get("country_code") or "ma").upper()
+            resolved = {
+                "city": str(city or "").strip() or "Casablanca",
+                "exact_city": str(city or "").strip() or "Casablanca",
+                "region": str(region or "").strip(),
+                "country": str(country or "Maroc").strip(),
+                "countryCode": country_code,
+                "latitude": lat,
+                "longitude": lon,
+                "timezone": "",
+                "source": "browser_gps_osm",
+            }
+            cache.set(cache_key, resolved, timeout=60 * 60 * 12)
+        except Exception:
+            resolved = {
+                "city": str(payload.get("city") or "Casablanca").strip() or "Casablanca",
+                "exact_city": str(payload.get("city") or "Casablanca").strip() or "Casablanca",
+                "region": str(payload.get("region") or "").strip(),
+                "country": str(payload.get("country") or "Maroc").strip() or "Maroc",
+                "countryCode": str(payload.get("countryCode") or "MA").strip() or "MA",
+                "latitude": lat,
+                "longitude": lon,
+                "timezone": "",
+                "source": "browser_gps_fallback",
+            }
+
+    request.session["browser_geo_location"] = resolved
+    request.session.modified = True
+    return JsonResponse({"success": True, "location": resolved})
 
 @csrf_exempt
 def get_training_reviews(request, training_id):
@@ -3259,7 +3342,7 @@ def external_live_join_with_token(request, token):
     """Consume a one-time token and redirect to external live room."""
     raw = str(token or "").strip()
     ip_address = get_client_ip(request)
-    location_payload = get_location_from_ip(ip_address)
+    location_payload = get_location_from_request(request)
     city = str((location_payload or {}).get("city") or "").strip()
     country = str((location_payload or {}).get("country") or "").strip()
     location_label = ", ".join([p for p in (city, country) if p])[:160]

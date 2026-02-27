@@ -784,6 +784,49 @@
             setInterval(sendPresenceHeartbeat, heartbeatInterval);
             {% endif %}
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const locationApiUrl = '{% url "Prolean:browser_location_update" %}';
+            const ttlMs = 6 * 60 * 60 * 1000;
+            const now = Date.now();
+            const lastSent = Number(localStorage.getItem('prolean_browser_geo_sent_at') || 0);
+            if (!window.isSecureContext || !navigator.geolocation || (now - lastSent) < ttlMs) {
+                return;
+            }
+
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return '';
+            }
+
+            const sendBrowserLocation = (position) => {
+                const coords = position && position.coords ? position.coords : null;
+                if (!coords) return;
+                fetch(locationApiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        latitude: coords.latitude,
+                        longitude: coords.longitude,
+                        accuracy: coords.accuracy
+                    })
+                }).then(() => {
+                    localStorage.setItem('prolean_browser_geo_sent_at', String(Date.now()));
+                }).catch(() => {});
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                sendBrowserLocation,
+                () => {},
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 15 * 60 * 1000 }
+            );
+        });
         
         // Load non-critical resources after page is interactive
         window.addEventListener('load', function() {
