@@ -438,6 +438,38 @@
         background: var(--media-bg);
     }
 
+    .student-actions {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .student-action-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(15, 23, 42, 0.82);
+        color: #e2e8f0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .student-action-btn .material-symbols-outlined {
+        font-size: 16px;
+    }
+
+    .student-action-btn.danger {
+        background: rgba(127, 29, 29, 0.86);
+        border-color: rgba(248, 113, 113, 0.45);
+        color: #fecaca;
+    }
+
     .agora-video-slot {
         position: absolute;
         inset: 0;
@@ -881,6 +913,7 @@
   const audioTracks = new Map();
   const speakingIds = new Set();
   const raisedHands = new Set();
+  const remotelyMutedIds = new Set();
   const statsByUid = new Map();
   let previousSpeaking = new Set();
   let professorIdentity = String(professorUidHint);
@@ -1204,6 +1237,35 @@
         av.appendChild(badge);
         card.appendChild(av);
       }
+      if (isProfessor) {
+        const actions = document.createElement("div");
+        actions.className = "student-actions";
+
+        const muteBtn = document.createElement("button");
+        muteBtn.type = "button";
+        muteBtn.className = "student-action-btn";
+        const isMuted = remotelyMutedIds.has(String(student.id));
+        muteBtn.title = isMuted ? "Unmute student mic" : "Mute student mic";
+        muteBtn.innerHTML = `<span class="material-symbols-outlined">${isMuted ? "mic" : "mic_off"}</span>`;
+        muteBtn.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await toggleParticipantMute(String(student.id));
+        });
+
+        const kickBtn = document.createElement("button");
+        kickBtn.type = "button";
+        kickBtn.className = "student-action-btn danger";
+        kickBtn.title = "Kick out student";
+        kickBtn.innerHTML = '<span class="material-symbols-outlined">person_remove</span>';
+        kickBtn.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await kickParticipant(String(student.id));
+        });
+
+        actions.appendChild(muteBtn);
+        actions.appendChild(kickBtn);
+        card.appendChild(actions);
+      }
       const footer = document.createElement("div");
       footer.className = "student-label";
       footer.textContent = student.name;
@@ -1434,6 +1496,66 @@
     return null;
   };
 
+  const applyMutePersistence = async (userId, muted) => {
+    if (!userId) return;
+    const url = muted
+      ? "{% url 'Prolean:external_live_mute_user' session_id %}"
+      : "{% url 'Prolean:external_live_unmute_user' session_id %}";
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: `user_id=${encodeURIComponent(String(userId))}`,
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
+
+  const kickParticipant = async (uid) => {
+    const targetUserId = uidToUserId(uid);
+    if (!targetUserId) {
+      showError("Cannot kick this participant (missing local user mapping).");
+      return false;
+    }
+    const banUrl = "{% url 'Prolean:external_live_ban_user' session_id %}";
+    try {
+      await fetch(banUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: `user_id=${encodeURIComponent(String(targetUserId))}`,
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+    await sendRoomSignal({ t: "ban", uid: String(uid) });
+    await logEvent("moderate_ban", { target_uid: String(uid) }, targetUserId);
+    return true;
+  };
+
+  const toggleParticipantMute = async (uid, forceMuted = null) => {
+    const key = String(uid || "");
+    if (!key) return false;
+    const targetUserId = uidToUserId(key);
+    const nextMuted = (forceMuted === null || typeof forceMuted === "undefined")
+      ? !remotelyMutedIds.has(key)
+      : !!forceMuted;
+    await sendRoomSignal({ t: "force_mute", uid: key, muted: nextMuted });
+    await logEvent(nextMuted ? "moderate_mute_user" : "moderate_unmute_user", { target_uid: key }, targetUserId);
+    await applyMutePersistence(targetUserId, nextMuted);
+    if (nextMuted) remotelyMutedIds.add(key);
+    else remotelyMutedIds.delete(key);
+    rerender();
+    renderModerationDrawer();
+    return true;
+  };
+
   const setMicLocked = (_locked) => {};
   const isMicLocked = () => false;
 
@@ -1486,24 +1608,7 @@
       muteBtn.title = "Mute mic";
       muteBtn.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
       muteBtn.addEventListener("click", async () => {
-        const targetUserId = uidToUserId(s.id);
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: true });
-        await logEvent("moderate_mute_user", { target_uid: String(s.id) }, targetUserId);
-        if (targetUserId) {
-          const muteUrl = "{% url 'Prolean:external_live_mute_user' session_id %}";
-          try {
-            fetch(muteUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                "X-CSRFToken": getCsrfToken(),
-                "Accept": "application/json",
-              },
-              body: `user_id=${encodeURIComponent(String(targetUserId))}`,
-              credentials: "same-origin",
-            });
-          } catch (_) {}
-        }
+        await toggleParticipantMute(String(s.id), true);
       });
 
       const unmuteBtn = document.createElement("button");
@@ -1512,24 +1617,7 @@
       unmuteBtn.title = "Unmute mic";
       unmuteBtn.innerHTML = '<span class="material-symbols-outlined">mic</span>';
       unmuteBtn.addEventListener("click", async () => {
-        const targetUserId = uidToUserId(s.id);
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: false });
-        await logEvent("moderate_unmute_user", { target_uid: String(s.id) }, targetUserId);
-        if (targetUserId) {
-          const unmuteUrl = "{% url 'Prolean:external_live_unmute_user' session_id %}";
-          try {
-            fetch(unmuteUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                "X-CSRFToken": getCsrfToken(),
-                "Accept": "application/json",
-              },
-              body: `user_id=${encodeURIComponent(String(targetUserId))}`,
-              credentials: "same-origin",
-            });
-          } catch (_) {}
-        }
+        await toggleParticipantMute(String(s.id), false);
       });
 
       const banBtn = document.createElement("button");
@@ -1538,26 +1626,7 @@
       banBtn.title = "Ban (kick)";
       banBtn.innerHTML = '<span class="material-symbols-outlined">person_remove</span>';
       banBtn.addEventListener("click", async () => {
-        const targetUserId = uidToUserId(s.id);
-        if (!targetUserId) {
-          showError("Cannot ban this participant (missing local user mapping).");
-          return;
-        }
-        const banUrl = "{% url 'Prolean:external_live_ban_user' session_id %}";
-        try {
-          await fetch(banUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-              "X-CSRFToken": getCsrfToken(),
-              "Accept": "application/json",
-            },
-            body: `user_id=${encodeURIComponent(String(targetUserId))}`,
-            credentials: "same-origin",
-          });
-        } catch (_) {}
-        await sendRoomSignal({ t: "ban", uid: String(s.id) });
-        await logEvent("moderate_ban", { target_uid: String(s.id) }, targetUserId);
+        await kickParticipant(String(s.id));
       });
 
       btns.appendChild(muteBtn);
@@ -1692,6 +1761,10 @@
     if (type === "force_mute") {
       const targetUid = String(payload.uid || payload.target_uid || "");
       const locked = payload.muted === false ? false : (payload.locked !== false);
+      if (targetUid) {
+        if (locked) remotelyMutedIds.add(targetUid);
+        else remotelyMutedIds.delete(targetUid);
+      }
       if (targetUid && targetUid === String(agoraUid)) {
         if (locked) {
           if (localMicTrack) {
@@ -1708,9 +1781,24 @@
         showError(locked ? "Your microphone was muted by the professor." : "Your microphone was unmuted by the professor.");
         logEvent(locked ? "forced_mute" : "forced_unmute", { muted: !!locked });
       }
+      if (isProfessor) {
+        rerender();
+        renderModerationDrawer();
+      }
       return;
     }
     if (type === "force_mute_all") {
+      if (isProfessor) {
+        const students = getStudentEntries();
+        students.forEach((entry) => {
+          const uidKey = String(entry.id || "");
+          if (!uidKey) return;
+          if (payload.muted === false || payload.locked === false) remotelyMutedIds.delete(uidKey);
+          else remotelyMutedIds.add(uidKey);
+        });
+        rerender();
+        renderModerationDrawer();
+      }
       if (!isProfessor) {
         const locked = payload.muted === false ? false : (payload.locked !== false);
         if (locked) {
@@ -1950,6 +2038,9 @@
   if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
   if (btnCloseMod) btnCloseMod.addEventListener("click", closeModeration);
   if (btnMuteAll) btnMuteAll.addEventListener("click", async () => {
+    getStudentEntries().forEach((entry) => remotelyMutedIds.add(String(entry.id)));
+    rerender();
+    renderModerationDrawer();
     await sendRoomSignal({ t: "force_mute_all", muted: true });
     await logEvent("moderate_mute_all", {});
     const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
@@ -1967,6 +2058,9 @@
     } catch (_) {}
   });
   if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
+    getStudentEntries().forEach((entry) => remotelyMutedIds.delete(String(entry.id)));
+    rerender();
+    renderModerationDrawer();
     await sendRoomSignal({ t: "force_mute_all", muted: false });
     await logEvent("moderate_unmute_all", {});
     const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";

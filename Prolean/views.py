@@ -4416,6 +4416,7 @@ def professor_students(request):
                     ext_student["local_full_name"] = None
 
             latest_invite_by_cin = {}
+            invite_rows = []
             if selected_session_id:
                 now = timezone.now()
                 try:
@@ -4423,6 +4424,7 @@ def professor_students(request):
                         ExternalLiveJoinInvite.objects.filter(session_id=selected_session_id)
                         .order_by("-created_at")[:5000]
                     )
+                    invite_rows = list(invites[:300])
                     for inv in invites:
                         cin_key = _norm_cin(inv.student_cin)
                         if cin_key and cin_key not in latest_invite_by_cin:
@@ -4443,6 +4445,7 @@ def professor_students(request):
                             }
                 except Exception:
                     latest_invite_by_cin = {}
+                    invite_rows = []
 
             for ext_student in students:
                 if not isinstance(ext_student, dict):
@@ -4456,11 +4459,116 @@ def professor_students(request):
                 ext_student["join_invite_used_device"] = info.get("used_device")
                 ext_student["join_invite_created_at"] = info.get("created_at")
 
+            attendance_timeline = []
+            if selected_session_id:
+                now = timezone.now()
+                label_by_user_id: dict[int, str] = {}
+                for ext_student in students:
+                    if not isinstance(ext_student, dict):
+                        continue
+                    local_user_id = ext_student.get("local_user_id")
+                    if local_user_id:
+                        label_by_user_id[int(local_user_id)] = str(ext_student.get("display_name") or "Student")
+
+                event_label_map = {
+                    "mute_user": "Muted student mic",
+                    "unmute_user": "Unmuted student mic",
+                    "mute_all": "Muted all microphones",
+                    "unmute_all": "Unmuted all microphones",
+                    "ban": "Kicked student",
+                    "unban": "Allowed student back",
+                    "moderate_mute_user": "Muted student mic (studio)",
+                    "moderate_unmute_user": "Unmuted student mic (studio)",
+                    "moderate_ban": "Kicked student (studio)",
+                    "moderate_mute_all": "Muted all mics (studio)",
+                    "moderate_unmute_all": "Unmuted all mics (studio)",
+                    "forced_mute": "Student mic forced to mute",
+                    "forced_unmute": "Student mic forced to unmute",
+                    "forced_mute_all": "All mics forced to mute",
+                    "forced_unmute_all": "All mics forced to unmute",
+                    "security_alert": "Security alert received",
+                }
+                try:
+                    recent_events = list(
+                        ExternalLiveSecurityEvent.objects.filter(session_id=selected_session_id)
+                        .select_related("actor", "target")
+                        .order_by("-created_at")[:200]
+                    )
+                except Exception:
+                    recent_events = []
+
+                for ev in recent_events:
+                    actor_label = ""
+                    if ev.actor_id:
+                        actor_label = str(ev.actor.get_full_name() or ev.actor.username or "").strip()
+                    target_label = ""
+                    if ev.target_id:
+                        target_label = label_by_user_id.get(int(ev.target_id)) or str(ev.target.get_full_name() or ev.target.username or "").strip()
+                    event_label = event_label_map.get(str(ev.event_type or ""), str(ev.event_type or "event").replace("_", " ").strip().title())
+                    meta_bits = []
+                    if actor_label:
+                        meta_bits.append(f"By {actor_label}")
+                    if target_label:
+                        meta_bits.append(f"Target: {target_label}")
+                    attendance_timeline.append(
+                        {
+                            "happened_at": ev.created_at,
+                            "event_label": event_label,
+                            "student_name": target_label or "Session",
+                            "meta_label": " · ".join(meta_bits),
+                        }
+                    )
+
+                for inv in invite_rows:
+                    invite_label = str(inv.student_name or inv.student_cin or "Student")
+                    if inv.used_at:
+                        attendance_timeline.append(
+                            {
+                                "happened_at": inv.used_at,
+                                "event_label": "Join link opened",
+                                "student_name": invite_label,
+                                "meta_label": str(inv.used_location or inv.used_device_label or "").strip(),
+                            }
+                        )
+                    elif inv.created_at and inv.created_at >= (now - timedelta(hours=12)):
+                        attendance_timeline.append(
+                            {
+                                "happened_at": inv.created_at,
+                                "event_label": "Join link generated",
+                                "student_name": invite_label,
+                                "meta_label": "",
+                            }
+                        )
+
+                for stat in stats_rows[:250]:
+                    if not getattr(stat, "updated_at", None):
+                        continue
+                    label = str(stat.display_name or "").strip()
+                    if not label and stat.user_id:
+                        label = label_by_user_id.get(int(stat.user_id), "")
+                    if not label:
+                        label = f"Student {stat.agora_uid}"
+                    attendance_timeline.append(
+                        {
+                            "happened_at": stat.updated_at,
+                            "event_label": "Attendance synced",
+                            "student_name": label,
+                            "meta_label": f"Watch {max(0, int(stat.watch_seconds or 0) // 60)}m · Engagement {int(stat.engagement or 0)}",
+                        }
+                    )
+
+            attendance_timeline = sorted(
+                [row for row in attendance_timeline if isinstance(row, dict) and row.get("happened_at")],
+                key=lambda row: row["happened_at"],
+                reverse=True,
+            )[:120]
+
             context = {
                 'external_professor_mode': True,
                 'external_sessions': sessions if isinstance(sessions, list) else [],
                 'external_selected_session': selected_session,
                 'external_students': students,
+                'attendance_timeline': attendance_timeline,
                 'students': [],
                 'all_sessions': [],
                 'selected_session': None,

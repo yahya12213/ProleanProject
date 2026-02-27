@@ -582,3 +582,21 @@ Recent Entries
   - Join token consumption is now two-phase: the system checks external access (when configured) before marking the invite as used, so failed joins don't invalidate the link.
 - Why:
   - Links were being marked as `used` even when the student couldn't actually join the live, causing unnecessary regeneration.
+
+[2026-02-27 UTC] Area: Prolean | Type: Feature/Professor Student Command Actions + Attendance Timeline
+- What changed:
+  - Added an auto attendance timeline on `/professor/students/` (external mode) aggregating recent live activity:
+    - moderation/security actions,
+    - one-click link generation/usage,
+    - latest attendance sync snapshots per student.
+  - Added WhatsApp broadcast queue controls on `/professor/students/`:
+    - one-by-one `Send via WhatsApp` per student card,
+    - `Send All on WhatsApp` queue for bulk sending.
+  - WhatsApp message is auto-filled in Arabic caution format and includes each student’s unique one-click join link.
+  - Added in-studio per-student top-left quick controls on each student tile:
+    - `Kick out`,
+    - `Mute/Unmute` toggle with immediate visual state updates.
+  - Refactored moderation action calls in the studio to use shared JS helpers for consistency and faster response.
+- Why:
+  - Professors needed a faster workflow to distribute links and monitor whether link/live actions are actually happening.
+  - Per-tile controls reduce moderation delay versus relying only on the side moderation drawer.

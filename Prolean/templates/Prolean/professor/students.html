@@ -25,6 +25,20 @@
     </div>
     {% endif %}
 
+    <div class="glass-card p-5">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+                <h3 class="font-black text-base" style="color: var(--prof-text-main);">WhatsApp Broadcast Queue</h3>
+                <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">Generate one-time links and send Arabic caution message one-by-one or to all students.</p>
+            </div>
+            <button type="button" id="send-all-whatsapp" class="btnx sky"
+                {% if not external_selected_session or not external_selected_session.id %}disabled{% endif %}>
+                Send All on WhatsApp
+            </button>
+        </div>
+        <div id="broadcast-status" class="text-xs mt-3 opacity-70" style="color: var(--prof-text-muted);"></div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for st in external_students %}
         <div class="glass-card p-5">
@@ -79,6 +93,17 @@
                         onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
                         Generate New & Copy
                     </button>
+                    <button type="button" class="btnx flex-1 border border-prof"
+                        data-send-whatsapp="1"
+                        data-session-id="{{ external_selected_session.id|default:'' }}"
+                        data-cin="{{ st.display_cin|default:''|escapejs }}"
+                        data-name="{{ st.display_name|default:''|escapejs }}"
+                        data-phone="{{ st.display_phone|default:''|escapejs }}"
+                        data-email="{{ st.display_email|default:''|escapejs }}"
+                        {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
+                        onclick="sendSingleWhatsApp(this)">
+                        Send via WhatsApp
+                    </button>
                 </div>
             </div>
         </div>
@@ -88,6 +113,26 @@
             <p class="font-bold mt-3">Aucun étudiant trouvé pour cette session</p>
         </div>
         {% endfor %}
+    </div>
+
+    <div class="glass-card p-5">
+        <div class="flex items-center justify-between">
+            <h3 class="font-black text-base" style="color: var(--prof-text-main);">Auto Attendance Timeline</h3>
+            <span class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">Live + link + moderation activity</span>
+        </div>
+        <div class="mt-4 space-y-2 max-h-[26rem] overflow-auto pr-1">
+            {% for event in attendance_timeline %}
+            <div class="rounded-xl border border-prof bg-surface-hover px-3 py-2">
+                <div class="text-[11px] font-black" style="color: var(--prof-text-main);">{{ event.event_label }} • {{ event.student_name }}</div>
+                {% if event.meta_label %}
+                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">{{ event.meta_label }}</div>
+                {% endif %}
+                <div class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">{{ event.happened_at|date:"Y-m-d H:i:s" }}</div>
+            </div>
+            {% empty %}
+            <div class="text-xs opacity-60" style="color: var(--prof-text-muted);">No timeline events yet for this session.</div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% else %}
@@ -212,26 +257,48 @@
     if (parts.length === 2) return parts.pop().split(';').shift();
     return '';
   }
+  function normalizeWhatsAppPhone(rawPhone) {
+    let digits = String(rawPhone || '').replace(/\D+/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    if (digits.length === 10 && digits.startsWith('0')) digits = `212${digits.slice(1)}`;
+    return digits;
+  }
+  function cautionMessageArabic(joinUrl) {
+    return `رابط الحصة الخاصة بك: ${joinUrl}. يرجى عدم مشاركة هذا الرابط مع أي شخص آخر للحفاظ على أمان الفصل.`;
+  }
+  async function trackWhatsAppClick(phone, message) {
+    try {
+      await fetch('/api/track-whatsapp/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phone || '', message: message || '', url: window.location.pathname }),
+      });
+    } catch (_) {}
+  }
+  async function requestJoinLink(sessionId, cin, name, email, phone) {
+    const resp = await fetch(`/external/live/invite/${encodeURIComponent(sessionId)}/regen/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      body: JSON.stringify({ cin, name, email, phone }),
+    });
+    const text = await resp.text();
+    let data = {};
+    try { data = JSON.parse(text || '{}'); } catch (_) { data = {}; }
+    if (!data || !data.ok || !data.join_url) {
+      const msg = (data && data.error) ? data.error : (text || `Unable to generate link (HTTP ${resp.status}).`);
+      throw new Error(String(msg).slice(0, 600));
+    }
+    return data;
+  }
   async function generateJoinLink(sessionId, cin, name, btn) {
     try {
       if (!sessionId || !cin) return;
       if (btn) btn.disabled = true;
-      const resp = await fetch(`/external/live/invite/${encodeURIComponent(sessionId)}/regen/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCookie('csrftoken'),
-        },
-        body: JSON.stringify({ cin, name }),
-      });
-      const text = await resp.text();
-      let data = {};
-      try { data = JSON.parse(text || '{}'); } catch (_) { data = {}; }
-      if (!data || !data.ok || !data.join_url) {
-        const msg = (data && data.error) ? data.error : (text || `Unable to generate link (HTTP ${resp.status}).`);
-        alert(String(msg).slice(0, 600));
-        return;
-      }
+      const data = await requestJoinLink(sessionId, cin, name, '', '');
       try {
         await navigator.clipboard.writeText(String(data.join_url));
       } catch (e) {
@@ -244,6 +311,79 @@
       if (btn) btn.disabled = false;
     }
   }
+  async function sendSingleWhatsApp(btn, options = {}) {
+    if (!btn) return;
+    const sessionId = btn.dataset.sessionId || '';
+    const cin = btn.dataset.cin || '';
+    const name = btn.dataset.name || '';
+    const email = btn.dataset.email || '';
+    const phone = btn.dataset.phone || '';
+    if (!sessionId || !cin) return;
+    const original = btn.textContent;
+    try {
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      const data = await requestJoinLink(sessionId, cin, name, email, phone);
+      const msg = cautionMessageArabic(String(data.join_url));
+      const waPhone = normalizeWhatsAppPhone(phone);
+      const waUrl = waPhone
+        ? `https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      const opened = window.open(waUrl, '_blank', 'noopener');
+      await trackWhatsAppClick(waPhone, msg);
+      if (!opened) alert('Popup blocked. Allow popups for this site to open WhatsApp queue.');
+      btn.textContent = 'Sent';
+      setTimeout(() => { btn.textContent = original; }, 1400);
+      return !!opened;
+    } catch (e) {
+      if (!options.silent) {
+        alert(String(e && e.message ? e.message : 'Unable to send via WhatsApp.'));
+      }
+      btn.textContent = original;
+      return false;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  async function sendAllWhatsAppQueue() {
+    const status = document.getElementById('broadcast-status');
+    const buttons = Array.from(document.querySelectorAll('button[data-send-whatsapp="1"]'))
+      .filter((btn) => !btn.disabled);
+    if (!buttons.length) {
+      if (status) status.textContent = 'No students available for WhatsApp queue.';
+      return;
+    }
+    let sent = 0;
+    let failed = 0;
+    for (let index = 0; index < buttons.length; index += 1) {
+      const btn = buttons[index];
+      const label = btn.dataset.name || btn.dataset.cin || `Student ${index + 1}`;
+      if (status) status.textContent = `Queue ${index + 1}/${buttons.length}: ${label}`;
+      const ok = await sendSingleWhatsApp(btn, { silent: true });
+      if (ok) {
+        sent += 1;
+      } else {
+        failed += 1;
+      } 
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    if (status) status.textContent = `Broadcast queue completed. Sent: ${sent}, Failed: ${failed}.`;
+  }
+  (function initBroadcastQueue() {
+    const sendAllBtn = document.getElementById('send-all-whatsapp');
+    if (!sendAllBtn) return;
+    sendAllBtn.addEventListener('click', async () => {
+      sendAllBtn.disabled = true;
+      const original = sendAllBtn.textContent;
+      sendAllBtn.textContent = 'Sending queue...';
+      try {
+        await sendAllWhatsAppQueue();
+      } finally {
+        sendAllBtn.disabled = false;
+        sendAllBtn.textContent = original;
+      }
+    });
+  })();
 </script>
 {% endif %}
 {% endblock %}
