@@ -787,9 +787,10 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             const locationApiUrl = '{% url "Prolean:browser_location_update" %}';
-            const ttlMs = 6 * 60 * 60 * 1000;
+            const ttlMs = 10 * 60 * 1000;
             const now = Date.now();
             const lastSent = Number(localStorage.getItem('prolean_browser_geo_sent_at') || 0);
+            const initialLocationSource = "{{ user_location.source|default:''|escapejs }}";
 
             function getCookie(name) {
                 const value = `; ${document.cookie}`;
@@ -804,8 +805,21 @@
                 const headerBadge = document.getElementById('header-location-badge');
                 const mobileCity = document.getElementById('mobile-location-city');
                 const mobileBadge = document.getElementById('mobile-location-badge');
+                const currencyLocation = document.getElementById('currency-location-label');
+                const mobileCurrencyLocation = document.getElementById('mobile-currency-location-label');
                 if (headerCity && city) headerCity.textContent = city;
                 if (mobileCity && city) mobileCity.textContent = city;
+                if (currencyLocation && city) {
+                    currencyLocation.textContent = city;
+                    currencyLocation.classList.remove('text-emerald-600', 'dark:text-emerald-400', 'text-amber-600', 'dark:text-amber-400');
+                    currencyLocation.classList.add(fromGps ? 'text-emerald-600' : 'text-amber-600');
+                    currencyLocation.classList.add(fromGps ? 'dark:text-emerald-400' : 'dark:text-amber-400');
+                }
+                if (mobileCurrencyLocation && city) {
+                    mobileCurrencyLocation.textContent = city;
+                    mobileCurrencyLocation.classList.remove('text-emerald-500', 'text-amber-500');
+                    mobileCurrencyLocation.classList.add(fromGps ? 'text-emerald-500' : 'text-amber-500');
+                }
                 if (headerBadge) {
                     const headerIcon = headerBadge.querySelector('.material-symbols-outlined');
                     if (headerIcon) headerIcon.textContent = fromGps ? 'my_location' : 'location_on';
@@ -863,7 +877,9 @@
             };
 
             if (window.requestProleanGpsLocation) {
-                window.requestProleanGpsLocation(false);
+                const needsUpgradeFromIp = !String(initialLocationSource || '').startsWith('browser_gps');
+                window.requestProleanGpsLocation(needsUpgradeFromIp || ((now - lastSent) >= ttlMs));
+                setInterval(() => window.requestProleanGpsLocation(false), ttlMs);
             }
         });
         
