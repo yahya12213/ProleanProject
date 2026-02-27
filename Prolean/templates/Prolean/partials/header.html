@@ -13,10 +13,7 @@
                     loading="eager"
                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMTIwIDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0xMCAyMEg0MFYzMEgxMFYyMFoiIGZpbGw9IiNGRjZCMDAiLz48cGF0aCBkPSJNNDAgMTBINzBWMzBINDBWMTBaIiBmaWxsPSIjNEE0QTRBIi8+PHRleHQgeD0iMTA1IiB5PSIyNSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjMTQxNDE0IiBmb250LXdlaWdodD0iYm9sZCI+UFJPTEVBTjwvdGV4dD48L3N2Zz4='"
                 >
-                <div class="hidden sm:block min-w-0">
-                    <div class="text-sm font-black tracking-tight text-slate-900 dark:text-white leading-none">Prolean</div>
-                    <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-none truncate">Centre de Formation</div>
-                </div>
+         
             </a>
             
             <!-- Desktop Navigation -->
@@ -91,16 +88,6 @@
              </div>
             </div>
 
-            {% with loc_source=user_location.source|default:'' %}
-            <button id="header-location-badge"
-                    class="h-10 px-3 rounded-xl border text-xs font-black inline-flex items-center gap-2 {% if 'browser_gps' in loc_source %}border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300{% else %}border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300{% endif %}"
-                    title="{% if 'browser_gps' in loc_source %}GPS location detected{% else %}IP location detected - click to refresh GPS{% endif %}"
-                    onclick="if(window.requestProleanGpsLocation){window.requestProleanGpsLocation(true);}">
-                <span class="material-symbols-outlined text-[18px] leading-none">{% if 'browser_gps' in loc_source %}my_location{% else %}location_on{% endif %}</span>
-                <span id="header-location-city" class="max-w-[120px] truncate">{{ user_location.city|default:'Casablanca' }}</span>
-            </button>
-            {% endwith %}
-            
              <!-- Theme Toggle -->
              <button class="size-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-200" onclick="toggleTheme()">
                  <span id="theme-icon" class="material-symbols-outlined">light_mode</span>
@@ -283,20 +270,6 @@
                         <span id="mobile-theme-label">Clair</span>
                     </button>
 
-                    {% with loc_source=user_location.source|default:'' %}
-                    <button id="mobile-location-badge"
-                            class="mobile-menu-dropdown-button"
-                            onclick="if(window.requestProleanGpsLocation){window.requestProleanGpsLocation(true);}">
-                        <span class="flex items-center gap-2">
-                            <span class="material-symbols-outlined">{% if 'browser_gps' in loc_source %}my_location{% else %}location_on{% endif %}</span>
-                            <span id="mobile-location-city">{{ user_location.city|default:'Casablanca' }}</span>
-                        </span>
-                        <span class="text-xs font-black {% if 'browser_gps' in loc_source %}text-emerald-500{% else %}text-amber-500{% endif %}">
-                            {% if 'browser_gps' in loc_source %}GPS{% else %}IP{% endif %}
-                        </span>
-                    </button>
-                    {% endwith %}
-                    
                     <!-- Mobile Auth Links (Simulated Logged-in) -->
                     <a class="mobile-menu-link" href="{% url 'Prolean:dashboard' %}">
                         <span class="flex items-center gap-2">
