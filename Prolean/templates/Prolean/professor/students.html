@@ -1,248 +1,223 @@
 {% extends 'Prolean/professor/base_professor.html' %}
 {% load static %}
 
-{% block header_title %}Gestion des Étudiants{% endblock %}
-{% block header_subtitle %}Suivi détaillé de votre cohorte et progrès académiques.{% endblock %}
+{% block header_title %}Student Command Center{% endblock %}
+{% block header_subtitle %}Real-time live links, attendance intelligence, and communication control.{% endblock %}
 
 {% block professor_content %}
+<style>
+  .neo-wrap { display: grid; gap: 18px; }
+  .neo-glass {
+    border: 1px solid rgba(148, 163, 184, .22);
+    border-radius: 24px;
+    background:
+      radial-gradient(900px 180px at -15% -40%, rgba(168, 85, 247, .22), transparent 52%),
+      radial-gradient(900px 180px at 115% -45%, rgba(14, 165, 233, .20), transparent 52%),
+      linear-gradient(135deg, rgba(15, 23, 42, .84), rgba(2, 6, 23, .66));
+    backdrop-filter: blur(10px);
+    color: #e2e8f0;
+  }
+  .neo-hero { padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .neo-title { font-size: 23px; font-weight: 900; letter-spacing: -.02em; color: #f8fafc; }
+  .neo-sub { font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .neo-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
+  .neo-kpi { border: 1px solid rgba(148, 163, 184, .24); border-radius: 16px; padding: 10px; background: rgba(255, 255, 255, .06); }
+  .neo-kpi .l { font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; color: #93c5fd; }
+  .neo-kpi .v { font-size: 20px; font-weight: 900; color: #fff; line-height: 1.2; margin-top: 3px; }
+  .neo-sessions { display: flex; gap: 8px; overflow: auto; padding-bottom: 4px; }
+  .neo-pill {
+    border: 1px solid var(--prof-border);
+    border-radius: 999px;
+    padding: 9px 14px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: var(--prof-surface-hover);
+    color: var(--prof-text-main);
+  }
+  .neo-pill.active { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; border-color: rgba(99, 102, 241, .7); }
+  .neo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+  .neo-card {
+    border: 1px solid var(--prof-border);
+    border-radius: 20px;
+    background: var(--prof-bg);
+    padding: 14px;
+  }
+  .neo-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .neo-card-head h3 { margin: 0; font-size: 14px; font-weight: 900; color: var(--prof-text-main); }
+  .neo-card-head span { font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--prof-text-muted); }
+  .neo-broadcast { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .neo-broadcast p { margin: 0; font-size: 12px; color: var(--prof-text-muted); font-weight: 700; }
+  .neo-btn {
+    border-radius: 14px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: transform .18s ease, filter .18s ease;
+  }
+  .neo-btn:hover { transform: translateY(-1px); filter: brightness(1.03); }
+  .neo-btn[disabled] { opacity: .55; pointer-events: none; }
+  .neo-btn.brand { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
+  .neo-btn.ghost { background: var(--prof-surface-hover); border-color: var(--prof-border); color: var(--prof-text-main); }
+  .neo-btn.ok { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+  .neo-status { font-size: 12px; font-weight: 800; color: var(--prof-text-muted); }
+  .neo-students { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .neo-student {
+    border: 1px solid var(--prof-border);
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--prof-bg), var(--prof-surface));
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .neo-student h4 { margin: 0; font-size: 22px; font-weight: 900; color: var(--prof-text-main); }
+  .neo-student .meta { font-size: 12px; font-weight: 700; color: var(--prof-text-muted); line-height: 1.3; }
+  .neo-mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .neo-mini {
+    border: 1px solid var(--prof-border);
+    border-radius: 12px;
+    background: var(--prof-surface-hover);
+    padding: 8px 9px;
+  }
+  .neo-mini .l { font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--prof-text-muted); }
+  .neo-mini .v { font-size: 14px; font-weight: 900; color: var(--prof-text-main); margin-top: 2px; }
+  .neo-link-box { border: 1px dashed var(--prof-border); border-radius: 14px; padding: 9px; display: grid; gap: 7px; }
+  .neo-row { display: flex; gap: 8px; }
+  .neo-timeline { max-height: 74vh; overflow: auto; display: grid; gap: 8px; padding-right: 2px; }
+  .neo-event {
+    border: 1px solid var(--prof-border);
+    border-radius: 14px;
+    background: var(--prof-surface-hover);
+    padding: 10px;
+    display: grid;
+    gap: 4px;
+  }
+  .neo-event .e1 { font-size: 12px; font-weight: 900; color: var(--prof-text-main); line-height: 1.25; }
+  .neo-event .e2, .neo-event .e3 { font-size: 11px; font-weight: 700; color: var(--prof-text-muted); }
+  @media (max-width: 1280px) { .neo-grid { grid-template-columns: 1fr; } .neo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 980px) { .neo-students { grid-template-columns: 1fr; } }
+</style>
+
 {% if external_professor_mode %}
-<div class="space-y-8">
-    <div class="glass-card p-6 flex items-center justify-between">
-        <div>
-            <h2 class="text-xl font-black" style="color: var(--prof-text-main);">Étudiants par Session (Barka)</h2>
-            <p class="text-sm opacity-70" style="color: var(--prof-text-muted);">Live assignments from management system.</p>
-        </div>
-        <span class="text-2xl font-black text-brand">{{ external_students|length }}</span>
+<div class="neo-wrap">
+  <section class="neo-glass neo-hero">
+    <div>
+      <div class="neo-title">Students Mission Control</div>
+      <div class="neo-sub">Session-linked one-time join links with delivery and attendance telemetry.</div>
     </div>
-
-    {% if external_sessions %}
-    <div class="flex flex-wrap gap-3">
-        {% for sess in external_sessions %}
-        <a href="?session_id={{ sess.id }}" class="px-4 py-2 rounded-xl border font-bold text-sm {% if external_selected_session and external_selected_session.id == sess.id %}bg-brand text-white border-brand{% else %}bg-surface-hover border-prof{% endif %}">
-            {{ sess.titre|default:"Session" }}
-        </a>
-        {% endfor %}
+    <div class="neo-kpis">
+      <div class="neo-kpi"><div class="l">Students</div><div class="v">{{ external_students|length }}</div></div>
+      <div class="neo-kpi"><div class="l">Session</div><div class="v">{{ external_selected_session.titre|default:"-" }}</div></div>
+      <div class="neo-kpi"><div class="l">Timeline</div><div class="v">{{ attendance_timeline|length }}</div></div>
+      <div class="neo-kpi"><div class="l">Queue</div><div class="v">WhatsApp</div></div>
     </div>
-    {% endif %}
+  </section>
 
-    <div class="glass-card p-5">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-                <h3 class="font-black text-base" style="color: var(--prof-text-main);">WhatsApp Broadcast Queue</h3>
-                <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">Generate one-time links and send Arabic caution message one-by-one or to all students.</p>
-            </div>
-            <button type="button" id="send-all-whatsapp" class="btnx sky"
-                {% if not external_selected_session or not external_selected_session.id %}disabled{% endif %}>
-                Send All on WhatsApp
-            </button>
-        </div>
-        <div id="broadcast-status" class="text-xs mt-3 opacity-70" style="color: var(--prof-text-muted);"></div>
+  {% if external_sessions %}
+  <div class="neo-sessions">
+    {% for sess in external_sessions %}
+    <a href="?session_id={{ sess.id }}" class="neo-pill {% if external_selected_session and external_selected_session.id == sess.id %}active{% endif %}">
+      {{ sess.titre|default:"Session" }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="neo-card">
+    <div class="neo-broadcast">
+      <div>
+        <h3 class="m-0 text-base font-black" style="color: var(--prof-text-main);">WhatsApp Broadcast Queue</h3>
+        <p>One click for all students, or one-by-one per card with unique one-time links.</p>
+      </div>
+      <button type="button" id="send-all-whatsapp" class="neo-btn brand" {% if not external_selected_session or not external_selected_session.id %}disabled{% endif %}>
+        <span class="material-symbols-outlined text-base">send</span>Send All
+      </button>
     </div>
+    <div id="broadcast-status" class="neo-status mt-2"></div>
+  </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <section class="neo-grid">
+    <div class="neo-card">
+      <div class="neo-card-head">
+        <h3>Student Tiles</h3>
+        <span>Smart Actions</span>
+      </div>
+      <div class="neo-students">
         {% for st in external_students %}
-        <div class="glass-card p-5">
-            <h3 class="font-black text-lg" style="color: var(--prof-text-main);">{{ st.display_name|default:st.student_name|default:"Étudiant" }}</h3>
-            <p class="text-xs opacity-70 mt-1" style="color: var(--prof-text-muted);">{{ st.display_email|default:st.student_email|default:"-" }}</p>
-            <p class="text-xs opacity-70" style="color: var(--prof-text-muted);">{{ st.display_phone|default:st.student_phone|default:"-" }}</p>
-            <div class="mt-4 text-[10px] uppercase tracking-widest font-bold opacity-60">{{ st.formation_title|default:"Formation" }}</div>
-
-            <div class="mt-4 grid grid-cols-2 gap-2">
-                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
-                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Watched</div>
-                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_watch_label|default:"0m" }}</div>
-                </div>
-                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
-                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Engagement</div>
-                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div>
-                </div>
-                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
-                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Speaking</div>
-                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_speaking_label|default:"0m" }}</div>
-                    <div class="text-[10px] font-black opacity-60" style="color: var(--prof-text-muted);">{{ st.tracking_speaks|default:0 }} starts</div>
-                </div>
-                <div class="px-3 py-2 rounded-xl bg-surface-hover border border-prof">
-                    <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">Hand up</div>
-                    <div class="text-sm font-black" style="color: var(--prof-text-main);">{{ st.tracking_hand_label|default:"0m" }}</div>
-                    <div class="text-[10px] font-black opacity-60" style="color: var(--prof-text-muted);">{{ st.tracking_hands|default:0 }} raises</div>
-                </div>
+        <article class="neo-student">
+          <div>
+            <h4>{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
+            <div class="meta">{{ st.display_email|default:st.student_email|default:"-" }}</div>
+            <div class="meta">{{ st.display_phone|default:st.student_phone|default:"-" }}</div>
+          </div>
+          <div class="neo-mini-grid">
+            <div class="neo-mini"><div class="l">Watched</div><div class="v">{{ st.tracking_watch_label|default:"0m" }}</div></div>
+            <div class="neo-mini"><div class="l">Engagement</div><div class="v">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div></div>
+            <div class="neo-mini"><div class="l">Speaking</div><div class="v">{{ st.tracking_speaking_label|default:"0m" }}</div></div>
+            <div class="neo-mini"><div class="l">Hand Raise</div><div class="v">{{ st.tracking_hand_label|default:"0m" }}</div></div>
+          </div>
+          <div class="neo-link-box">
+            <div class="meta">CIN: {{ st.display_cin|default:"-" }} • Status: {{ st.join_invite_status|default:"none"|upper }}</div>
+            {% if st.join_invite_used_at %}<div class="meta">Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}</div>{% endif %}
+            {% if st.join_invite_expires_at %}<div class="meta">Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>{% endif %}
+            <div class="neo-row">
+              <button type="button" class="neo-btn brand flex-1"
+                {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
+                onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
+                Generate + Copy
+              </button>
+              <button type="button" class="neo-btn ghost flex-1"
+                data-send-whatsapp="1"
+                data-session-id="{{ external_selected_session.id|default:'' }}"
+                data-cin="{{ st.display_cin|default:''|escapejs }}"
+                data-name="{{ st.display_name|default:''|escapejs }}"
+                data-phone="{{ st.display_phone|default:''|escapejs }}"
+                data-email="{{ st.display_email|default:''|escapejs }}"
+                {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
+                onclick="sendSingleWhatsApp(this)">
+                Send WhatsApp
+              </button>
             </div>
+          </div>
+        </article>
+        {% empty %}
+        <div class="neo-event"><div class="e1">No students found for this session.</div></div>
+        {% endfor %}
+      </div>
+    </div>
 
-            <div class="mt-4 px-4 py-3 rounded-2xl bg-surface-hover border border-prof">
-                <div class="text-[9px] font-black uppercase tracking-widest opacity-50" style="color: var(--prof-text-muted);">One-click join link</div>
-                <div class="text-[10px] opacity-70 mt-1" style="color: var(--prof-text-muted);">CIN: {{ st.display_cin|default:"-" }}</div>
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Status: {{ st.join_invite_status|default:"none"|upper }}</div>
-                {% if st.join_invite_created_at %}
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Generated: {{ st.join_invite_created_at|date:"Y-m-d H:i" }}</div>
-                {% endif %}
-                {% if st.join_invite_expires_at %}
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>
-                {% endif %}
-                {% if st.join_invite_used_at %}
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}</div>
-                {% endif %}
-                {% if st.join_invite_used_location %}
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Location: {{ st.join_invite_used_location }}</div>
-                {% endif %}
-                {% if st.join_invite_used_device %}
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">Device: {{ st.join_invite_used_device }}</div>
-                {% endif %}
-                <div class="mt-3 flex gap-2">
-                    <button type="button" class="btnx sky flex-1"
-                        {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
-                        onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
-                        Generate New & Copy
-                    </button>
-                    <button type="button" class="btnx flex-1 border border-prof"
-                        data-send-whatsapp="1"
-                        data-session-id="{{ external_selected_session.id|default:'' }}"
-                        data-cin="{{ st.display_cin|default:''|escapejs }}"
-                        data-name="{{ st.display_name|default:''|escapejs }}"
-                        data-phone="{{ st.display_phone|default:''|escapejs }}"
-                        data-email="{{ st.display_email|default:''|escapejs }}"
-                        {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
-                        onclick="sendSingleWhatsApp(this)">
-                        Send via WhatsApp
-                    </button>
-                </div>
-            </div>
+    <aside class="neo-card">
+      <div class="neo-card-head">
+        <h3>Auto Attendance Timeline</h3>
+        <span>{{ attendance_timeline|length }} events</span>
+      </div>
+      <div class="neo-timeline">
+        {% for event in attendance_timeline %}
+        <div class="neo-event">
+          <div class="e1">{{ event.event_label }} • {{ event.student_name }}</div>
+          {% if event.meta_label %}<div class="e2">{{ event.meta_label }}</div>{% endif %}
+          <div class="e3">{{ event.happened_at|date:"Y-m-d H:i:s" }}</div>
         </div>
         {% empty %}
-        <div class="col-span-full py-20 text-center opacity-60">
-            <span class="material-symbols-outlined text-4xl text-muted">person_off</span>
-            <p class="font-bold mt-3">Aucun étudiant trouvé pour cette session</p>
-        </div>
+        <div class="neo-event"><div class="e1">No timeline events yet for this session.</div></div>
         {% endfor %}
-    </div>
-
-    <div class="glass-card p-5">
-        <div class="flex items-center justify-between">
-            <h3 class="font-black text-base" style="color: var(--prof-text-main);">Auto Attendance Timeline</h3>
-            <span class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">Live + link + moderation activity</span>
-        </div>
-        <div class="mt-4 space-y-2 max-h-[26rem] overflow-auto pr-1">
-            {% for event in attendance_timeline %}
-            <div class="rounded-xl border border-prof bg-surface-hover px-3 py-2">
-                <div class="text-[11px] font-black" style="color: var(--prof-text-main);">{{ event.event_label }} • {{ event.student_name }}</div>
-                {% if event.meta_label %}
-                <div class="text-[10px] opacity-70" style="color: var(--prof-text-muted);">{{ event.meta_label }}</div>
-                {% endif %}
-                <div class="text-[10px] opacity-60" style="color: var(--prof-text-muted);">{{ event.happened_at|date:"Y-m-d H:i:s" }}</div>
-            </div>
-            {% empty %}
-            <div class="text-xs opacity-60" style="color: var(--prof-text-muted);">No timeline events yet for this session.</div>
-            {% endfor %}
-        </div>
-    </div>
+      </div>
+    </aside>
+  </section>
 </div>
 {% else %}
-<div class="space-y-8">
-    <!-- Header with Stats -->
-    <div class="glass-card p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div class="flex items-center gap-4">
-            <div class="size-12 rounded-xl bg-brand-light text-brand flex items-center justify-center">
-                <span class="material-symbols-outlined text-2xl">school</span>
-            </div>
-            <div>
-                <h2 class="text-xs font-black uppercase tracking-widest opacity-50 mb-1" style="color: var(--prof-text-muted);">Cohorte Active</h2>
-                <div class="flex items-center gap-2">
-                    <span class="text-xl font-black tracking-tight" style="color: var(--prof-text-main);">
-                        {% if selected_session %}
-                            {{ selected_session.city }}<span class="opacity-50 mx-2">•</span>{{ selected_session.start_date|date:"F Y" }}
-                        {% else %}
-                            Toutes Sessions
-                        {% endif %}
-                    </span>
-                </div>
-            </div>
-        </div>
-        <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover border border-prof">
-            <span class="text-2xl font-black text-brand">{{ students.count }}</span>
-            <span class="text-xs font-bold uppercase tracking-widest opacity-70" style="color: var(--prof-text-muted);">Inscrits</span>
-        </div>
-    </div>
-
-    <!-- Students Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for student in students %}
-        <div class="glass-card group overflow-hidden hover:-translate-y-1 transition-all duration-300">
-            <!-- Card Header Gradient -->
-            <div class="h-1 bg-gradient-to-r from-brand to-brand-light opacity-50"></div>
-            
-            <div class="p-6">
-                <div class="flex items-start gap-4 mb-6">
-                    <div class="size-16 rounded-2xl bg-surface-hover text-brand flex items-center justify-center font-black text-xl shadow-inner group-hover:scale-105 transition-transform">
-                        {% if student.profile.profile_picture %}
-                        <img src="{{ student.profile.profile_picture }}" class="size-full object-cover rounded-2xl">
-                        {% else %}
-                        {{ student.profile.full_name|first|upper }}
-                        {% endif %}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="text-lg font-black tracking-tight mb-1 truncate" style="color: var(--prof-text-main);">{{ student.profile.full_name }}</h3>
-                        <p class="text-xs font-medium truncate opacity-60 mb-2" style="color: var(--prof-text-muted);">{{ student.user.email }}</p>
-                        <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md badge-success text-[10px] font-bold uppercase tracking-wider">
-                            <span class="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                            Actif
-                        </span>
-                    </div>
-                </div>
-
-                <div class="space-y-4">
-                    <!-- Formations -->
-                    <div class="space-y-2">
-                        <p class="text-[9px] font-black uppercase tracking-widest opacity-40" style="color: var(--prof-text-muted);">Formations</p>
-                        <div class="flex flex-wrap gap-2">
-                            {% for formation in student.authorized_formations.all %}
-                            <span class="px-2 py-1 bg-surface-hover border border-prof rounded-lg text-[10px] font-bold uppercase tracking-wide opacity-80" style="color: var(--prof-text-main);">
-                                {{ formation.title|truncatechars:18 }}
-                            </span>
-                            {% empty %}
-                            <span class="text-[10px] italic opacity-40" style="color: var(--prof-text-muted);">Aucune formation</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <!-- Contact Details -->
-                    <div class="grid grid-cols-2 gap-3 pt-4 border-t border-prof">
-                        <div>
-                            <p class="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1" style="color: var(--prof-text-muted);">Ville</p>
-                            <p class="text-xs font-bold" style="color: var(--prof-text-main);">{{ student.profile.city|default:"—" }}</p>
-                        </div>
-                        <div>
-                            <p class="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1" style="color: var(--prof-text-muted);">Contact</p>
-                            <p class="text-xs font-bold truncate" style="color: var(--prof-text-main);">{{ student.profile.phone_number|default:"—" }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="mt-6 flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                        <a href="mailto:{{ student.user.email }}" class="size-9 rounded-xl border border-prof flex items-center justify-center text-muted hover:text-brand hover:border-brand transition-colors" style="color: var(--prof-text-muted);">
-                            <span class="material-symbols-outlined text-lg">mail</span>
-                        </a>
-                        {% if student.profile.phone_number %}
-                        <a href="https://wa.me/{{ student.profile.phone_number }}" target="_blank" 
-                           class="size-9 rounded-xl border border-prof flex items-center justify-center text-muted hover:text-green-500 hover:border-green-500 transition-colors" style="color: var(--prof-text-muted);">
-                            <span class="material-symbols-outlined text-lg">chat</span>
-                        </a>
-                        {% endif %}
-                    </div>
-                    <!-- Removed Dossier Suivis Button as requested -->
-                </div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="col-span-full py-20 text-center">
-            <div class="size-20 rounded-full bg-surface-hover flex items-center justify-center mx-auto mb-6 opacity-50">
-                <span class="material-symbols-outlined text-4xl" style="color: var(--prof-text-muted);">person_off</span>
-            </div>
-            <h3 class="text-xl font-black mb-2" style="color: var(--prof-text-main);">Aucun étudiant trouvé</h3>
-            <p class="text-sm opacity-60" style="color: var(--prof-text-muted);">Cette session ne compte actuellement aucun inscrit.</p>
-        </div>
-        {% endfor %}
-    </div>
+<div class="glass-card p-6">
+  <h3 class="text-lg font-black" style="color: var(--prof-text-main);">Student dashboard redesign applies to external (Barka) mode.</h3>
+  <p class="text-sm font-bold mt-2" style="color: var(--prof-text-muted);">Switch to an external session to use the new command center.</p>
 </div>
 {% endif %}
 {% endblock %}
@@ -301,24 +276,24 @@
       const data = await requestJoinLink(sessionId, cin, name, '', '');
       try {
         await navigator.clipboard.writeText(String(data.join_url));
-      } catch (e) {
+      } catch (_) {
         prompt('Copy this link:', String(data.join_url));
       }
       alert('Join link copied.');
     } catch (e) {
-      alert('Unable to generate link.');
+      alert(String(e && e.message ? e.message : 'Unable to generate link.'));
     } finally {
       if (btn) btn.disabled = false;
     }
   }
   async function sendSingleWhatsApp(btn, options = {}) {
-    if (!btn) return;
+    if (!btn) return false;
     const sessionId = btn.dataset.sessionId || '';
     const cin = btn.dataset.cin || '';
     const name = btn.dataset.name || '';
     const email = btn.dataset.email || '';
     const phone = btn.dataset.phone || '';
-    if (!sessionId || !cin) return;
+    if (!sessionId || !cin) return false;
     const original = btn.textContent;
     try {
       btn.disabled = true;
@@ -326,19 +301,15 @@
       const data = await requestJoinLink(sessionId, cin, name, email, phone);
       const msg = cautionMessageArabic(String(data.join_url));
       const waPhone = normalizeWhatsAppPhone(phone);
-      const waUrl = waPhone
-        ? `https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(msg)}`
-        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      const waUrl = waPhone ? `https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
       const opened = window.open(waUrl, '_blank', 'noopener');
       await trackWhatsAppClick(waPhone, msg);
-      if (!opened) alert('Popup blocked. Allow popups for this site to open WhatsApp queue.');
+      if (!opened && !options.silent) alert('Popup blocked. Allow popups for this site.');
       btn.textContent = 'Sent';
-      setTimeout(() => { btn.textContent = original; }, 1400);
+      setTimeout(() => { btn.textContent = original; }, 1000);
       return !!opened;
     } catch (e) {
-      if (!options.silent) {
-        alert(String(e && e.message ? e.message : 'Unable to send via WhatsApp.'));
-      }
+      if (!options.silent) alert(String(e && e.message ? e.message : 'Unable to send via WhatsApp.'));
       btn.textContent = original;
       return false;
     } finally {
@@ -347,10 +318,9 @@
   }
   async function sendAllWhatsAppQueue() {
     const status = document.getElementById('broadcast-status');
-    const buttons = Array.from(document.querySelectorAll('button[data-send-whatsapp="1"]'))
-      .filter((btn) => !btn.disabled);
+    const buttons = Array.from(document.querySelectorAll('button[data-send-whatsapp="1"]')).filter((btn) => !btn.disabled);
     if (!buttons.length) {
-      if (status) status.textContent = 'No students available for WhatsApp queue.';
+      if (status) status.textContent = 'No students available for queue.';
       return;
     }
     let sent = 0;
@@ -360,14 +330,10 @@
       const label = btn.dataset.name || btn.dataset.cin || `Student ${index + 1}`;
       if (status) status.textContent = `Queue ${index + 1}/${buttons.length}: ${label}`;
       const ok = await sendSingleWhatsApp(btn, { silent: true });
-      if (ok) {
-        sent += 1;
-      } else {
-        failed += 1;
-      } 
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      if (ok) sent += 1; else failed += 1;
+      await new Promise((resolve) => setTimeout(resolve, 350));
     }
-    if (status) status.textContent = `Broadcast queue completed. Sent: ${sent}, Failed: ${failed}.`;
+    if (status) status.textContent = `Queue completed. Sent: ${sent}, Failed: ${failed}.`;
   }
   (function initBroadcastQueue() {
     const sendAllBtn = document.getElementById('send-all-whatsapp');
@@ -375,10 +341,8 @@
     sendAllBtn.addEventListener('click', async () => {
       sendAllBtn.disabled = true;
       const original = sendAllBtn.textContent;
-      sendAllBtn.textContent = 'Sending queue...';
-      try {
-        await sendAllWhatsAppQueue();
-      } finally {
+      sendAllBtn.textContent = 'Sending...';
+      try { await sendAllWhatsAppQueue(); } finally {
         sendAllBtn.disabled = false;
         sendAllBtn.textContent = original;
       }

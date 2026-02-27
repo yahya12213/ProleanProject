@@ -600,3 +600,19 @@ Recent Entries
 - Why:
   - Professors needed a faster workflow to distribute links and monitor whether link/live actions are actually happening.
   - Per-tile controls reduce moderation delay versus relying only on the side moderation drawer.
+
+[2026-02-27 UTC] Area: Prolean | Type: UI/Full Modern Redesign (Professor Dashboard + Students Command Center)
+- What changed:
+  - Rebuilt `professor/dashboard` visual system with a modern neo-glass control-room layout:
+    - redesigned hero/state area,
+    - reworked sessions rail,
+    - refreshed live controls/broadcast/tracking cards,
+    - denser responsive student panels with improved readability.
+  - Rebuilt `professor/students` (external mode) into a modern command-center:
+    - large mission-control header with KPI tiles,
+    - redesigned session selector pills,
+    - new high-contrast student action tiles,
+    - integrated WhatsApp queue panel and timeline sidebar in a two-column command layout.
+  - Kept all backend flows and routes intact (no API contract changes), but replaced page structure/styles for a complete visual upgrade.
+- Why:
+  - The previous layout looked too close to the old dashboard and did not meet the required “complete modern dashboard” expectation.
