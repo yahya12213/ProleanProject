@@ -616,3 +616,46 @@ Recent Entries
   - Kept all backend flows and routes intact (no API contract changes), but replaced page structure/styles for a complete visual upgrade.
 - Why:
   - The previous layout looked too close to the old dashboard and did not meet the required “complete modern dashboard” expectation.
+
+[2026-02-27 UTC] Area: Prolean | Type: Fix/One-Click Link + WhatsApp Delivery Reliability
+- What changed:
+  - Adjusted one-click live-join reliability for shared links by relaxing overly strict preview detection logic that could misclassify real in-app opens.
+  - Updated WhatsApp send behavior and join link formatting handling to reduce invalid/expired parsing issues caused by client-side URL extraction edge cases.
+  - Restored and stabilized the production line to commit `bddc4e0` when requested, then continued fixes on top.
+- Why:
+  - Users still received invalid/expired errors after sending links via WhatsApp and needed a stable known-good baseline first.
+
+[2026-02-27 UTC] Area: Prolean | Type: Feature/Location UX (Browser GPS + OSM + Header Integration)
+- What changed:
+  - Renamed header nav label from `Migration` to `Imigration` (desktop + mobile navigation).
+  - Added browser geolocation capture endpoint: `api/location/browser/`.
+  - Implemented OSM reverse-geocoding (Nominatim) server flow and session storage for browser-resolved city/country.
+  - Added automatic geolocation sync from base layout script and switched runtime location reads to prefer browser GPS session data over IP-derived fallback in key tracking/join flows.
+  - Added location indicator next to `MAD` in the currency control (desktop + mobile) and iterated UI behavior:
+    - auto-refresh on load + periodic refresh,
+    - removed extra isolated location badges,
+    - replaced guessed city display with loading state (`Locating...`) until GPS resolves,
+    - show `Location off` when unavailable.
+  - Removed custom retry modal and switched to native browser geolocation permission flow only.
+- Why:
+  - Requirement: avoid inaccurate IP-based city display and prioritize exact browser GPS location with cleaner header UX.
+
+[2026-02-27 UTC] Area: Prolean | Type: UI/Cleanup (Hero + Branding)
+- What changed:
+  - Removed location badge from home hero section.
+  - Removed text block next to logo (`Prolean` / `Centre de Formation`) in header brand area, keeping logo-only presentation.
+- Why:
+  - Requested cleaner, minimal top navigation and hero presentation.
+
+[2026-02-27 UTC] Area: Prolean | Type: Fix/Production Hero Video Delivery
+- What changed:
+  - Enabled production static file serving with WhiteNoise:
+    - added `whitenoise` dependency,
+    - inserted `WhiteNoiseMiddleware`,
+    - enabled compressed manifest static storage.
+  - Hardened hero background video with safer loading behavior:
+    - `preload="metadata"`,
+    - poster image fallback,
+    - runtime fallback to image when video fails/stalls.
+- Why:
+  - Hero background video failed on production due to static asset delivery/runtime playback issues.
