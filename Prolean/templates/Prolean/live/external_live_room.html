@@ -920,7 +920,7 @@
 
   let themeObserver = null;
   let isResizing = false;
-  const fixedThreePaneLayout = true;
+  const fixedThreePaneLayout = false;
   let rightMode = 1;
   const SCREEN_UID_OFFSET = 1000;
 
@@ -942,7 +942,6 @@
   let hasJoined = false;
   let exiting = false;
   let warnedNoDataStream = false;
-  let helloIntervalId = null;
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
   const isMobileViewport = () => window.matchMedia("(max-width: 1100px)").matches;
@@ -955,9 +954,11 @@
   const isScreenShare = (source) => normalizeSource(source).startsWith("screen_share");
   const initials = (label) => (String(label || "U").trim()[0] || "U").toUpperCase();
   const normalizeCin = (value) => String(value || "").trim().toUpperCase();
+  const firstSecondName = (value) => String(value || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ");
   const cinLabel = (identity) => {
-    const cin = participantCins.get(String(identity));
-    return cin ? `CIN ${cin}` : "CIN N/A";
+    const label = participantLabels.get(String(identity)) || "";
+    const shortName = firstSecondName(label);
+    return shortName || "Student";
   };
 
   const setStatus = (txt, kind = "warn") => {
@@ -1101,8 +1102,7 @@
     media.appendChild(wm);
     const footer = document.createElement("div");
     footer.className = "student-label";
-    const labelCin = cinLabel(data?.identity || "");
-    footer.textContent = `${label}${labelCin !== "CIN N/A" ? ` · ${labelCin}` : ""}`;
+    footer.textContent = label;
     host.appendChild(footer);
   };
 
@@ -1292,8 +1292,7 @@
       }
       const footer = document.createElement("div");
       footer.className = "student-label";
-      const studentCin = cinLabel(student.id || "");
-      footer.textContent = `${student.name}${studentCin !== "CIN N/A" ? ` · ${studentCin}` : ""}`;
+      footer.textContent = student.name;
       card.appendChild(footer);
       grid.appendChild(card);
     }
@@ -1458,10 +1457,6 @@
   const forceExit = async (reason) => {
     if (exiting) return;
     exiting = true;
-    if (helloIntervalId) {
-      clearInterval(helloIntervalId);
-      helloIntervalId = null;
-    }
     try { await stopScreenShare(); } catch (_) {}
     try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
     try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
@@ -1727,9 +1722,6 @@
       try {
         await sendHelloSignal();
       } catch (_) {}
-      if (!helloIntervalId) {
-        helloIntervalId = setInterval(() => { sendHelloSignal().catch(() => {}); }, 20000);
-      }
       try {
         document.addEventListener("contextmenu", (e) => { e.preventDefault(); }, { capture: true });
         document.addEventListener("keydown", (e) => {
