@@ -727,7 +727,7 @@
             <div class="mod-title"><span class="material-symbols-outlined">shield_person</span>Moderation</div>
             <div class="mod-actions">
                 <button id="mute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic_off</span>Mute all</button>
-                <button id="unmute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic</span>Unmute</button>
+                <button id="unmute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic</span>Unmute all</button>
                 <button id="close-mod" class="mod-btn"><span class="material-symbols-outlined text-base">close</span>Close</button>
             </div>
         </div>
@@ -743,8 +743,8 @@
 
         <div id="pane-resizer" class="pane-resizer" title="{% if CURRENT_LANGUAGE == 'ar' %}اسحب لتعديل الحجم{% elif CURRENT_LANGUAGE == 'en' %}Drag to resize screens{% else %}Glisser pour redimensionner{% endif %}"></div>
 
-        <section id="right-pane" class="pane pane-side" title="{% if CURRENT_LANGUAGE == 'ar' %}اضغط لتبديل وضع الشاشة اليمنى{% elif CURRENT_LANGUAGE == 'en' %}Tap to switch right screen mode{% else %}Touchez pour changer le mode à droite{% endif %}">
-            <div id="right-title" class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ + كاميرتك{% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share + Your Camera{% else %}Partage écran prof + votre caméra{% endif %}</div>
+        <section id="right-pane" class="pane pane-side">
+            <div id="right-title" class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}عرض الأستاذ + الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Presentation + Students{% else %}Présentation + étudiants{% endif %}</div>
             <div id="right-host" class="video-host"></div>
         </section>
     </div>
@@ -807,9 +807,9 @@
     noOneSpeaking: "{% if CURRENT_LANGUAGE == 'ar' %}لا أحد يتكلم الآن{% elif CURRENT_LANGUAGE == 'en' %}No one speaking now{% else %}Personne ne parle maintenant{% endif %}",
     noRaisedHands: "{% if CURRENT_LANGUAGE == 'ar' %}لا توجد أيادي مرفوعة{% elif CURRENT_LANGUAGE == 'en' %}No raised hands{% else %}Aucune main levée{% endif %}",
     waitingStudents: "{% if CURRENT_LANGUAGE == 'ar' %}في انتظار انضمام الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Waiting for students to join live{% else %}En attente des étudiants{% endif %}",
-    rightScreen: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ (اضغط للتبديل){% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share (Tap to Switch){% else %}Partage écran prof (tap pour changer){% endif %}",
-    rightSplit: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة الشاشة + الطلاب (اضغط للتبديل){% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share + Students (Tap to Switch){% else %}Partage écran + étudiants (tap pour changer){% endif %}",
-    rightStudents: "{% if CURRENT_LANGUAGE == 'ar' %}شبكة الطلاب (اضغط للتبديل){% elif CURRENT_LANGUAGE == 'en' %}Students Grid (Tap to Switch){% else %}Grille étudiants (tap pour changer){% endif %}",
+    rightScreen: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share{% else %}Partage écran prof{% endif %}",
+    rightSplit: "{% if CURRENT_LANGUAGE == 'ar' %}العرض + الطلاب المتصلون{% elif CURRENT_LANGUAGE == 'en' %}Presentation + Connected Students{% else %}Présentation + étudiants connectés{% endif %}",
+    rightStudents: "{% if CURRENT_LANGUAGE == 'ar' %}شبكة الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Students Grid{% else %}Grille étudiants{% endif %}",
     noScreenShare: "{% if CURRENT_LANGUAGE == 'ar' %}لا توجد مشاركة شاشة{% elif CURRENT_LANGUAGE == 'en' %}No Screen Share{% else %}Aucun partage écran{% endif %}",
     screenShareLabel: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة الشاشة{% elif CURRENT_LANGUAGE == 'en' %}Screen Share{% else %}Partage écran{% endif %}",
     profScreenSharing: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}The prof screen sharing{% else %}Partage écran du prof{% endif %}",
@@ -872,6 +872,7 @@
 
   let themeObserver = null;
   let isResizing = false;
+  const fixedThreePaneLayout = true;
   let rightMode = 1;
   const SCREEN_UID_OFFSET = 1000;
 
@@ -1227,6 +1228,9 @@
     btnModeStudents.classList.toggle("active", rightMode === 2);
   };
   const renderRightPane = () => {
+    if (fixedThreePaneLayout) {
+      rightMode = 1;
+    }
     if (rightMode === 0) {
       rightTitle.textContent = uiText.rightScreen;
       const screen = pickTrack(resolveProfessorScreenIdentity(), true);
@@ -1430,12 +1434,8 @@
     return null;
   };
 
-  const setMicLocked = (locked) => {
-    btnAudio.dataset.locked = locked ? "1" : "0";
-    btnAudio.classList.toggle("opacity-50", !!locked);
-    btnAudio.classList.toggle("cursor-not-allowed", !!locked);
-  };
-  const isMicLocked = () => String(btnAudio.dataset.locked || "0") === "1";
+  const setMicLocked = (_locked) => {};
+  const isMicLocked = () => false;
 
   const subscribeUser = async (user, mediaType) => {
     await mainClient.subscribe(user, mediaType);
@@ -1483,7 +1483,7 @@
       const muteBtn = document.createElement("button");
       muteBtn.type = "button";
       muteBtn.className = "mod-mini";
-      muteBtn.title = "Force mute";
+      muteBtn.title = "Mute mic";
       muteBtn.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
       muteBtn.addEventListener("click", async () => {
         const targetUserId = uidToUserId(s.id);
@@ -1502,14 +1502,14 @@
             });
           } catch (_) {}
         }
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), locked: true });
-        await logEvent("moderate_force_mute", { target_uid: String(s.id) }, targetUserId);
+        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: true });
+        await logEvent("moderate_mute_user", { target_uid: String(s.id) }, targetUserId);
       });
 
       const unmuteBtn = document.createElement("button");
       unmuteBtn.type = "button";
       unmuteBtn.className = "mod-mini";
-      unmuteBtn.title = "Unlock mic";
+      unmuteBtn.title = "Unmute mic";
       unmuteBtn.innerHTML = '<span class="material-symbols-outlined">mic</span>';
       unmuteBtn.addEventListener("click", async () => {
         const targetUserId = uidToUserId(s.id);
@@ -1528,7 +1528,7 @@
             });
           } catch (_) {}
         }
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), locked: false });
+        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: false });
         await logEvent("moderate_unmute_user", { target_uid: String(s.id) }, targetUserId);
       });
 
@@ -1691,7 +1691,7 @@
     }
     if (type === "force_mute") {
       const targetUid = String(payload.uid || payload.target_uid || "");
-      const locked = payload.locked !== false;
+      const locked = payload.muted === false ? false : (payload.locked !== false);
       if (targetUid && targetUid === String(agoraUid)) {
         if (locked) {
           if (localMicTrack) {
@@ -1699,28 +1699,34 @@
           }
           setMicLocked(true);
         } else {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(false); } catch (_) {}
+          }
           setMicLocked(false);
         }
         syncControlStates();
-        showError(locked ? "Your microphone was muted by the professor." : "Microphone lock was removed.");
-        logEvent(locked ? "forced_mute" : "unmute_signal", { locked: !!locked });
+        showError(locked ? "Your microphone was muted by the professor." : "Your microphone was unmuted by the professor.");
+        logEvent(locked ? "forced_mute" : "forced_unmute", { muted: !!locked });
       }
       return;
     }
     if (type === "force_mute_all") {
       if (!isProfessor) {
-        const locked = payload.locked !== false;
+        const locked = payload.muted === false ? false : (payload.locked !== false);
         if (locked) {
           if (localMicTrack) {
             try { await localMicTrack.setMuted(true); } catch (_) {}
           }
           setMicLocked(true);
         } else {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(false); } catch (_) {}
+          }
           setMicLocked(false);
         }
         syncControlStates();
-        showError(locked ? "All microphones were muted by the professor." : "Microphone lock was removed.");
-        logEvent(locked ? "forced_mute_all" : "unmute_all_signal", {});
+        showError(locked ? "All microphones were muted by the professor." : "All microphones were unmuted by the professor.");
+        logEvent(locked ? "forced_mute_all" : "forced_unmute_all", {});
       }
       return;
     }
@@ -1869,11 +1875,13 @@
     rerender();
   };
 
-  rightPane.addEventListener("click", () => { rightMode = (rightMode + 1) % 3; renderRightPane(); });
-  btnCycleMode.addEventListener("click", () => { rightMode = (rightMode + 1) % 3; renderRightPane(); });
-  btnModeScreen.addEventListener("click", () => { rightMode = 0; renderRightPane(); });
-  btnModeSplit.addEventListener("click", () => { rightMode = 1; renderRightPane(); });
-  btnModeStudents.addEventListener("click", () => { rightMode = 2; renderRightPane(); });
+  if (!fixedThreePaneLayout) {
+    rightPane.addEventListener("click", () => { rightMode = (rightMode + 1) % 3; renderRightPane(); });
+    btnCycleMode.addEventListener("click", () => { rightMode = (rightMode + 1) % 3; renderRightPane(); });
+    btnModeScreen.addEventListener("click", () => { rightMode = 0; renderRightPane(); });
+    btnModeSplit.addEventListener("click", () => { rightMode = 1; renderRightPane(); });
+    btnModeStudents.addEventListener("click", () => { rightMode = 2; renderRightPane(); });
+  }
 
   btnToggleLayoutPanel.addEventListener("click", () => {
     layoutPanel.classList.toggle("open");
@@ -1911,10 +1919,6 @@
   paneResizer.addEventListener("pointercancel", stopResizing);
 
   btnAudio.addEventListener("click", async () => {
-    if (isMicLocked() && !isProfessor) {
-      showError("Microphone is locked by the professor.");
-      return;
-    }
     if (!localMicTrack) return;
     await localMicTrack.setMuted(!localMicTrack.muted);
     syncControlStates();
@@ -1959,8 +1963,8 @@
         credentials: "same-origin",
       });
     } catch (_) {}
-    await sendRoomSignal({ t: "force_mute_all" });
-    await logEvent("moderate_force_mute_all", {});
+    await sendRoomSignal({ t: "force_mute_all", muted: true });
+    await logEvent("moderate_mute_all", {});
   });
   if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
     const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
@@ -1976,7 +1980,7 @@
         credentials: "same-origin",
       });
     } catch (_) {}
-    await sendRoomSignal({ t: "force_mute_all", locked: false });
+    await sendRoomSignal({ t: "force_mute_all", muted: false });
     await logEvent("moderate_unmute_all", {});
   });
   if (btnEndLive) {
@@ -2041,6 +2045,13 @@
   bindThemeSync();
   loadLayoutPrefs();
   applyLayoutPrefs();
+  if (fixedThreePaneLayout) {
+    rightMode = 1;
+    [btnCycleMode, btnModeScreen, btnModeSplit, btnModeStudents, btnToggleLayoutPanel].forEach((el) => {
+      if (el) el.classList.add("hidden");
+    });
+    if (layoutPanel) layoutPanel.classList.remove("open");
+  }
   if (!isProfessor && presenceBoard) presenceBoard.classList.add("hidden");
   window.addEventListener("resize", rerender);
   connectAgora();
@@ -2059,16 +2070,6 @@
         showError(`You are banned from this live session${reason}.`);
         forceExit("banned_status");
         return;
-      }
-      if (data && data.mic_locked && !isProfessor) {
-        setMicLocked(true);
-        if (localMicTrack) {
-          try { await localMicTrack.setMuted(true); } catch (_) {}
-        }
-        syncControlStates();
-      } else if (!isProfessor && !data?.mic_locked && isMicLocked()) {
-        setMicLocked(false);
-        syncControlStates();
       }
       if (data && data.ended) {
         forceExit("live_ended_status");

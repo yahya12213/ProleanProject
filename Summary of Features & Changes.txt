@@ -26,6 +26,11 @@ Project Baseline (Current Working Direction)
 Recent Entries
 --------------
 
+[2026-02-27 UTC] Area: Prolean | Type: Fix/Live Moderation + Layout + One-Click Policy
+- Live moderation terminology/behavior updated to mute/unmute (no persistent mic lock in client controls).
+- External live room layout fixed to 3-zone focus: professor camera, presentation, and connected students.
+- One-click join links kept single-use with professor-visible usage tracking (used/revoked/expired) and preview-bot protection.
+
 [2026-02-26 UTC] Area: Prolean | Type: Refactor/One-Click Join Link Reliability
 - Removed the previous one-time invite consumption flow and database dependency for join links.
 - Implemented stateless signed one-click links with expiry (`EXTERNAL_LIVE_ONE_CLICK_TTL_SECONDS`).
