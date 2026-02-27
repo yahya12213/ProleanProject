@@ -207,7 +207,6 @@ def _is_probably_link_preview(request) -> bool:
         if method not in {"GET", "HEAD"}:
             return False
         ua = str(request.META.get("HTTP_USER_AGENT", "") or "").lower()
-        accept = str(request.META.get("HTTP_ACCEPT", "") or "").lower()
         purpose = str(request.META.get("HTTP_PURPOSE", "") or "").lower()
         sec_purpose = str(request.META.get("HTTP_SEC_PURPOSE", "") or "").lower()
         if "prefetch" in purpose or "prefetch" in sec_purpose:
@@ -229,8 +228,6 @@ def _is_probably_link_preview(request) -> bool:
             "bot/",
         )
         if any(tok in ua for tok in bot_tokens):
-            return True
-        if accept and ("text/html" not in accept and "application/xhtml+xml" not in accept):
             return True
     except Exception:
         return False
