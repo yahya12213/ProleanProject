@@ -1501,6 +1501,7 @@ def track_whatsapp_click(request):
 
 
 @require_POST
+@csrf_exempt
 def browser_location_update(request):
     """Store browser GPS location resolved via OpenStreetMap reverse geocoding."""
     try:
