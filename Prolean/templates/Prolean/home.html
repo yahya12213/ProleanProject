@@ -11,9 +11,10 @@
 <section class="relative h-[90vh] min-h-[700px] flex items-center overflow-hidden">
     <!-- Video Background Container -->
     <div class="absolute inset-0 z-0">
-        <video autoplay muted loop playsinline class="w-full h-full object-cover">
+        <video id="hero-bg-video" autoplay muted loop playsinline preload="metadata" poster="{% static 'images/auth_bg.png' %}" class="w-full h-full object-cover">
             <source src="{% static 'videos/videobg.mp4' %}" type="video/mp4">
         </video>
+        <img id="hero-bg-fallback" src="{% static 'images/auth_bg.png' %}" alt="" class="hidden absolute inset-0 w-full h-full object-cover" />
         <!-- Overlay for contrast -->
         <div class="absolute inset-0 bg-neutral-900/40 backdrop-blur-[2px]"></div>
         <!-- Gradient Bottom for smooth transition -->
@@ -69,6 +70,23 @@
         <span class="material-symbols-outlined text-3xl animate-bounce">expand_more</span>
     </a>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const video = document.getElementById('hero-bg-video');
+    const fallback = document.getElementById('hero-bg-fallback');
+    if (!video || !fallback) return;
+    const showFallback = () => {
+        video.classList.add('hidden');
+        fallback.classList.remove('hidden');
+    };
+    video.addEventListener('error', showFallback, { once: true });
+    video.addEventListener('stalled', showFallback, { once: true });
+    setTimeout(() => {
+        if (video.readyState < 2) showFallback();
+    }, 3000);
+});
+</script>
 
 <style>
     @keyframes float {
