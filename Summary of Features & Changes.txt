@@ -31,6 +31,11 @@ Recent Entries
 - External live room layout fixed to 3-zone focus: professor camera, presentation, and connected students.
 - One-click join links kept single-use with professor-visible usage tracking (used/revoked/expired) and preview-bot protection.
 
+[2026-02-27 UTC] Area: Prolean | Type: Fix/Mobile Live Default + Faster Mute/Unmute
+- Mobile default live view now prioritizes professor camera + presentation screen.
+- Professor mute/unmute actions now dispatch realtime signal first (DB/cache call in background) to reduce moderation latency.
+- Added fast fallback sync from live status polling (1.2s) so mute/unmute converges quickly even when data-stream delivery is delayed.
+
 [2026-02-26 UTC] Area: Prolean | Type: Refactor/One-Click Join Link Reliability
 - Removed the previous one-time invite consumption flow and database dependency for join links.
 - Implemented stateless signed one-click links with expiry (`EXTERNAL_LIVE_ONE_CLICK_TTL_SECONDS`).

@@ -894,6 +894,7 @@
   let warnedNoDataStream = false;
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+  const isMobileViewport = () => window.matchMedia("(max-width: 1100px)").matches;
 
   const layoutStorageKey = "prolean_live_layout_v1";
   const defaultLayoutPrefs = { swapped: false, rightWidth: 28, gridCols: 2, tileMinHeight: 120 };
@@ -1229,7 +1230,7 @@
   };
   const renderRightPane = () => {
     if (fixedThreePaneLayout) {
-      rightMode = 1;
+      rightMode = isMobileViewport() ? 0 : 1;
     }
     if (rightMode === 0) {
       rightTitle.textContent = uiText.rightScreen;
@@ -1487,10 +1488,12 @@
       muteBtn.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
       muteBtn.addEventListener("click", async () => {
         const targetUserId = uidToUserId(s.id);
+        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: true });
+        await logEvent("moderate_mute_user", { target_uid: String(s.id) }, targetUserId);
         if (targetUserId) {
           const muteUrl = "{% url 'Prolean:external_live_mute_user' session_id %}";
           try {
-            await fetch(muteUrl, {
+            fetch(muteUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -1502,8 +1505,6 @@
             });
           } catch (_) {}
         }
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: true });
-        await logEvent("moderate_mute_user", { target_uid: String(s.id) }, targetUserId);
       });
 
       const unmuteBtn = document.createElement("button");
@@ -1513,10 +1514,12 @@
       unmuteBtn.innerHTML = '<span class="material-symbols-outlined">mic</span>';
       unmuteBtn.addEventListener("click", async () => {
         const targetUserId = uidToUserId(s.id);
+        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: false });
+        await logEvent("moderate_unmute_user", { target_uid: String(s.id) }, targetUserId);
         if (targetUserId) {
           const unmuteUrl = "{% url 'Prolean:external_live_unmute_user' session_id %}";
           try {
-            await fetch(unmuteUrl, {
+            fetch(unmuteUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -1528,8 +1531,6 @@
             });
           } catch (_) {}
         }
-        await sendRoomSignal({ t: "force_mute", uid: String(s.id), muted: false });
-        await logEvent("moderate_unmute_user", { target_uid: String(s.id) }, targetUserId);
       });
 
       const banBtn = document.createElement("button");
@@ -1950,26 +1951,11 @@
   if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
   if (btnCloseMod) btnCloseMod.addEventListener("click", closeModeration);
   if (btnMuteAll) btnMuteAll.addEventListener("click", async () => {
-    const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
-    try {
-      await fetch(muteAllUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "X-CSRFToken": getCsrfToken(),
-          "Accept": "application/json",
-        },
-        body: "",
-        credentials: "same-origin",
-      });
-    } catch (_) {}
     await sendRoomSignal({ t: "force_mute_all", muted: true });
     await logEvent("moderate_mute_all", {});
-  });
-  if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
-    const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
+    const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
     try {
-      await fetch(unmuteAllUrl, {
+      fetch(muteAllUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -1980,8 +1966,23 @@
         credentials: "same-origin",
       });
     } catch (_) {}
+  });
+  if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
     await sendRoomSignal({ t: "force_mute_all", muted: false });
     await logEvent("moderate_unmute_all", {});
+    const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
+    try {
+      fetch(unmuteAllUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: "",
+        credentials: "same-origin",
+      });
+    } catch (_) {}
   });
   if (btnEndLive) {
     btnEndLive.addEventListener("click", async () => {
@@ -2046,7 +2047,7 @@
   loadLayoutPrefs();
   applyLayoutPrefs();
   if (fixedThreePaneLayout) {
-    rightMode = 1;
+    rightMode = isMobileViewport() ? 0 : 1;
     [btnCycleMode, btnModeScreen, btnModeSplit, btnModeStudents, btnToggleLayoutPanel].forEach((el) => {
       if (el) el.classList.add("hidden");
     });
@@ -2071,12 +2072,21 @@
         forceExit("banned_status");
         return;
       }
+      if (!isProfessor && localMicTrack) {
+        if (data && data.mic_locked && !localMicTrack.muted) {
+          try { await localMicTrack.setMuted(true); } catch (_) {}
+          syncControlStates();
+        } else if ((!data || !data.mic_locked) && localMicTrack.muted) {
+          try { await localMicTrack.setMuted(false); } catch (_) {}
+          syncControlStates();
+        }
+      }
       if (data && data.ended) {
         forceExit("live_ended_status");
       }
     } catch (_) {}
   };
-  setInterval(pollStatus, 3500);
+  setInterval(pollStatus, 1200);
 
   if (isProfessor) {
     const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
