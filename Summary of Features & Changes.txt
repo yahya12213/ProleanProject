@@ -659,3 +659,15 @@ Recent Entries
     - runtime fallback to image when video fails/stalls.
 - Why:
   - Hero background video failed on production due to static asset delivery/runtime playback issues.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Discord-Style + Moderation UX)
+- What changed:
+  - Restyled external live studio to a Discord-like dark call layout (theme variables, controls polish, pane visuals).
+  - Removed the live header connection state badge from the stream header.
+  - Kept professor moderation controls (mute/unmute + kick) and added required kick-reason modal in studio.
+  - Kick reason is now sent with the ban request and stored in DB through existing `external_live_ban_user` reason handling.
+  - Raised-hand behavior now renders a WhatsApp-like hand emoji badge (`🖐️`) directly on the student tile.
+  - Speaking state now renders animated talking waveform + pulsing green border on active speaker tiles, with intensity tied to Agora volume indicator level.
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
