@@ -682,3 +682,14 @@ Recent Entries
   - Kept previous moderation and activity behavior unchanged (mute/unmute, kick with reason, hand emoji, talking waveform).
 - Validation:
   - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Bottom Controls Restyle)
+- What changed:
+  - Restyled bottom action buttons to a modern call-bar style:
+    - circular glossy control buttons,
+    - stronger hover elevation/glow,
+    - clearer danger/off red gradient states,
+    - blue accent utility controls (screen/sound/fullscreen/switch).
+  - Restyled mode buttons to rounded-pill chips with stronger active-state highlight.
+- Validation:
+  - `python manage.py check` passed.
