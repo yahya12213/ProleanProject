@@ -80,6 +80,7 @@ urlpatterns = [
     path('external/live/<str:session_id>/mute-all/', views.external_live_mute_all, name='external_live_mute_all'),
     path('external/live/<str:session_id>/unmute-all/', views.external_live_unmute_all, name='external_live_unmute_all'),
     path('external/live/<str:session_id>/events/', views.external_live_event_log, name='external_live_event_log'),
+    path('external/live/<str:session_id>/hand/', views.external_live_hand_state, name='external_live_hand_state'),
     path('external/live/<str:session_id>/leave/', views.external_live_leave, name='external_live_leave'),
     path('external/professor/sessions/<str:session_id>/live/start/', views.external_professor_live_start, name='external_professor_live_start'),
     path('external/professor/sessions/<str:session_id>/live/pause/', views.external_professor_live_pause, name='external_professor_live_pause'),

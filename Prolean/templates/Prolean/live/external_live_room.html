@@ -239,28 +239,32 @@
     .kick-modal.open { display: flex; }
     .kick-modal-card {
         width: min(520px, 100%);
-        border-radius: 16px;
-        border: 1px solid var(--panel-border);
-        background: var(--panel-bg);
+        border-radius: 18px;
+        border: 1px solid rgba(129, 140, 248, 0.46);
+        background: linear-gradient(160deg, rgba(20, 24, 44, 0.98) 0%, rgba(15, 18, 34, 0.98) 100%);
         box-shadow: 0 26px 70px rgba(0, 0, 0, 0.45);
-        padding: 14px;
+        padding: 16px;
         display: grid;
-        gap: 10px;
+        gap: 12px;
     }
     .kick-modal-title {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
-        letter-spacing: .08em;
+        letter-spacing: .1em;
         text-transform: uppercase;
+        color: #dbe5ff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     .kick-modal textarea {
         width: 100%;
-        min-height: 92px;
-        border-radius: 10px;
-        border: 1px solid rgba(148, 163, 184, 0.28);
-        background: rgba(15, 23, 42, 0.45);
-        color: var(--text-main);
-        padding: 10px;
+        min-height: 100px;
+        border-radius: 12px;
+        border: 1px solid rgba(129, 140, 248, 0.36);
+        background: rgba(8, 12, 26, 0.74);
+        color: #f1f5ff;
+        padding: 12px;
         resize: vertical;
         outline: none;
     }
@@ -275,10 +279,10 @@
     }
     .kick-modal-btn {
         border-radius: 10px;
-        border: 1px solid var(--panel-border);
-        background: rgba(148, 163, 184, 0.16);
-        color: var(--text-main);
-        padding: 8px 12px;
+        border: 1px solid rgba(129, 140, 248, 0.42);
+        background: linear-gradient(180deg, #2f3362 0%, #24284f 100%);
+        color: #e8ecff;
+        padding: 9px 13px;
         font-size: 11px;
         font-weight: 900;
         letter-spacing: .08em;
@@ -444,14 +448,8 @@
         box-shadow: 0 8px 18px rgba(7, 11, 26, 0.35);
     }
 
-    .speaker-border {
-        box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 1), 0 0 0 1px rgba(34, 197, 94, 0.46), 0 0 24px rgba(34, 197, 94, 0.32);
-        animation: speakerPulse 1.1s ease-in-out infinite;
-    }
-
-    .raised-border {
-        box-shadow: inset 0 0 0 2px #f59e0b, 0 0 0 1px rgba(251, 146, 60, 0.52), 0 0 18px rgba(245, 158, 11, 0.24);
-    }
+    .speaker-border { box-shadow: none; animation: none; }
+    .raised-border { box-shadow: none; }
 
     @keyframes speakerPulse {
         0% { box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 0.88), 0 0 0 0 rgba(34, 197, 94, 0.42), 0 0 20px rgba(34, 197, 94, 0.2); }
@@ -657,10 +655,10 @@
     .controls-bar {
         border-top: 1px solid var(--top-border);
         background: var(--top-bg);
-        padding: 10px 12px;
+        padding: 10px 14px;
         margin: 0 10px 12px;
-        border-radius: 14px;
-        border: 1px solid var(--panel-border);
+        border-radius: 999px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
         display: flex;
         align-items: center;
         gap: 8px;
@@ -668,26 +666,28 @@
         flex: 0 0 auto;
         backdrop-filter: blur(10px);
         justify-content: center;
+        box-shadow: 0 16px 36px rgba(8, 10, 30, 0.36);
     }
 
     .ctrl-btn {
-        width: 46px;
-        height: 46px;
-        border-radius: 999px;
-        border: 1px solid rgba(129, 140, 248, 0.45);
-        background: radial-gradient(circle at 30% 25%, #34386c 0%, #24284f 100%);
-        color: #e8ecff;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        border: 1px solid rgba(129, 140, 248, 0.4);
+        background: linear-gradient(180deg, #2f3362 0%, #252a50 100%);
+        color: #edf2ff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease;
-        box-shadow: 0 8px 18px rgba(6, 10, 27, 0.45);
+        transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+        box-shadow: 0 8px 16px rgba(6, 10, 27, 0.4);
     }
 
     .ctrl-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 24px rgba(8, 11, 24, 0.42);
+        transform: translateY(-1px);
+        box-shadow: 0 12px 22px rgba(8, 11, 24, 0.36);
         border-color: rgba(147, 157, 255, 0.7);
+        filter: brightness(1.06);
     }
 
     .ctrl-btn[data-state="off"] {
@@ -718,9 +718,9 @@
     }
 
     .mode-btn {
-        height: 36px;
-        padding: 0 12px;
-        border-radius: 999px;
+        height: 34px;
+        padding: 0 11px;
+        border-radius: 11px;
         border: 1px solid rgba(129, 140, 248, 0.45);
         background: linear-gradient(180deg, #2a2d56 0%, #23264a 100%);
         color: #dbe5ff;
@@ -798,7 +798,7 @@
         .room-shell {
             padding: 8px;
             gap: 8px;
-            grid-template-rows: minmax(260px, 58dvh) minmax(180px, 34dvh);
+            grid-template-rows: 50dvh 50dvh;
             overflow-y: auto;
         }
 
@@ -921,7 +921,7 @@
     {% endif %}
     <div id="kick-reason-modal" class="kick-modal">
         <div class="kick-modal-card">
-            <div id="kick-modal-title" class="kick-modal-title">Kick Student</div>
+            <div id="kick-modal-title" class="kick-modal-title"><span class="material-symbols-outlined">warning</span>Kick Student</div>
             <textarea id="kick-reason-input" maxlength="200" placeholder="Reason (required)"></textarea>
             <div class="kick-modal-actions">
                 <button id="kick-reason-cancel" type="button" class="kick-modal-btn">Cancel</button>
@@ -1073,7 +1073,7 @@
   let themeObserver = null;
   let isResizing = false;
   const fixedThreePaneLayout = false;
-  let rightMode = 1;
+  let rightMode = isMobileViewport() ? 0 : 1;
   const SCREEN_UID_OFFSET = 1000;
 
   const participantLabels = new Map();
@@ -1114,10 +1114,24 @@
     return shortName || "Student";
   };
 
+  const handStateUrl = "{% url 'Prolean:external_live_hand_state' session_id %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
     connError.textContent = message;
     connError.classList.remove("hidden");
+  };
+  const forceMobileImmersive = async () => {
+    if (!isMobileViewport()) return;
+    try {
+      if (!document.fullscreenElement && roomRoot?.requestFullscreen) {
+        await roomRoot.requestFullscreen();
+      }
+    } catch (_) {}
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        await screen.orientation.lock("landscape");
+      }
+    } catch (_) {}
   };
 
   const detectUiTheme = () => {
@@ -1721,13 +1735,30 @@
       });
     } catch (_) {}
   };
+  const persistHandState = async (raised) => {
+    try {
+      await fetch(handStateUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({
+          raised: !!raised,
+          uid: String(agoraUid || ""),
+          name: String(selfName || ""),
+        }),
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
 
   const askKickReason = (studentLabel) => new Promise((resolve) => {
     if (!kickReasonModal || !kickReasonInput || !kickReasonConfirm || !kickReasonCancel || !kickModalTitle) {
       resolve("");
       return;
     }
-    kickModalTitle.textContent = `Kick ${studentLabel}`;
+    kickModalTitle.innerHTML = `<span class="material-symbols-outlined">warning</span>Kick ${String(studentLabel || "student")}`;
     kickReasonInput.value = "";
     kickReasonModal.classList.add("open");
     kickReasonInput.focus();
@@ -1793,11 +1824,17 @@
     const nextMuted = (forceMuted === null || typeof forceMuted === "undefined")
       ? !remotelyMutedIds.has(key)
       : !!forceMuted;
-    await sendRoomSignal({ t: "force_mute", uid: key, muted: nextMuted });
+    await sendRoomSignal({ t: "force_mute", uid: key, muted: nextMuted, locked: nextMuted });
     await logEvent(nextMuted ? "moderate_mute_user" : "moderate_unmute_user", { target_uid: key }, targetUserId);
     await applyMutePersistence(targetUserId, nextMuted);
     if (nextMuted) remotelyMutedIds.add(key);
     else remotelyMutedIds.delete(key);
+    if (isProfessor && !nextMuted) {
+      const remoteAudio = audioTracks.get(key);
+      if (remoteAudio) {
+        try { remoteAudio.play(); } catch (_) {}
+      }
+    }
     rerender();
     renderModerationDrawer();
     return true;
@@ -1939,6 +1976,7 @@
       }
       syncControlStates();
       rerender();
+      forceMobileImmersive().catch(() => {});
       try {
         await sendHelloSignal();
       } catch (_) {}
@@ -2012,7 +2050,7 @@
     }
     if (type === "force_mute") {
       const targetUid = String(payload.uid || payload.target_uid || "");
-      const locked = payload.muted === false ? false : (payload.locked !== false);
+      const locked = typeof payload.locked === "boolean" ? payload.locked : !!payload.muted;
       if (targetUid) {
         if (locked) remotelyMutedIds.add(targetUid);
         else remotelyMutedIds.delete(targetUid);
@@ -2034,6 +2072,12 @@
         logEvent(locked ? "forced_mute" : "forced_unmute", { muted: !!locked });
       }
       if (isProfessor) {
+        if (!locked && targetUid) {
+          const remoteAudio = audioTracks.get(targetUid);
+          if (remoteAudio) {
+            try { remoteAudio.play(); } catch (_) {}
+          }
+        }
         rerender();
         renderModerationDrawer();
       }
@@ -2052,7 +2096,7 @@
         renderModerationDrawer();
       }
       if (!isProfessor) {
-        const locked = payload.muted === false ? false : (payload.locked !== false);
+        const locked = typeof payload.locked === "boolean" ? payload.locked : !!payload.muted;
         if (locked) {
           if (localMicTrack) {
             try { await localMicTrack.setMuted(true); } catch (_) {}
@@ -2293,6 +2337,7 @@
     syncStudentCardBorders();
     refreshPresenceBoard();
     await sendRoomSignal({ t: "hand", uid: id, raised: raisedHands.has(id) });
+    await persistHandState(raisedHands.has(id));
   });
 
   if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
@@ -2301,7 +2346,7 @@
     getStudentEntries().forEach((entry) => remotelyMutedIds.add(String(entry.id)));
     rerender();
     renderModerationDrawer();
-    await sendRoomSignal({ t: "force_mute_all", muted: true });
+    await sendRoomSignal({ t: "force_mute_all", muted: true, locked: true });
     await logEvent("moderate_mute_all", {});
     const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
     try {
@@ -2321,7 +2366,7 @@
     getStudentEntries().forEach((entry) => remotelyMutedIds.delete(String(entry.id)));
     rerender();
     renderModerationDrawer();
-    await sendRoomSignal({ t: "force_mute_all", muted: false });
+    await sendRoomSignal({ t: "force_mute_all", muted: false, locked: false });
     await logEvent("moderate_unmute_all", {});
     const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
     try {
@@ -2433,6 +2478,30 @@
           try { await localMicTrack.setMuted(false); } catch (_) {}
           syncControlStates();
         }
+      }
+      if (!isProfessor && data && typeof data.hand_raised === "boolean") {
+        const id = String(agoraUid);
+        const serverRaised = !!data.hand_raised;
+        const localRaised = raisedHands.has(id);
+        if (serverRaised !== localRaised) {
+          if (serverRaised) raisedHands.add(id);
+          else raisedHands.delete(id);
+          btnRaiseHand.innerHTML = raisedHands.has(id)
+            ? '<span class="material-symbols-outlined">waving_hand</span>'
+            : '<span class="material-symbols-outlined">front_hand</span>';
+        }
+      }
+      if (isProfessor && Array.isArray(data?.raised_hands)) {
+        const nextRaised = new Set((data.raised_hands || []).map((v) => String(v || "")).filter(Boolean));
+        Array.from(raisedHands).forEach((uid) => {
+          if (!nextRaised.has(uid) && !isProfessorLike(uid)) raisedHands.delete(uid);
+        });
+        nextRaised.forEach((uid) => {
+          if (!isProfessorLike(uid)) raisedHands.add(uid);
+        });
+        markPaneBorders();
+        syncStudentCardBorders();
+        refreshPresenceBoard();
       }
       if (data && data.ended) {
         forceExit("live_ended_status");

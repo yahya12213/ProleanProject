@@ -701,6 +701,22 @@ Recent Entries
 - Validation:
   - `python manage.py check` passed.
 
+[2026-03-09 UTC] Area: Prolean | Type: Fix/UI+Behavior (Live Studio Reliability + Mobile Layout)
+- What changed:
+  - Redesigned kick reason popup (improved visual style, warning icon, cleaner action buttons).
+  - Refined bottom control bar/button styling to a tighter modern call-control look.
+  - Removed speaking/raised border coloring while keeping speaking waveform animation on active student tiles.
+  - Improved mute/unmute reliability by sending explicit `locked` state and forcing remote audio replay on unmute (professor side).
+  - Added raise-hand backend fallback endpoint (`external/live/<session_id>/hand/`) using cache so hand state works even when data-stream messages are unreliable.
+  - Extended status polling to sync raise-hand state from backend for professor/student clients.
+  - Mobile defaults adjusted:
+    - default right pane mode is `Screen` on mobile (professor camera + shared screen layout),
+    - mobile split set to `50vh / 50vh`.
+  - Added mobile immersive attempt on join (fullscreen + landscape orientation lock when browser allows).
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.

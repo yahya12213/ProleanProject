@@ -4044,6 +4044,38 @@ def external_live_status(request, session_id):
         except Exception:
             mic_locked = False
 
+    raised_hands = []
+    hand_raised = False
+    try:
+        hand_map = cache.get(f"prolean:external_live_hands:{session_id}") or {}
+        if not isinstance(hand_map, dict):
+            hand_map = {}
+    except Exception:
+        hand_map = {}
+    if hand_map:
+        now_ts = int(timezone.now().timestamp())
+        stale_keys = []
+        for key, value in hand_map.items():
+            if not isinstance(value, dict):
+                stale_keys.append(key)
+                continue
+            ts = int(value.get("ts") or 0)
+            if ts and (now_ts - ts) > 4 * 60 * 60:
+                stale_keys.append(key)
+                continue
+            uid = str(value.get("uid") or "").strip()
+            if uid:
+                raised_hands.append(uid)
+        if stale_keys:
+            try:
+                for key in stale_keys:
+                    hand_map.pop(key, None)
+                cache.set(f"prolean:external_live_hands:{session_id}", hand_map, timeout=8 * 60 * 60)
+            except Exception:
+                pass
+    if hasattr(request.user, "id"):
+        hand_raised = str(request.user.id) in hand_map
+
     return JsonResponse(
         {
             "session_id": str(session_id),
@@ -4053,9 +4085,48 @@ def external_live_status(request, session_id):
             "banned": bool(banned),
             "ban_reason": ban_reason or None,
             "mic_locked": bool(mic_locked),
+            "hand_raised": bool(hand_raised),
+            "raised_hands": raised_hands if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR" else [],
             "server_time": timezone.now().isoformat(),
         }
     )
+
+
+@login_required
+@require_POST
+def external_live_hand_state(request, session_id):
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+
+    raised = bool((payload or {}).get("raised"))
+    uid = str((payload or {}).get("uid") or "").strip()
+    name = str((payload or {}).get("name") or "").strip()[:80]
+    key = f"prolean:external_live_hands:{session_id}"
+    user_key = str(request.user.id)
+    now_ts = int(timezone.now().timestamp())
+    hand_map = {}
+    try:
+        cached = cache.get(key)
+        if isinstance(cached, dict):
+            hand_map = dict(cached)
+    except Exception:
+        hand_map = {}
+
+    if raised:
+        hand_map[user_key] = {
+            "uid": uid,
+            "name": name or request.user.get_full_name() or request.user.username,
+            "ts": now_ts,
+        }
+    else:
+        hand_map.pop(user_key, None)
+    try:
+        cache.set(key, hand_map, timeout=8 * 60 * 60)
+    except Exception:
+        pass
+    return JsonResponse({"ok": True, "raised": raised})
 
 
 @professor_required
