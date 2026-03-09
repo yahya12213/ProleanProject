@@ -700,3 +700,9 @@ Recent Entries
   - Kept sticky bottom behavior on smaller screens while adding safe-area-aware bottom spacing.
 - Validation:
   - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
+- What changed:
+  - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.
+- Why:
+  - Deployment logs showed `RequestsDependencyWarning` due to `chardet 7.x` mismatch with `requests` supported range.
