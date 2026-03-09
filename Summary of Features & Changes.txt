@@ -693,3 +693,10 @@ Recent Entries
   - Restyled mode buttons to rounded-pill chips with stronger active-state highlight.
 - Validation:
   - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Bottom Button Margin)
+- What changed:
+  - Added bottom margin to the live control bar to create visible space between the buttons and page bottom.
+  - Kept sticky bottom behavior on smaller screens while adding safe-area-aware bottom spacing.
+- Validation:
+  - `python manage.py check` passed.

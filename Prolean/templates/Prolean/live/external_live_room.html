@@ -658,6 +658,9 @@
         border-top: 1px solid var(--top-border);
         background: var(--top-bg);
         padding: 10px 12px;
+        margin: 0 10px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--panel-border);
         display: flex;
         align-items: center;
         gap: 8px;
@@ -810,6 +813,7 @@
 
         .controls-bar {
             padding: 8px;
+            margin: 0 8px calc(10px + env(safe-area-inset-bottom, 0px));
             gap: 6px;
             overflow-x: auto;
             flex-wrap: nowrap;
