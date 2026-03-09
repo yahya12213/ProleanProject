@@ -671,3 +671,14 @@ Recent Entries
 - Validation:
   - `python manage.py check` passed.
   - `python manage.py test Prolean` passed (2/2).
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Header Cleanup + Border Refresh)
+- What changed:
+  - Removed the top live stats header strip (`online/speaking/raised`) from the stream layout to keep focus on video panes.
+  - Enhanced visual borders for panes and student tiles with stronger neon/call-style contrast.
+  - Updated active-state styling:
+    - speaking = brighter green animated glow,
+    - raised hand = warm amber attention border.
+  - Kept previous moderation and activity behavior unchanged (mute/unmute, kick with reason, hand emoji, talking waveform).
+- Validation:
+  - `python manage.py check` passed.
