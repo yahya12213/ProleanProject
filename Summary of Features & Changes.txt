@@ -734,6 +734,16 @@ Recent Entries
 - Validation:
   - `python manage.py check` passed.
 
+[2026-03-09 UTC] Area: Prolean | Type: Hotfix/Mobile Auto-Landscape On Join
+- What changed:
+  - Strengthened mobile auto-landscape behavior at live join:
+    - tries `screen.orientation.lock("landscape")` immediately,
+    - retries on first user tap if browser blocks it,
+    - adds JS fallback class to force horizontal layout when still in portrait.
+  - Keeps auto-trigger flow on join without requiring manual fullscreen button press.
+- Validation:
+  - `python manage.py check` passed.
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.

@@ -40,6 +40,17 @@
         color: var(--text-main);
         font-family: "Plus Jakarta Sans", sans-serif;
     }
+    .presenter-room.force-landscape {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100dvh;
+        height: 100dvw;
+        max-height: 100dvw;
+        transform-origin: top left;
+        transform: rotate(90deg) translateY(-100%);
+        z-index: 120;
+    }
 
     .presenter-room[data-ui-theme="light"] {
         --bg-main: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
@@ -841,6 +852,9 @@
             min-width: max-content;
         }
     }
+    .presenter-room.force-landscape .room-shell {
+        overflow: hidden;
+    }
 
     .presenter-room.room-fullscreen .room-shell {
         grid-template-columns: 1fr 1fr;
@@ -1133,6 +1147,17 @@
   };
   const forceMobileImmersive = async () => {
     if (!isMobileViewport()) return;
+    const applyLandscapeFallback = () => {
+      const portrait = window.innerHeight > window.innerWidth;
+      if (portrait && !document.fullscreenElement) roomRoot.classList.add("force-landscape");
+      else roomRoot.classList.remove("force-landscape");
+    };
+    applyLandscapeFallback();
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        await screen.orientation.lock("landscape");
+      }
+    } catch (_) {}
     try {
       if (!document.fullscreenElement && roomRoot?.requestFullscreen) {
         await roomRoot.requestFullscreen();
@@ -1143,15 +1168,16 @@
         window.addEventListener("pointerdown", async () => {
           mobileImmersiveRetryArmed = false;
           try {
-            if (!document.fullscreenElement && roomRoot?.requestFullscreen) {
-              await roomRoot.requestFullscreen();
-            }
-          } catch (_) {}
-          try {
             if (screen.orientation && typeof screen.orientation.lock === "function") {
               await screen.orientation.lock("landscape");
             }
           } catch (_) {}
+          try {
+            if (!document.fullscreenElement && roomRoot?.requestFullscreen) {
+              await roomRoot.requestFullscreen();
+            }
+          } catch (_) {}
+          applyLandscapeFallback();
         }, { once: true });
       }
     }
@@ -1160,6 +1186,9 @@
         await screen.orientation.lock("landscape");
       }
     } catch (_) {}
+    applyLandscapeFallback();
+    window.addEventListener("resize", applyLandscapeFallback);
+    document.addEventListener("fullscreenchange", applyLandscapeFallback);
   };
 
   const detectUiTheme = () => {
