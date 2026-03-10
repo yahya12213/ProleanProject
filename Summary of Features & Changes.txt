@@ -753,6 +753,15 @@ Recent Entries
   - `python manage.py check` passed.
   - `python manage.py test Prolean` passed (2/2).
 
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Remove Mode Buttons + Add Mobile Split Slider)
+- What changed:
+  - Removed `Screen / Split / Students / Layout` buttons from the control bar on both desktop and mobile.
+  - Added mobile horizontal split layout with a draggable slider between professor and right pane.
+  - Kept default mode behavior without user-facing mode toggles.
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.
