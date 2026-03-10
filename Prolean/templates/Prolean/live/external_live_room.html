@@ -1073,7 +1073,7 @@
   let themeObserver = null;
   let isResizing = false;
   const fixedThreePaneLayout = false;
-  let rightMode = isMobileViewport() ? 0 : 1;
+  let rightMode = 1;
   const SCREEN_UID_OFFSET = 1000;
 
   const participantLabels = new Map();
@@ -1098,6 +1098,7 @@
 
   const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
   const isMobileViewport = () => window.matchMedia("(max-width: 1100px)").matches;
+  rightMode = isMobileViewport() ? 0 : 1;
 
   const layoutStorageKey = "prolean_live_layout_v1";
   const defaultLayoutPrefs = { swapped: false, rightWidth: 28, gridCols: 2, tileMinHeight: 120 };

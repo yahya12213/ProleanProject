@@ -717,6 +717,13 @@ Recent Entries
   - `python manage.py check` passed.
   - `python manage.py test Prolean` passed (2/2).
 
+[2026-03-09 UTC] Area: Prolean | Type: Hotfix/Live Startup Script
+- What changed:
+  - Fixed a JavaScript startup regression in external live room where `rightMode` was initialized before `isMobileViewport` existed.
+  - This prevented live room script bootstrapping and caused live not to start.
+- Validation:
+  - `python manage.py check` passed.
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.
