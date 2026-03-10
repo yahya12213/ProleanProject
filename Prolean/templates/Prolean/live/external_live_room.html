@@ -236,6 +236,112 @@
     }
     .mod-mini.danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.28); }
 
+    .hand-queue-panel {
+        position: fixed;
+        top: 14px;
+        left: 14px;
+        z-index: 70;
+        min-width: 200px;
+        border-radius: 14px;
+        padding: 10px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        background: rgba(10, 14, 28, 0.85);
+        box-shadow: 0 18px 40px rgba(7, 10, 24, 0.4);
+        display: none;
+    }
+    .hand-queue-panel.open { display: block; }
+    .hand-queue-title {
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #dbe5ff;
+        margin-bottom: 8px;
+    }
+    .hand-queue-list {
+        display: grid;
+        gap: 6px;
+    }
+    .hand-queue-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(129, 140, 248, 0.18);
+        background: rgba(15, 20, 40, 0.8);
+        font-size: 12px;
+        font-weight: 700;
+        color: #f1f5ff;
+    }
+    .hand-queue-actions {
+        display: inline-flex;
+        gap: 6px;
+    }
+    .hand-queue-btn {
+        border-radius: 8px;
+        border: 1px solid rgba(129, 140, 248, 0.4);
+        background: rgba(37, 99, 235, 0.2);
+        color: #dbeafe;
+        font-size: 10px;
+        font-weight: 900;
+        padding: 4px 6px;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
+    .hand-queue-btn.danger {
+        background: rgba(239, 68, 68, 0.18);
+        border-color: rgba(239, 68, 68, 0.5);
+        color: #fecaca;
+    }
+
+    .hand-toast-rail {
+        position: fixed;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 75;
+        display: grid;
+        gap: 8px;
+        pointer-events: none;
+    }
+    .hand-toast {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        background: rgba(10, 14, 28, 0.88);
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .02em;
+        box-shadow: 0 16px 30px rgba(8, 10, 26, 0.4);
+    }
+
+    .hand-self-indicator {
+        position: fixed;
+        bottom: 84px;
+        left: 16px;
+        z-index: 60;
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        background: rgba(10, 14, 28, 0.86);
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 800;
+    }
+    .hand-self-indicator.open { display: inline-flex; }
+
     .kick-modal {
         position: fixed;
         inset: 0;
@@ -946,6 +1052,16 @@
 
     <div id="conn-error" class="hidden mx-3 mt-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-red-300 text-xs font-semibold"></div>
 
+    <div id="hand-queue-panel" class="hand-queue-panel">
+        <div class="hand-queue-title"><span class="material-symbols-outlined">front_hand</span>Raised hands</div>
+        <div id="hand-queue-list" class="hand-queue-list"></div>
+    </div>
+    <div id="hand-toast-rail" class="hand-toast-rail"></div>
+    <div id="hand-self-indicator" class="hand-self-indicator">
+        <span class="material-symbols-outlined">waving_hand</span>
+        <span id="hand-self-text">Hand raised</span>
+    </div>
+
     {% if live_role|lower == 'professor' %}
     <div id="mod-drawer" class="mod-drawer">
         <div class="mod-head">
@@ -1069,6 +1185,11 @@
   const btnCloseMod = document.getElementById("close-mod");
   const btnMuteAll = document.getElementById("mute-all");
   const btnUnmuteAll = document.getElementById("unmute-all");
+  const handQueuePanel = document.getElementById("hand-queue-panel");
+  const handQueueList = document.getElementById("hand-queue-list");
+  const handToastRail = document.getElementById("hand-toast-rail");
+  const handSelfIndicator = document.getElementById("hand-self-indicator");
+  const handSelfText = document.getElementById("hand-self-text");
   const kickReasonModal = document.getElementById("kick-reason-modal");
   const kickReasonInput = document.getElementById("kick-reason-input");
   const kickReasonConfirm = document.getElementById("kick-reason-confirm");
@@ -1130,10 +1251,32 @@
   };
 
   const handStateUrl = "{% url 'Prolean:external_live_hand_state' session_id %}";
+  const raiseHandUrl = "{% url 'Prolean:api_raise_hand' %}";
+  const raiseHandQueueUrl = "{% url 'Prolean:api_raise_hand_queue' %}";
+  const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
+  const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
     connError.textContent = message;
     connError.classList.remove("hidden");
+  };
+  const showHandToast = (name) => {
+    if (!handToastRail) return;
+    const toast = document.createElement("div");
+    toast.className = "hand-toast";
+    toast.textContent = `✋ ${String(name || "Student")} raised hand`;
+    handToastRail.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 5000);
+  };
+  const setSelfHandIndicator = (raised) => {
+    if (!handSelfIndicator || !handSelfText) return;
+    if (raised) {
+      const label = selfName || "You";
+      handSelfText.textContent = `Hand raised: ${label}`;
+      handSelfIndicator.classList.add("open");
+    } else {
+      handSelfIndicator.classList.remove("open");
+    }
   };
   const forceMobileImmersive = async () => {
     if (!isMobileViewport()) return;
@@ -2043,6 +2186,63 @@
     }
   };
 
+  const seenHandIds = new Set();
+  const renderHandQueue = (requests) => {
+    if (!handQueuePanel || !handQueueList || !isProfessor) return;
+    handQueueList.innerHTML = "";
+    const rows = Array.isArray(requests) ? requests : [];
+    if (!rows.length) {
+      handQueuePanel.classList.remove("open");
+      return;
+    }
+    handQueuePanel.classList.add("open");
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "hand-queue-item";
+      const name = document.createElement("div");
+      name.textContent = String(row.name || `Student ${row.student_id}`);
+      const actions = document.createElement("div");
+      actions.className = "hand-queue-actions";
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "hand-queue-btn";
+      approve.textContent = "Approve";
+      approve.addEventListener("click", async () => {
+        try {
+          await fetch(approveHandUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+      });
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "hand-queue-btn danger";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", async () => {
+        try {
+          await fetch(removeSpeakerUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+      });
+      actions.appendChild(approve);
+      actions.appendChild(remove);
+      item.appendChild(name);
+      item.appendChild(actions);
+      handQueueList.appendChild(item);
+      if (!seenHandIds.has(String(row.id))) {
+        seenHandIds.add(String(row.id));
+        showHandToast(row.name || `Student ${row.student_id}`);
+      }
+    });
+  };
+
   mainClient.on("stream-message", async (uid, _streamId, message) => {
     let payload = null;
     try {
@@ -2315,7 +2515,6 @@
 
   const clampRightPaneWidth = (next) => Math.min(100, Math.max(0, Number(next || 28)));
   const setRightPaneWidthFromPointer = (clientX) => {
-    if (window.matchMedia("(max-width: 1100px)").matches) return;
     const shellRect = roomRoot.querySelector(".room-shell").getBoundingClientRect();
     if (!shellRect.width) return;
     const relativeX = clientX - shellRect.left;
@@ -2324,7 +2523,6 @@
     applyLayoutPrefs();
   };
   paneResizer.addEventListener("pointerdown", (event) => {
-    if (window.matchMedia("(max-width: 1100px)").matches) return;
     isResizing = true;
     paneResizer.classList.add("dragging");
     paneResizer.setPointerCapture(event.pointerId);
@@ -2353,12 +2551,32 @@
   });
   btnRaiseHand.addEventListener("click", async () => {
     const id = String(agoraUid);
-    if (raisedHands.has(id)) raisedHands.delete(id);
-    else raisedHands.add(id);
+    if (raisedHands.has(id)) {
+      showError("Your hand is already raised.");
+      return;
+    }
+    try {
+      const res = await fetch(raiseHandUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+        body: JSON.stringify({ session_id: "{{ session_id }}" }),
+        credentials: "same-origin",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        showError(data?.error || "Unable to raise hand.");
+        return;
+      }
+    } catch (_) {
+      showError("Unable to raise hand.");
+      return;
+    }
+    raisedHands.add(id);
     btnRaiseHand.classList.toggle("active", raisedHands.has(id));
     btnRaiseHand.innerHTML = raisedHands.has(id)
       ? '<span class="material-symbols-outlined">waving_hand</span>'
       : '<span class="material-symbols-outlined">front_hand</span>';
+    setSelfHandIndicator(true);
     markPaneBorders();
     syncStudentCardBorders();
     refreshPresenceBoard();
@@ -2518,6 +2736,7 @@
           btnRaiseHand.innerHTML = raisedHands.has(id)
             ? '<span class="material-symbols-outlined">waving_hand</span>'
             : '<span class="material-symbols-outlined">front_hand</span>';
+          setSelfHandIndicator(raisedHands.has(id));
         }
       }
       if (isProfessor && Array.isArray(data?.raised_hands)) {
@@ -2541,6 +2760,15 @@
 
   if (isProfessor) {
     const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
+    const pollHandQueue = async () => {
+      try {
+        const res = await fetch(`${raiseHandQueueUrl}?session_id={{ session_id }}`, { credentials: "same-origin" });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) {
+          renderHandQueue(data.requests || []);
+        }
+      } catch (_) {}
+    };
 
     const tickTracking = () => {
       if (exiting) return;
@@ -2580,6 +2808,8 @@
 
     setInterval(tickTracking, 1000);
     setInterval(pushTracking, 5000);
+    pollHandQueue();
+    setInterval(pollHandQueue, 3000);
   }
 })();
 </script>

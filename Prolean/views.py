@@ -32,7 +32,7 @@ from .models import (
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
     TrainingPreSubscription, Notification, Live, Seance,
     ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent,
-    ExternalLiveJoinInvite, ExternalLiveJoinAttempt
+    ExternalLiveJoinInvite, ExternalLiveJoinAttempt, ExternalLiveRaiseHand
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
 from django.contrib.auth import authenticate, login, logout
@@ -4090,6 +4090,190 @@ def external_live_status(request, session_id):
             "server_time": timezone.now().isoformat(),
         }
     )
+
+
+def _professor_owns_session(request, session_id: str) -> bool:
+    token = request.session.get("barka_token")
+    if not isinstance(token, str) or not token.strip():
+        return False
+    mgmt = ManagementContractClient()
+    if not mgmt.is_configured():
+        return False
+    try:
+        sessions = mgmt.list_my_professor_sessions(bearer_token=token.strip())
+    except Exception:
+        return False
+    for row in sessions if isinstance(sessions, list) else []:
+        if str(row.get("id")) == str(session_id):
+            return True
+    return False
+
+
+def _get_student_live_state(request, session_id: str) -> dict | None:
+    mgmt = ManagementContractClient()
+    if not mgmt.is_configured():
+        return None
+    token = request.session.get("barka_token")
+    if isinstance(token, str) and token.strip():
+        try:
+            return mgmt.get_session_live_state(str(session_id), bearer_token=token.strip())
+        except Exception:
+            return None
+    cin = ""
+    try:
+        profile = getattr(request.user, "profile", None)
+        cin = _norm_cin(getattr(profile, "cin_or_passport", "") or "")
+    except Exception:
+        cin = ""
+    if not cin:
+        cin, _exp = _get_external_live_service_access(request, str(session_id))
+    if not cin:
+        return None
+    try:
+        service_token = mgmt.get_service_bearer_token()
+        return mgmt.get_session_live_state_for_student(
+            str(session_id),
+            student_cin=str(cin),
+            bearer_token=str(service_token or "").strip(),
+        )
+    except Exception:
+        return None
+
+
+@login_required
+@require_POST
+def api_raise_hand(request):
+    if not hasattr(request.user, "profile") or str(request.user.profile.role).upper() != "STUDENT":
+        return JsonResponse({"ok": False, "error": "Only students can raise hand."}, status=403)
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    session_id = str(payload.get("session_id") or "").strip()
+    if not session_id:
+        return JsonResponse({"ok": False, "error": "Missing session_id."}, status=400)
+
+    live = _get_student_live_state(request, session_id)
+    status = str((live or {}).get("status") or "").strip().lower() if isinstance(live, dict) else ""
+    if status not in {"live", "paused"}:
+        return JsonResponse({"ok": False, "error": "Session is not live."}, status=400)
+
+    existing = ExternalLiveRaiseHand.objects.filter(
+        session_id=str(session_id),
+        student=request.user,
+        status=ExternalLiveRaiseHand.STATUS_PENDING,
+    ).first()
+    if existing:
+        return JsonResponse({"ok": False, "error": "Hand already raised."}, status=409)
+
+    last = ExternalLiveRaiseHand.objects.filter(
+        session_id=str(session_id),
+        student=request.user,
+    ).order_by("-created_at").first()
+    if last and (timezone.now() - last.created_at).total_seconds() < 30:
+        return JsonResponse({"ok": False, "error": "Please wait before raising hand again."}, status=429)
+
+    row = ExternalLiveRaiseHand.objects.create(
+        session_id=str(session_id),
+        student=request.user,
+        status=ExternalLiveRaiseHand.STATUS_PENDING,
+    )
+    return JsonResponse({"ok": True, "request_id": row.id, "status": row.status})
+
+
+@professor_required
+def api_raise_hand_queue(request):
+    session_id = str(request.GET.get("session_id") or "").strip()
+    if not session_id:
+        return JsonResponse({"ok": False, "error": "Missing session_id."}, status=400)
+    if not _professor_owns_session(request, session_id):
+        return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
+    pending = (
+        ExternalLiveRaiseHand.objects.filter(session_id=str(session_id), status=ExternalLiveRaiseHand.STATUS_PENDING)
+        .select_related("student", "student__profile")
+        .order_by("created_at")
+    )
+    rows = []
+    for row in pending:
+        name = ""
+        profile = getattr(row.student, "profile", None)
+        if profile:
+            name = profile.full_name or row.student.get_full_name() or row.student.username
+        else:
+            name = row.student.get_full_name() or row.student.username
+        rows.append(
+            {
+                "id": row.id,
+                "student_id": row.student_id,
+                "name": name,
+                "created_at": row.created_at.isoformat(),
+            }
+        )
+    return JsonResponse({"ok": True, "requests": rows})
+
+
+@professor_required
+@require_POST
+def api_approve_hand(request):
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    session_id = str(payload.get("session_id") or "").strip()
+    student_id = str(payload.get("student_id") or "").strip()
+    if not session_id or not student_id:
+        return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
+    if not _professor_owns_session(request, session_id):
+        return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
+    row = (
+        ExternalLiveRaiseHand.objects.filter(
+            session_id=str(session_id),
+            student_id=int(student_id),
+            status=ExternalLiveRaiseHand.STATUS_PENDING,
+        )
+        .order_by("created_at")
+        .first()
+    )
+    if not row:
+        return JsonResponse({"ok": False, "error": "No pending request."}, status=404)
+    row.status = ExternalLiveRaiseHand.STATUS_APPROVED
+    row.save(update_fields=["status", "updated_at"])
+    try:
+        key_user = f"prolean:external_live_mic_lock_user:{session_id}:{student_id}"
+        cache.delete(key_user)
+    except Exception:
+        pass
+    return JsonResponse({"ok": True, "status": row.status})
+
+
+@professor_required
+@require_POST
+def api_remove_speaker(request):
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    session_id = str(payload.get("session_id") or "").strip()
+    student_id = str(payload.get("student_id") or "").strip()
+    if not session_id or not student_id:
+        return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
+    if not _professor_owns_session(request, session_id):
+        return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
+    ExternalLiveRaiseHand.objects.filter(
+        session_id=str(session_id),
+        student_id=int(student_id),
+        status__in=[
+            ExternalLiveRaiseHand.STATUS_PENDING,
+            ExternalLiveRaiseHand.STATUS_APPROVED,
+            ExternalLiveRaiseHand.STATUS_SPEAKING,
+        ],
+    ).update(status=ExternalLiveRaiseHand.STATUS_FINISHED, updated_at=timezone.now())
+    try:
+        key_user = f"prolean:external_live_mic_lock_user:{session_id}:{student_id}"
+        cache.set(key_user, True, timeout=8 * 60 * 60)
+    except Exception:
+        pass
+    return JsonResponse({"ok": True})
 
 
 @login_required

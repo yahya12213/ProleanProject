@@ -762,6 +762,23 @@ Recent Entries
   - `python manage.py check` passed.
   - `python manage.py test Prolean` passed (2/2).
 
+[2026-03-10 UTC] Area: Prolean | Type: Feature/Live Raise-Hand Queue + API
+- What changed:
+  - Added `raise_hands` DB table and `ExternalLiveRaiseHand` model with status lifecycle.
+  - Implemented raise-hand API endpoints:
+    - `POST /api/live/raise-hand`
+    - `GET /api/live/raise-hand-queue`
+    - `POST /api/live/approve-hand`
+    - `POST /api/live/remove-speaker`
+  - Enforced anti-spam (30s cooldown) + single pending request per student.
+  - Live room UI now shows:
+    - professor queue panel (top-left) + 5s toast on new requests,
+    - student self indicator with their name when raised.
+  - Mobile split slider now works (drag resizer on mobile).
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2, command timed out after completion).
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.

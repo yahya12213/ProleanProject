@@ -1867,6 +1867,40 @@ class ExternalLiveStudentStat(models.Model):
         return f"ExternalLiveStat({self.session_id}) {label}"
 
 
+class ExternalLiveRaiseHand(models.Model):
+    """Raise-hand queue for external (Barka) live sessions."""
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_SPEAKING = "speaking"
+    STATUS_FINISHED = "finished"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_SPEAKING, "Speaking"),
+        (STATUS_FINISHED, "Finished"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    session_id = models.CharField(max_length=64, db_index=True)
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_live_raise_hands")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "raise_hands"
+        indexes = [
+            models.Index(fields=["session_id", "status", "created_at"]),
+            models.Index(fields=["session_id", "student"]),
+        ]
+
+    def __str__(self):
+        return f"RaiseHand({self.session_id}) {self.student.username} {self.status}"
+
+
 class ExternalLiveSessionBan(models.Model):
     """Professor ban list for external (Barka) live sessions."""
 
