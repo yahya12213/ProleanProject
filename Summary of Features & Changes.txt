@@ -724,6 +724,16 @@ Recent Entries
 - Validation:
   - `python manage.py check` passed.
 
+[2026-03-09 UTC] Area: Prolean | Type: UI/Mobile Fullscreen Orientation + Horizontal Split
+- What changed:
+  - Updated mobile/fullscreen live layout to horizontal split (professor and right pane side-by-side) instead of vertical stacking.
+  - Added fullscreen horizontal behavior improvements:
+    - attempts `landscape` lock when entering fullscreen,
+    - retries immersive fullscreen on first user tap when browser blocks autoplay fullscreen on load.
+  - Keeps default mobile mode focused on professor + shared screen while using horizontal pane arrangement.
+- Validation:
+  - `python manage.py check` passed.
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.
