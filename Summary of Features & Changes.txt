@@ -744,6 +744,15 @@ Recent Entries
 - Validation:
   - `python manage.py check` passed.
 
+[2026-03-09 UTC] Area: Prolean | Type: Fix/Live Raise-Hand Visibility + Landscape Stability
+- What changed:
+  - Raise-hand now shows a clear active state on the student button (highlight + badge) so students see it immediately.
+  - Re-applies mobile immersive/landscape enforcement after raise-hand to prevent the layout from collapsing back to portrait.
+  - Landscape fallback now stays active whenever device is portrait (even in fullscreen) to avoid accidental resets.
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
 [2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
 - What changed:
   - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.
