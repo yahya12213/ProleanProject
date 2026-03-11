@@ -201,6 +201,106 @@ def _parse_device_from_ua(user_agent: str) -> tuple[str, str, str]:
     return browser[:60], os_name[:60], device_type[:20]
 
 
+def _sanitize_external_username(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9._-]", "", str(value or "").strip().lower())
+    return cleaned[:30]
+
+
+def _build_external_username(cin: str, email: str, full_name: str) -> str:
+    parts = []
+    cin_part = _norm_cin(cin)
+    if cin_part:
+        parts.append(cin_part)
+    if email:
+        local = (str(email).split("@", 1)[0]).strip()
+        if local:
+            parts.append(local.lower())
+    if full_name:
+        name_part = re.sub(r"[^a-z0-9]", "", str(full_name).lower())
+        if name_part:
+            parts.append(name_part)
+    if not parts:
+        parts.append(f"ext{uuid.uuid4().hex[:6]}")
+    return _sanitize_external_username(parts[0])
+
+
+def _update_external_student_profile(user: User, normalized_cin: str, normalized_email: str, full_name: str) -> None:
+    updated = False
+    profile = getattr(user, "profile", None)
+    if profile:
+        if profile.role != "STUDENT":
+            profile.role = "STUDENT"
+            updated = True
+        if profile.status != "ACTIVE":
+            profile.status = "ACTIVE"
+            updated = True
+        if normalized_cin and profile.cin_or_passport != normalized_cin:
+            profile.cin_or_passport = normalized_cin
+            updated = True
+        if full_name and profile.full_name != full_name:
+            profile.full_name = full_name
+            updated = True
+        if updated:
+            try:
+                profile.save(update_fields=["role", "status", "cin_or_passport", "full_name"])
+            except Exception:
+                pass
+
+    if normalized_email and not user.email:
+        user.email = normalized_email
+        try:
+            user.save(update_fields=["email"])
+        except Exception:
+            pass
+
+
+def _ensure_external_student_user(cin: str, email: str, phone: str, full_name: str) -> User | None:
+    normalized_cin = _norm_cin(cin)
+    normalized_email = str(email or "").strip().lower()
+    normalized_phone = str(phone or "").strip()
+
+    identifier_q = Q()
+    if normalized_cin:
+        identifier_q |= Q(username__iexact=normalized_cin)
+        identifier_q |= Q(profile__cin_or_passport__iexact=normalized_cin)
+    if normalized_email:
+        identifier_q |= Q(email__iexact=normalized_email)
+    if normalized_phone:
+        identifier_q |= Q(profile__phone_number__iexact=normalized_phone)
+
+    user = None
+    if identifier_q:
+        try:
+            user = (
+                User.objects.select_related("profile")
+                .filter(profile__role="STUDENT")
+                .filter(identifier_q)
+                .order_by("id")
+                .first()
+            )
+        except Exception:
+            user = None
+
+    if user:
+        _update_external_student_profile(user, normalized_cin, normalized_email, full_name)
+        return user
+
+    base = _build_external_username(cin, email, full_name)
+    username = base or f"ext{uuid.uuid4().hex[:6]}"
+    suffix = 1
+    while User.objects.filter(username=username).exists():
+        suffix += 1
+        username = f"{base[:max(1, 30 - len(str(suffix)))]}{suffix}"
+
+    try:
+        user = User.objects.create(username=username, email=normalized_email or "")
+    except Exception:
+        return None
+
+    _update_external_student_profile(user, normalized_cin, normalized_email, full_name)
+    return user
+
+
 def _is_probably_link_preview(request) -> bool:
     try:
         method = str(getattr(request, "method", "") or "").upper()
@@ -3258,12 +3358,16 @@ def external_live_join_invite_regen(request, session_id):
     inv = None
     tracking_mode = "db"
     try:
+        student_user = _ensure_external_student_user(cin, student_email, student_phone, student_name)
+        if not student_user:
+            raise RuntimeError("Unable to resolve external student user")
         inv = ExternalLiveJoinInvite.objects.create(
             session_id=session_id,
             student_cin=cin,
             student_name=student_name,
             student_email=student_email,
             student_phone=student_phone,
+            user=student_user,
             token_hash=token_hash,
             created_by=request.user,
             expires_at=expires_at,
