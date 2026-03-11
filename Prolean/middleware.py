@@ -17,6 +17,7 @@ class ExternalAuthorityGuardMiddleware:
     SKIP_MUTATION_PATHS = (
         "/logout/",
         "/api/presence/heartbeat/",
+        "/api/live/raise-hand",
     )
 
     def __init__(self, get_response):
