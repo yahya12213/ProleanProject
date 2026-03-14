@@ -4262,21 +4262,6 @@ def api_raise_hand(request):
     if status not in {"live", "paused"}:
         return JsonResponse({"ok": False, "error": "Session is not live."}, status=400)
 
-    existing = ExternalLiveRaiseHand.objects.filter(
-        session_id=str(session_id),
-        student=request.user,
-        status=ExternalLiveRaiseHand.STATUS_PENDING,
-    ).first()
-    if existing:
-        return JsonResponse({"ok": False, "error": "Hand already raised."}, status=409)
-
-    last = ExternalLiveRaiseHand.objects.filter(
-        session_id=str(session_id),
-        student=request.user,
-    ).order_by("-created_at").first()
-    if last and (timezone.now() - last.created_at).total_seconds() < 30:
-        return JsonResponse({"ok": False, "error": "Please wait before raising hand again."}, status=429)
-
     row = ExternalLiveRaiseHand.objects.create(
         session_id=str(session_id),
         student=request.user,

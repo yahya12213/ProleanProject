@@ -1253,10 +1253,9 @@
   const handStateUrl = "{% url 'Prolean:external_live_hand_state' session_id %}";
   const raiseHandUrl = "{% url 'Prolean:api_raise_hand' %}";
   const raiseHandQueueUrl = "{% url 'Prolean:api_raise_hand_queue' %}";
-  const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
-  const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
+    if (!connError) return;
     connError.textContent = message;
     connError.classList.remove("hidden");
   };
@@ -2201,40 +2200,7 @@
       item.className = "hand-queue-item";
       const name = document.createElement("div");
       name.textContent = String(row.name || `Student ${row.student_id}`);
-      const actions = document.createElement("div");
-      actions.className = "hand-queue-actions";
-      const approve = document.createElement("button");
-      approve.type = "button";
-      approve.className = "hand-queue-btn";
-      approve.textContent = "Approve";
-      approve.addEventListener("click", async () => {
-        try {
-          await fetch(approveHandUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
-            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
-            credentials: "same-origin",
-          });
-        } catch (_) {}
-      });
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "hand-queue-btn danger";
-      remove.textContent = "Remove";
-      remove.addEventListener("click", async () => {
-        try {
-          await fetch(removeSpeakerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
-            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
-            credentials: "same-origin",
-          });
-        } catch (_) {}
-      });
-      actions.appendChild(approve);
-      actions.appendChild(remove);
       item.appendChild(name);
-      item.appendChild(actions);
       handQueueList.appendChild(item);
       if (!seenHandIds.has(String(row.id))) {
         seenHandIds.add(String(row.id));
@@ -2551,10 +2517,6 @@
   });
   btnRaiseHand.addEventListener("click", async () => {
     const id = String(agoraUid);
-    if (raisedHands.has(id)) {
-      showError("Your hand is already raised.");
-      return;
-    }
     try {
       const res = await fetch(raiseHandUrl, {
         method: "POST",
