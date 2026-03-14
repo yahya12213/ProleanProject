@@ -1253,11 +1253,32 @@
   const handStateUrl = "{% url 'Prolean:external_live_hand_state' session_id %}";
   const raiseHandUrl = "{% url 'Prolean:api_raise_hand' %}";
   const raiseHandQueueUrl = "{% url 'Prolean:api_raise_hand_queue' %}";
+  const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
+  const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
     if (!connError) return;
     connError.textContent = message;
     connError.classList.remove("hidden");
+  };
+  const playHandChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 740;
+      gain.gain.value = 0.06;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => {
+        try { osc.stop(); } catch (_) {}
+        try { ctx.close(); } catch (_) {}
+      }, 180);
+    } catch (_) {}
   };
   const showHandToast = (name) => {
     if (!handToastRail) return;
@@ -1265,6 +1286,7 @@
     toast.className = "hand-toast";
     toast.textContent = `✋ ${String(name || "Student")} raised hand`;
     handToastRail.appendChild(toast);
+    playHandChime();
     setTimeout(() => { toast.remove(); }, 5000);
   };
   const setSelfHandIndicator = (raised) => {
@@ -2186,6 +2208,20 @@
   };
 
   const seenHandIds = new Set();
+  const heldHandIds = new Set();
+  let currentSpeakerId = null;
+  const setActiveSpeaker = async (speakerId) => {
+    if (!isProfessor) return;
+    const target = String(speakerId || "");
+    if (!target) return;
+    const studentIds = getStudentEntries().map((entry) => String(entry.id));
+    for (const id of studentIds) {
+      if (!id || id === target) continue;
+      await toggleParticipantMute(id, true);
+    }
+    await toggleParticipantMute(target, false);
+    currentSpeakerId = target;
+  };
   const renderHandQueue = (requests) => {
     if (!handQueuePanel || !handQueueList || !isProfessor) return;
     handQueueList.innerHTML = "";
@@ -2199,8 +2235,61 @@
       const item = document.createElement("div");
       item.className = "hand-queue-item";
       const name = document.createElement("div");
-      name.textContent = String(row.name || `Student ${row.student_id}`);
+      const holdKey = String(row.id || "");
+      const isHeld = holdKey && heldHandIds.has(holdKey);
+      const baseName = String(row.name || `Student ${row.student_id}`);
+      name.textContent = isHeld ? `${baseName} (On hold)` : baseName;
+      const actions = document.createElement("div");
+      actions.className = "hand-queue-actions";
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "hand-queue-btn";
+      approve.textContent = "Approve";
+      approve.addEventListener("click", async () => {
+        try {
+          await fetch(approveHandUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+        heldHandIds.delete(holdKey);
+        await setActiveSpeaker(String(row.student_id || ""));
+      });
+      let hold = null;
+      if (currentSpeakerId && String(row.student_id || "") !== String(currentSpeakerId)) {
+        hold = document.createElement("button");
+        hold.type = "button";
+        hold.className = "hand-queue-btn";
+        hold.textContent = isHeld ? "Unhold" : "Hold";
+        hold.addEventListener("click", () => {
+          if (!holdKey) return;
+          if (heldHandIds.has(holdKey)) heldHandIds.delete(holdKey);
+          else heldHandIds.add(holdKey);
+          renderHandQueue(rows);
+        });
+      }
+      const decline = document.createElement("button");
+      decline.type = "button";
+      decline.className = "hand-queue-btn danger";
+      decline.textContent = "Decline";
+      decline.addEventListener("click", async () => {
+        try {
+          await fetch(removeSpeakerUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+        heldHandIds.delete(holdKey);
+      });
+      actions.appendChild(approve);
+      if (hold) actions.appendChild(hold);
+      actions.appendChild(decline);
       item.appendChild(name);
+      item.appendChild(actions);
       handQueueList.appendChild(item);
       if (!seenHandIds.has(String(row.id))) {
         seenHandIds.add(String(row.id));
