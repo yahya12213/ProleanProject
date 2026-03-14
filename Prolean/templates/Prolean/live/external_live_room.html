@@ -1254,6 +1254,7 @@
   const raiseHandUrl = "{% url 'Prolean:api_raise_hand' %}";
   const raiseHandQueueUrl = "{% url 'Prolean:api_raise_hand_queue' %}";
   const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
+  const holdHandUrl = "{% url 'Prolean:api_hold_hand' %}";
   const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
@@ -2208,7 +2209,6 @@
   };
 
   const seenHandIds = new Set();
-  const heldHandIds = new Set();
   let currentSpeakerId = null;
   const setActiveSpeaker = async (speakerId) => {
     if (!isProfessor) return;
@@ -2236,7 +2236,7 @@
       item.className = "hand-queue-item";
       const name = document.createElement("div");
       const holdKey = String(row.id || "");
-      const isHeld = holdKey && heldHandIds.has(holdKey);
+      const isHeld = String(row.status || "").toLowerCase() === "hold";
       const baseName = String(row.name || `Student ${row.student_id}`);
       name.textContent = isHeld ? `${baseName} (On hold)` : baseName;
       const actions = document.createElement("div");
@@ -2254,7 +2254,6 @@
             credentials: "same-origin",
           });
         } catch (_) {}
-        heldHandIds.delete(holdKey);
         await setActiveSpeaker(String(row.student_id || ""));
       });
       let hold = null;
@@ -2263,11 +2262,20 @@
         hold.type = "button";
         hold.className = "hand-queue-btn";
         hold.textContent = isHeld ? "Unhold" : "Hold";
-        hold.addEventListener("click", () => {
+        hold.addEventListener("click", async () => {
           if (!holdKey) return;
-          if (heldHandIds.has(holdKey)) heldHandIds.delete(holdKey);
-          else heldHandIds.add(holdKey);
-          renderHandQueue(rows);
+          try {
+            await fetch(holdHandUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+              body: JSON.stringify({
+                session_id: "{{ session_id }}",
+                student_id: row.student_id,
+                hold: !isHeld,
+              }),
+              credentials: "same-origin",
+            });
+          } catch (_) {}
         });
       }
       const decline = document.createElement("button");
@@ -2283,7 +2291,6 @@
             credentials: "same-origin",
           });
         } catch (_) {}
-        heldHandIds.delete(holdKey);
       });
       actions.appendChild(approve);
       if (hold) actions.appendChild(hold);

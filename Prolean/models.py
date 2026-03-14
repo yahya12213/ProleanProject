@@ -1871,6 +1871,7 @@ class ExternalLiveRaiseHand(models.Model):
     """Raise-hand queue for external (Barka) live sessions."""
 
     STATUS_PENDING = "pending"
+    STATUS_HOLD = "hold"
     STATUS_APPROVED = "approved"
     STATUS_SPEAKING = "speaking"
     STATUS_FINISHED = "finished"
@@ -1878,6 +1879,7 @@ class ExternalLiveRaiseHand(models.Model):
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
+        (STATUS_HOLD, "On hold"),
         (STATUS_APPROVED, "Approved"),
         (STATUS_SPEAKING, "Speaking"),
         (STATUS_FINISHED, "Finished"),

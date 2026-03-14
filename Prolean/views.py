@@ -4278,7 +4278,10 @@ def api_raise_hand_queue(request):
     if not _professor_owns_session(request, session_id):
         return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
     pending = (
-        ExternalLiveRaiseHand.objects.filter(session_id=str(session_id), status=ExternalLiveRaiseHand.STATUS_PENDING)
+        ExternalLiveRaiseHand.objects.filter(
+            session_id=str(session_id),
+            status__in=[ExternalLiveRaiseHand.STATUS_PENDING, ExternalLiveRaiseHand.STATUS_HOLD],
+        )
         .select_related("student", "student__profile")
         .order_by("created_at")
     )
@@ -4296,9 +4299,40 @@ def api_raise_hand_queue(request):
                 "student_id": row.student_id,
                 "name": name,
                 "created_at": row.created_at.isoformat(),
+                "status": row.status,
             }
         )
     return JsonResponse({"ok": True, "requests": rows})
+
+
+@professor_required
+@require_POST
+def api_hold_hand(request):
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    session_id = str(payload.get("session_id") or "").strip()
+    student_id = str(payload.get("student_id") or "").strip()
+    hold = bool(payload.get("hold"))
+    if not session_id or not student_id:
+        return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
+    if not _professor_owns_session(request, session_id):
+        return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
+    row = (
+        ExternalLiveRaiseHand.objects.filter(
+            session_id=str(session_id),
+            student_id=int(student_id),
+            status__in=[ExternalLiveRaiseHand.STATUS_PENDING, ExternalLiveRaiseHand.STATUS_HOLD],
+        )
+        .order_by("created_at")
+        .first()
+    )
+    if not row:
+        return JsonResponse({"ok": False, "error": "No pending request."}, status=404)
+    row.status = ExternalLiveRaiseHand.STATUS_HOLD if hold else ExternalLiveRaiseHand.STATUS_PENDING
+    row.save(update_fields=["status", "updated_at"])
+    return JsonResponse({"ok": True, "status": row.status})
 
 
 @professor_required
@@ -4353,6 +4387,7 @@ def api_remove_speaker(request):
         student_id=int(student_id),
         status__in=[
             ExternalLiveRaiseHand.STATUS_PENDING,
+            ExternalLiveRaiseHand.STATUS_HOLD,
             ExternalLiveRaiseHand.STATUS_APPROVED,
             ExternalLiveRaiseHand.STATUS_SPEAKING,
         ],
