@@ -1267,18 +1267,28 @@
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 740;
-      gain.gain.value = 0.06;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
+      const master = ctx.createGain();
+      master.gain.value = 0.08;
+      master.connect(ctx.destination);
+      const now = ctx.currentTime;
+      const tone = (freq, start, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.08, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(start);
+        osc.stop(start + dur + 0.05);
+      };
+      tone(523.25, now, 0.16);
+      tone(659.25, now + 0.12, 0.18);
       setTimeout(() => {
-        try { osc.stop(); } catch (_) {}
         try { ctx.close(); } catch (_) {}
-      }, 180);
+      }, 500);
     } catch (_) {}
   };
   const showHandToast = (name) => {
@@ -1922,6 +1932,11 @@
     if (n >= 10000) return Math.max(0, Math.floor(n - 10000));
     return null;
   };
+  const userIdToUid = (userId) => {
+    const n = Number(userId);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return String(n + 10000);
+  };
 
   const applyMutePersistence = async (userId, muted) => {
     if (!userId) return;
@@ -2212,7 +2227,7 @@
   let currentSpeakerId = null;
   const setActiveSpeaker = async (speakerId) => {
     if (!isProfessor) return;
-    const target = String(speakerId || "");
+    const target = userIdToUid(speakerId) || String(speakerId || "");
     if (!target) return;
     const studentIds = getStudentEntries().map((entry) => String(entry.id));
     for (const id of studentIds) {
@@ -2257,7 +2272,8 @@
         await setActiveSpeaker(String(row.student_id || ""));
       });
       let hold = null;
-      if (currentSpeakerId && String(row.student_id || "") !== String(currentSpeakerId)) {
+      const rowUid = userIdToUid(row.student_id) || "";
+      if (currentSpeakerId && rowUid && String(rowUid) !== String(currentSpeakerId)) {
         hold = document.createElement("button");
         hold.type = "button";
         hold.className = "hand-queue-btn";
@@ -2334,6 +2350,7 @@
       const wasRaised = raisedHands.has(who);
       if (raised) raisedHands.add(who);
       else raisedHands.delete(who);
+      if (raised) playHandChime();
       if (isProfessor && raised && !wasRaised && who && !isProfessorLike(who)) {
         const stat = getOrInitStat(who);
         stat.hands = Number(stat.hands || 0) + 1;
