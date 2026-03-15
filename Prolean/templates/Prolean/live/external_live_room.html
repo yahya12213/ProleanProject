@@ -1285,7 +1285,7 @@
       const ctx = ensureHandChimeCtx();
       if (!ctx) return;
       const master = ctx.createGain();
-      master.gain.value = 0.14;
+      master.gain.value = 0.22;
       master.connect(ctx.destination);
       const now = ctx.currentTime;
       const tone = (freq, start, dur) => {
@@ -1294,7 +1294,7 @@
         osc.type = "sine";
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(0.14, start + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.22, start + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
         osc.connect(gain);
         gain.connect(master);
@@ -1975,12 +1975,13 @@
     const n = Number(uid);
     if (!Number.isFinite(n)) return null;
     if (n >= 10000) return Math.max(0, Math.floor(n - 10000));
+    if (n > 0) return Math.floor(n);
     return null;
   };
   const userIdToUid = (userId) => {
     const n = Number(userId);
     if (!Number.isFinite(n) || n <= 0) return null;
-    return String(n + 10000);
+    return String(n >= 10000 ? n : n);
   };
 
   const applyMutePersistence = async (userId, muted) => {
