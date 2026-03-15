@@ -4210,6 +4210,12 @@ def external_live_status(request, session_id):
                     cache.set(_active_speaker_cache_key(str(session_id)), active_speaker_uid, timeout=60 * 60 * 8)
                 except Exception:
                     pass
+    else:
+        active_speaker_uid = None
+        try:
+            cache.delete(_active_speaker_cache_key(str(session_id)))
+        except Exception:
+            pass
 
     queue_position = None
     try:
