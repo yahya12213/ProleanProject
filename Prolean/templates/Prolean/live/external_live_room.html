@@ -1282,7 +1282,7 @@
     }
 
     .presenter-room.room-fullscreen .room-shell {
-        grid-template-columns: 1fr 8px 1fr;
+        grid-template-columns: minmax(0, calc(100% - var(--right-pane-width, 70%))) 10px minmax(0, var(--right-pane-width, 70%));
         grid-template-areas: "left resize right";
         grid-template-rows: minmax(0, 1fr);
         overflow: hidden;
@@ -2109,7 +2109,7 @@
   rightMode = isMobileViewport() ? 0 : 1;
 
   const layoutStorageKey = "prolean_live_layout_v1";
-  const defaultLayoutPrefs = { swapped: false, rightWidth: 28, gridCols: 2, tileMinHeight: 120 };
+  const defaultLayoutPrefs = { swapped: false, rightWidth: 70, gridCols: 2, tileMinHeight: 120 };
   let layoutPrefs = { ...defaultLayoutPrefs };
 
   const normalizeSource = (source) => String(source || "camera");
@@ -2284,7 +2284,7 @@
       const parsed = JSON.parse(raw);
       layoutPrefs = {
         swapped: !!parsed.swapped,
-        rightWidth: Math.min(100, Math.max(0, Number(parsed.rightWidth || 28))),
+        rightWidth: Math.min(100, Math.max(0, Number(parsed.rightWidth || 70))),
         gridCols: Math.min(4, Math.max(1, Number(parsed.gridCols || 2))),
         tileMinHeight: Math.min(220, Math.max(100, Number(parsed.tileMinHeight || 120))),
       };
@@ -2426,7 +2426,6 @@
       media.classList.add("clickable");
       media.addEventListener("click", () => {
         toggleScreenFocus();
-        toggleFullscreen();
       });
     }
     if (activeSpeakerUid && String(data?.identity || "") === String(activeSpeakerUid)) {
