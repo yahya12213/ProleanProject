@@ -1239,12 +1239,10 @@
 
         .room-shell {
             padding: 8px;
-            gap: 8px;
-            grid-template-columns: 1fr;
-            grid-template-areas:
-                "left"
-                "right";
-            grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 6px;
+            grid-template-columns: 1fr 8px 1fr;
+            grid-template-areas: "left resize right";
+            grid-template-rows: minmax(0, 1fr);
             overflow-y: auto;
         }
 
@@ -1255,10 +1253,6 @@
         .pane-title {
             font-size: 10px;
             padding: 3px 7px;
-        }
-
-        .pane-resizer {
-            display: none;
         }
 
         .controls-bar {
@@ -1287,14 +1281,6 @@
 
         .layout-panel {
             min-width: max-content;
-        }
-
-        .presenter-room.force-landscape {
-            position: relative;
-            width: 100%;
-            height: 100dvh;
-            max-height: 100dvh;
-            transform: none;
         }
     }
     .presenter-room.force-landscape .room-shell {
