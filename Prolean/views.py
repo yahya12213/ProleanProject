@@ -4320,6 +4320,23 @@ def api_raise_hand(request):
     if status not in {"live", "paused"}:
         return JsonResponse({"ok": False, "error": "Session is not live."}, status=400)
 
+    now = timezone.now()
+    recent = (
+        ExternalLiveRaiseHand.objects.filter(
+            session_id=str(session_id),
+            student=request.user,
+            request_time__gte=now - timedelta(seconds=10),
+        )
+        .order_by("-request_time")
+        .first()
+    )
+    if recent:
+        wait = 10
+        if recent.request_time:
+            delta = (now - recent.request_time).total_seconds()
+            wait = max(1, int(10 - delta))
+        return JsonResponse({"ok": False, "error": "Please wait before raising your hand again.", "retry_after": wait}, status=429)
+
     row = ExternalLiveRaiseHand.objects.create(
         session_id=str(session_id),
         student=request.user,
