@@ -94,6 +94,33 @@
         font-size: 10px;
         letter-spacing: 0.2em;
     }
+    .room-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted-text);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-weight: 800;
+    }
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+    }
+    .security-pill {
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
     .leave-btn {
         padding: 6px 12px;
         border-radius: 999px;
@@ -569,6 +596,10 @@
         flex-direction: column;
         box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5), inset 0 0 0 1px rgba(56, 189, 248, 0.08);
     }
+    .pane.live-glow {
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2), 0 24px 48px rgba(2, 6, 23, 0.5);
+        border-color: rgba(56, 189, 248, 0.45);
+    }
 
     .pane-main {
         min-height: 0;
@@ -616,6 +647,61 @@
         letter-spacing: 0.12em;
         text-transform: uppercase;
         box-shadow: 0 10px 22px rgba(2, 6, 23, 0.35);
+    }
+    .prof-overlay {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 6;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.75);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        backdrop-filter: blur(8px);
+    }
+    .prof-overlay .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--accent);
+    }
+    .placeholder {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--muted-text);
+        gap: 10px;
+    }
+    .placeholder .icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: var(--accent);
+    }
+    .placeholder .title {
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #e2e8f0;
+    }
+    .placeholder .desc {
+        font-size: 12px;
+        color: var(--muted-text);
+        max-width: 280px;
     }
 
     .speaker-border { box-shadow: none; animation: none; }
@@ -701,6 +787,13 @@
         transform: translateY(-2px);
         border-color: rgba(56, 189, 248, 0.55);
         box-shadow: 0 22px 36px rgba(2, 6, 23, 0.55);
+    }
+    .student-card.fade-in {
+        animation: fadeInUp .4s ease;
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     .raised-emoji {
@@ -856,6 +949,25 @@
         font-weight: 900;
         letter-spacing: 0.08em;
         text-transform: uppercase;
+    }
+    .avatar-host {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        gap: 12px;
+        text-align: center;
+    }
+    .avatar-badge {
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: #e2e8f0;
+        font-size: 22px;
+        font-weight: 900;
     }
 
     .bottom-bar {
@@ -1191,9 +1303,19 @@
 
 {% block content %}
 <div id="room-root" class="presenter-room">
-    <div class="room-top px-3 py-2 flex items-center justify-between">
-        <div class="room-title text-xs font-black uppercase tracking-widest">{% if CURRENT_LANGUAGE == 'ar' %}غرفة البث{% elif CURRENT_LANGUAGE == 'en' %}Live Presenter{% else %}Présentateur Live{% endif %}</div>
-        <div class="flex items-center gap-2">
+    <div class="room-top flex items-center justify-between">
+        <div class="room-meta">
+            <span class="room-title">{% if CURRENT_LANGUAGE == 'ar' %}غرفة البث{% elif CURRENT_LANGUAGE == 'en' %}Live Classroom{% else %}Classe en direct{% endif %}</span>
+            <span>•</span>
+            <span>ID: {{ session_id }}</span>
+        </div>
+        <div class="room-meta">
+            <span class="status-dot"></span>
+            <span id="header-status-text">Live</span>
+            <span class="security-pill">
+                <span class="material-symbols-outlined">verified</span>
+                Secure
+            </span>
             <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
                 {% csrf_token %}
                 <button type="submit" class="leave-btn">{% if CURRENT_LANGUAGE == 'ar' %}خروج{% elif CURRENT_LANGUAGE == 'en' %}Leave{% else %}Quitter{% endif %}</button>
@@ -1241,9 +1363,15 @@
     </div>
 
     <div class="room-shell">
-        <section id="left-pane" class="pane pane-main">
+        <section id="left-pane" class="pane pane-main live-glow">
             <div class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}كاميرا الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Camera{% else %}Caméra professeur{% endif %}</div>
             <div id="left-host" class="video-host"></div>
+            <div class="prof-overlay">
+                <span class="dot"></span>
+                <span id="prof-date">--/--</span>
+                <span id="prof-time">--:--</span>
+                <span>Prolean</span>
+            </div>
         </section>
 
         <div id="pane-resizer" class="pane-resizer" title="{% if CURRENT_LANGUAGE == 'ar' %}اسحب لتعديل الحجم{% elif CURRENT_LANGUAGE == 'en' %}Drag to resize screens{% else %}Glisser pour redimensionner{% endif %}"></div>
@@ -1326,6 +1454,9 @@
   const professorNameHint = "{{ professor_name_hint|default:'Professor'|escapejs }}";
   const liveClock = document.getElementById("live-clock");
   const liveStatusText = document.getElementById("live-status-text");
+  const headerStatusText = document.getElementById("header-status-text");
+  const profDate = document.getElementById("prof-date");
+  const profTime = document.getElementById("prof-time");
 
   const roomRoot = document.getElementById("room-root");
   const leftPane = document.getElementById("left-pane");
@@ -1882,14 +2013,29 @@
     const wave = card.querySelector(".student-talk-wave");
     if (wave) wave.style.setProperty("--wave-boost", String(voiceBoost(id)));
   };
+  const renderPlaceholder = (host, icon, title, desc) => {
+    host.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "placeholder";
+    const badge = document.createElement("div");
+    badge.className = "icon";
+    badge.innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+    const h = document.createElement("div");
+    h.className = "title";
+    h.textContent = title;
+    const p = document.createElement("div");
+    p.className = "desc";
+    p.textContent = desc;
+    wrap.appendChild(badge);
+    wrap.appendChild(h);
+    wrap.appendChild(p);
+    host.appendChild(wrap);
+  };
   const renderStudentsInto = (host, compact = false) => {
     host.innerHTML = "";
     const students = getStudentEntries();
     if (!students.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-students";
-      empty.textContent = uiText.waitingStudents;
-      host.appendChild(empty);
+      renderPlaceholder(host, "groups", uiText.waitingStudents, "Students will appear here once they join.");
       return;
     }
     const grid = document.createElement("div");
@@ -2011,7 +2157,7 @@
       rightTitle.textContent = uiText.rightScreen;
       const screen = pickTrack(resolveProfessorScreenIdentity(), true);
       if (screen) renderTrack(rightHost, screen, uiText.screenShareLabel);
-      else renderAvatar(rightHost, uiText.noScreenShare);
+      else renderPlaceholder(rightHost, "present_to_all", uiText.noScreenShare, "The professor screen will appear here when shared.");
     } else if (rightMode === 1) {
       rightTitle.textContent = uiText.rightSplit;
       rightHost.innerHTML = "";
@@ -2023,7 +2169,7 @@
       bottom.className = "right-split-bottom";
       const screen = pickTrack(resolveProfessorScreenIdentity(), true);
       if (screen) renderTrack(top, screen, uiText.profScreenSharing);
-      else renderAvatar(top, uiText.noScreenShare);
+      else renderPlaceholder(top, "present_to_all", uiText.noScreenShare, "Waiting for screen share.");
       renderStudentsInto(bottom, true);
       split.appendChild(top);
       split.appendChild(bottom);
@@ -3119,6 +3265,12 @@
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
     liveClock.textContent = `${hh}:${mm}:${ss}`;
+    if (profTime) profTime.textContent = `${hh}:${mm}`;
+    if (profDate) {
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mo = String(now.getMonth() + 1).padStart(2, "0");
+      profDate.textContent = `${dd}/${mo}/${now.getFullYear()}`;
+    }
   };
   updateClock();
   setInterval(updateClock, 1000);
@@ -3193,10 +3345,9 @@
       if (data && data.ended) {
         forceExit("live_ended_status");
       }
-      if (liveStatusText) {
-        const lbl = (data?.status || "").toString().toUpperCase() || "LIVE";
-        liveStatusText.textContent = lbl;
-      }
+      const lbl = (data?.status || "").toString().toUpperCase() || "LIVE";
+      if (liveStatusText) liveStatusText.textContent = lbl;
+      if (headerStatusText) headerStatusText.textContent = lbl;
     } catch (_) {}
   };
   setInterval(pollStatus, 1200);
