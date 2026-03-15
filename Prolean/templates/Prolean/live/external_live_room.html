@@ -1981,7 +1981,16 @@
   const userIdToUid = (userId) => {
     const n = Number(userId);
     if (!Number.isFinite(n) || n <= 0) return null;
-    return String(n >= 10000 ? n : n);
+    return String(n + 10000);
+  };
+  const resolveUidForUserId = (userId) => {
+    const n = Number(userId);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const uidPlus = String(n + 10000);
+    const uidBase = String(n);
+    if (participantLabels.has(uidPlus) || audioTracks.has(uidPlus) || videoTracks.has(`${uidPlus}:camera`)) return uidPlus;
+    if (participantLabels.has(uidBase) || audioTracks.has(uidBase) || videoTracks.has(`${uidBase}:camera`)) return uidBase;
+    return uidPlus;
   };
 
   const applyMutePersistence = async (userId, muted) => {
@@ -2101,14 +2110,17 @@
       if (remoteAudio) {
         try { remoteAudio.play(); } catch (_) {}
       }
+      currentSpeakerId = key;
+      await muteAllExcept(key);
     }
     rerender();
     renderModerationDrawer();
     return true;
   };
 
-  const setMicLocked = (_locked) => {};
-  const isMicLocked = () => false;
+  let micLocked = false;
+  const setMicLocked = (locked) => { micLocked = !!locked; };
+  const isMicLocked = () => micLocked;
 
   const subscribeUser = async (user, mediaType) => {
     await mainClient.subscribe(user, mediaType);
@@ -2216,6 +2228,10 @@
       try {
         localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
         tracksToPublish.push(localMicTrack);
+        if (!isProfessor) {
+          try { await localMicTrack.setMuted(true); } catch (_) {}
+          setMicLocked(true);
+        }
       } catch (micErr) {
         localMicTrack = null;
         mediaWarning = "Microphone is unavailable. You joined without mic.";
@@ -2235,6 +2251,24 @@
       }
       if (!tracksToPublish.length) {
         throw new Error("Unable to access microphone and camera on this device.");
+      }
+      if (isProfessor) {
+        try {
+          await sendRoomSignal({ t: "force_mute_all", muted: true, locked: true });
+        } catch (_) {}
+        const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
+        try {
+          fetch(muteAllUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+              "X-CSRFToken": getCsrfToken(),
+              "Accept": "application/json",
+            },
+            body: "",
+            credentials: "same-origin",
+          });
+        } catch (_) {}
       }
       await mainClient.publish(tracksToPublish);
       setStatus("Connected", "ok");
@@ -2271,16 +2305,21 @@
 
   const seenHandIds = new Set();
   let currentSpeakerId = null;
-  const setActiveSpeaker = async (speakerId) => {
-    if (!isProfessor) return;
-    const target = userIdToUid(speakerId) || String(speakerId || "");
-    if (!target) return;
+  const muteAllExcept = async (targetUid) => {
     const studentIds = getStudentEntries().map((entry) => String(entry.id));
     for (const id of studentIds) {
-      if (!id || id === target) continue;
-      await toggleParticipantMute(id, true);
+      if (!id || id === targetUid) continue;
+      if (!remotelyMutedIds.has(id)) {
+        await toggleParticipantMute(id, true);
+      }
     }
+  };
+  const setActiveSpeaker = async (speakerId) => {
+    if (!isProfessor) return;
+    const target = resolveUidForUserId(speakerId) || String(speakerId || "");
+    if (!target) return;
     await toggleParticipantMute(target, false);
+    await muteAllExcept(target);
     currentSpeakerId = target;
   };
   const renderHandQueue = (requests) => {
@@ -2663,6 +2702,10 @@
 
   btnAudio.addEventListener("click", async () => {
     if (!localMicTrack) return;
+    if (!isProfessor && isMicLocked()) {
+      showError("Your microphone is locked by the professor.");
+      return;
+    }
     await localMicTrack.setMuted(!localMicTrack.muted);
     syncControlStates();
   });
