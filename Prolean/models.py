@@ -1949,6 +1949,25 @@ class ExternalLiveSecurityEvent(models.Model):
         return f"ExternalLiveEvent({self.session_id}) {self.event_type}"
 
 
+class ExternalLiveAuditEvent(models.Model):
+    """Audit trail for live session activity."""
+
+    session_id = models.CharField(max_length=64, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_live_audit_events")
+    event_type = models.CharField(max_length=60, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["session_id", "event_type", "created_at"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"ExternalLiveAudit({self.session_id}) {self.event_type}"
+
+
 class ExternalLiveJoinInvite(models.Model):
     """
     One-time, time-limited join link for an external (Barka) live session.

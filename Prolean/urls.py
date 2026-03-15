@@ -85,6 +85,7 @@ urlpatterns = [
     path('api/live/raise-hand', views.api_raise_hand, name='api_raise_hand'),
     path('api/live/raise-hand-queue', views.api_raise_hand_queue, name='api_raise_hand_queue'),
     path('api/live/speaker-heartbeat/<str:session_id>', views.api_speaker_heartbeat, name='api_speaker_heartbeat'),
+    path('api/live/audit', views.api_live_audit_event, name='api_live_audit_event'),
     path('api/live/approve-hand', views.api_approve_hand, name='api_approve_hand'),
     path('api/live/remove-speaker', views.api_remove_speaker, name='api_remove_speaker'),
     path('external/professor/sessions/<str:session_id>/live/start/', views.external_professor_live_start, name='external_professor_live_start'),

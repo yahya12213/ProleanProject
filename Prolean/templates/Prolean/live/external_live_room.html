@@ -1303,6 +1303,7 @@
   const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
   const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
   const speakerHeartbeatUrl = "{% url 'Prolean:api_speaker_heartbeat' session_id %}";
+  const liveAuditUrl = "{% url 'Prolean:api_live_audit_event' %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
     if (!connError) return;
@@ -1520,6 +1521,20 @@
     if (!speakingHeartbeatTimer) return;
     clearInterval(speakingHeartbeatTimer);
     speakingHeartbeatTimer = null;
+  };
+  const logAudit = async (eventType, payload = {}) => {
+    try {
+      await fetch(liveAuditUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+        body: JSON.stringify({
+          session_id: "{{ session_id }}",
+          event_type: String(eventType || ""),
+          payload: payload || {},
+        }),
+        credentials: "same-origin",
+      });
+    } catch (_) {}
   };
 
   const addVideoTrack = (identity, track, source, isLocal = false) => {
@@ -2354,6 +2369,7 @@
         } catch (_) {}
       }
       await mainClient.publish(tracksToPublish);
+      logAudit("join_live", { uid: String(agoraUid || ""), role: liveRole || "" });
       setStatus("Connected", "ok");
       if (mediaWarning) {
         showError(mediaWarning);
@@ -2946,6 +2962,7 @@
 
   window.addEventListener("beforeunload", async () => {
     if (themeObserver) themeObserver.disconnect();
+    logAudit("leave_live", { uid: String(agoraUid || ""), role: liveRole || "" });
     try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
     try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
     try { await stopScreenShare(); } catch (_) {}

@@ -32,6 +32,7 @@ from .models import (
     RecordedVideo, LiveRecording, AttendanceLog, VideoProgress, Question,
     TrainingPreSubscription, Notification, Live, Seance,
     ExternalLiveStudentStat, ExternalLiveSessionBan, ExternalLiveSecurityEvent,
+    ExternalLiveAuditEvent,
     ExternalLiveJoinInvite, ExternalLiveJoinAttempt, ExternalLiveRaiseHand
 )
 from .forms import ContactRequestForm, TrainingReviewForm, WaitlistForm, TrainingInquiryForm, MigrationInquiryForm, StudentRegistrationForm, ExternalAuthorityLoginForm
@@ -4342,6 +4343,15 @@ def api_raise_hand(request):
         student=request.user,
         status=ExternalLiveRaiseHand.STATUS_PENDING,
     )
+    try:
+        ExternalLiveAuditEvent.objects.create(
+            session_id=str(session_id),
+            user=request.user,
+            event_type="raise_hand",
+            payload={"request_id": int(row.id)},
+        )
+    except Exception:
+        pass
     return JsonResponse({"ok": True, "request_id": row.id, "status": row.status})
 
 
@@ -4469,6 +4479,15 @@ def api_approve_hand(request):
             cache.set(_active_speaker_cache_key(str(session_id)), active_uid, timeout=60 * 60 * 8)
         except Exception:
             pass
+    try:
+        ExternalLiveAuditEvent.objects.create(
+            session_id=str(session_id),
+            user=request.user,
+            event_type="approve_hand",
+            payload={"student_id": int(student_id), "active_uid": active_uid or ""},
+        )
+    except Exception:
+        pass
     return JsonResponse({"ok": True, "status": row.status, "active_speaker_uid": active_uid})
 
 
@@ -4503,6 +4522,15 @@ def api_remove_speaker(request):
     try:
         key_user = f"prolean:external_live_mic_lock_user:{session_id}:{student_id}"
         cache.set(key_user, True, timeout=8 * 60 * 60)
+    except Exception:
+        pass
+    try:
+        ExternalLiveAuditEvent.objects.create(
+            session_id=str(session_id),
+            user=request.user,
+            event_type="deny_hand",
+            payload={"student_id": int(student_id)},
+        )
     except Exception:
         pass
     return JsonResponse({"ok": True})
@@ -4568,6 +4596,15 @@ def api_speaker_heartbeat(request, session_id):
             cache.delete(poor_key)
         except Exception:
             pass
+        try:
+            ExternalLiveAuditEvent.objects.create(
+                session_id=str(session_id),
+                user=request.user,
+                event_type="speaker_disconnected",
+                payload={"student_id": int(student_id), "network_quality": row.network_quality},
+            )
+        except Exception:
+            pass
         return JsonResponse({"ok": True, "status": "disconnected"})
 
     # auto-expire if stale
@@ -4576,6 +4613,15 @@ def api_speaker_heartbeat(request, session_id):
             _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_EXPIRED, now=now)
         try:
             cache.set(f"prolean:external_live_mic_lock_user:{session_id}:{student_id}", True, timeout=60 * 60 * 8)
+        except Exception:
+            pass
+        try:
+            ExternalLiveAuditEvent.objects.create(
+                session_id=str(session_id),
+                user=request.user,
+                event_type="speaker_expired",
+                payload={"student_id": int(student_id)},
+            )
         except Exception:
             pass
         return JsonResponse({"ok": True, "status": "expired"})
@@ -4849,6 +4895,30 @@ def external_live_unmute_user(request, session_id):
     if _accepts_json(request):
         return JsonResponse({"ok": True})
     return redirect(f"{reverse('Prolean:professor_dashboard')}?session_id={session_id}")
+
+
+@login_required
+@require_POST
+def api_live_audit_event(request):
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    session_id = str(payload.get("session_id") or "").strip()
+    event_type = str(payload.get("event_type") or "").strip()[:60]
+    data = payload.get("payload") if isinstance(payload.get("payload"), dict) else {}
+    if not session_id or not event_type:
+        return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
+    try:
+        ExternalLiveAuditEvent.objects.create(
+            session_id=session_id,
+            user=request.user,
+            event_type=event_type,
+            payload=data,
+        )
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Unable to store audit event."}, status=500)
+    return JsonResponse({"ok": True})
 
 
 @professor_required
