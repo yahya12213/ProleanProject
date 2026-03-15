@@ -312,6 +312,12 @@
         white-space: nowrap;
         transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
     }
+    .mod-btn.loading {
+        opacity: 0.6;
+        cursor: wait;
+        transform: none;
+        box-shadow: none;
+    }
     .mod-btn:hover {
         transform: translateY(-1px);
         box-shadow: 0 10px 18px rgba(2, 6, 23, 0.35);
@@ -908,9 +914,9 @@
     }
 
     .student-action-btn {
-        width: 26px;
-        height: 26px;
-        border-radius: 7px;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
         border: 1px solid rgba(255, 255, 255, 0.22);
         background: rgba(15, 23, 42, 0.82);
         color: #e2e8f0;
@@ -920,7 +926,7 @@
     }
 
     .student-action-btn .material-symbols-outlined {
-        font-size: 16px;
+        font-size: 18px;
     }
 
     .student-action-btn.danger {
@@ -1233,10 +1239,12 @@
 
         .room-shell {
             padding: 8px;
-            gap: 6px;
-            grid-template-columns: 1fr 8px 1fr;
-            grid-template-areas: "left resize right";
-            grid-template-rows: minmax(0, 1fr);
+            gap: 8px;
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "left"
+                "right";
+            grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
             overflow-y: auto;
         }
 
@@ -1247,6 +1255,10 @@
         .pane-title {
             font-size: 10px;
             padding: 3px 7px;
+        }
+
+        .pane-resizer {
+            display: none;
         }
 
         .controls-bar {
@@ -1275,6 +1287,14 @@
 
         .layout-panel {
             min-width: max-content;
+        }
+
+        .presenter-room.force-landscape {
+            position: relative;
+            width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            transform: none;
         }
     }
     .presenter-room.force-landscape .room-shell {
@@ -2750,6 +2770,20 @@
     modDrawer.classList.remove("open");
   };
 
+  const setModBtnLoading = (btn, label) => {
+    if (!btn) return;
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent.trim();
+    btn.classList.add("loading");
+    btn.disabled = true;
+    btn.textContent = label;
+  };
+  const clearModBtnLoading = (btn) => {
+    if (!btn) return;
+    btn.classList.remove("loading");
+    btn.disabled = false;
+    btn.textContent = btn.dataset.label || btn.textContent;
+  };
+
   const loadScript = (src) => new Promise((resolve, reject) => {
     const el = document.createElement("script");
     el.src = src;
@@ -3699,14 +3733,17 @@
   if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
   if (btnCloseMod) btnCloseMod.addEventListener("click", closeModeration);
   if (btnMuteAll) btnMuteAll.addEventListener("click", async () => {
+    setModBtnLoading(btnMuteAll, "Muting...");
     getStudentEntries().forEach((entry) => remotelyMutedIds.add(String(entry.id)));
     rerender();
     renderModerationDrawer();
-    await sendRoomSignal({ t: "force_mute_all", muted: true, locked: true });
-    await logEvent("moderate_mute_all", {});
+    try {
+      await sendRoomSignal({ t: "force_mute_all", muted: true, locked: true });
+      await logEvent("moderate_mute_all", {});
+    } catch (_) {}
     const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
     try {
-      fetch(muteAllUrl, {
+      await fetch(muteAllUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -3717,16 +3754,20 @@
         credentials: "same-origin",
       });
     } catch (_) {}
+    clearModBtnLoading(btnMuteAll);
   });
   if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
+    setModBtnLoading(btnUnmuteAll, "Unmuting...");
     getStudentEntries().forEach((entry) => remotelyMutedIds.delete(String(entry.id)));
     rerender();
     renderModerationDrawer();
-    await sendRoomSignal({ t: "force_mute_all", muted: false, locked: false });
-    await logEvent("moderate_unmute_all", {});
+    try {
+      await sendRoomSignal({ t: "force_mute_all", muted: false, locked: false });
+      await logEvent("moderate_unmute_all", {});
+    } catch (_) {}
     const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
     try {
-      fetch(unmuteAllUrl, {
+      await fetch(unmuteAllUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -3737,6 +3778,7 @@
         credentials: "same-origin",
       });
     } catch (_) {}
+    clearModBtnLoading(btnUnmuteAll);
   });
   if (btnEndLive) {
     btnEndLive.addEventListener("click", async () => {
