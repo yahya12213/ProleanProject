@@ -7,45 +7,44 @@
 
 {% block professor_content %}
 <style>
-  @import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap");
+  @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap");
 
   :root {
-    --prof-ink: #e2e8f0;
-    --prof-ink-muted: #94a3b8;
-    --prof-edge: rgba(148, 163, 184, 0.22);
-    --prof-glass: rgba(12, 17, 30, 0.86);
-    --prof-glass-2: rgba(8, 12, 22, 0.82);
-    --prof-accent: #38bdf8;
-    --prof-accent-2: #22c55e;
-    --prof-warn: #f59e0b;
-    --prof-danger: #ef4444;
+    --dash-ink: #e2e8f0;
+    --dash-muted: #94a3b8;
+    --dash-edge: rgba(148, 163, 184, 0.22);
+    --dash-card: rgba(12, 17, 30, 0.88);
+    --dash-card-2: rgba(8, 12, 24, 0.86);
+    --dash-accent: #38bdf8;
+    --dash-accent-2: #22c55e;
+    --dash-warn: #f59e0b;
+    --dash-danger: #ef4444;
   }
 
-  .neo-shell {
+  .prof-dashboard {
     display: grid;
     gap: 18px;
-    font-family: "Sora", "Segoe UI", sans-serif;
+    font-family: "Manrope", "Segoe UI", sans-serif;
   }
 
-  .neo-hero {
-    border: 1px solid var(--prof-edge);
+  .prof-hero {
+    border: 1px solid var(--dash-edge);
     border-radius: 28px;
     padding: 20px;
     background:
-      radial-gradient(820px 320px at 8% -20%, rgba(56, 189, 248, 0.18), transparent 60%),
-      radial-gradient(820px 320px at 110% -30%, rgba(34, 197, 94, 0.16), transparent 55%),
+      radial-gradient(900px 300px at 6% -20%, rgba(56, 189, 248, 0.18), transparent 60%),
+      radial-gradient(900px 300px at 110% -30%, rgba(34, 197, 94, 0.16), transparent 55%),
       linear-gradient(135deg, rgba(8, 12, 22, 0.98), rgba(4, 7, 15, 0.96));
     color: #f8fafc;
-    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
+    box-shadow: 0 30px 70px rgba(2, 6, 23, 0.45);
     backdrop-filter: blur(12px);
   }
 
-  .hero-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
     gap: 16px;
-    flex-wrap: wrap;
+    align-items: start;
   }
 
   .hero-title {
@@ -57,11 +56,18 @@
 
   .hero-sub {
     font-size: 12px;
-    font-weight: 600;
-    color: var(--prof-ink-muted);
-    margin-top: 6px;
+    font-weight: 700;
+    color: var(--dash-muted);
+    margin-top: 8px;
     text-transform: uppercase;
     letter-spacing: 0.14em;
+  }
+
+  .hero-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .pill {
@@ -83,74 +89,82 @@
   .pill.offline { border-color: rgba(148, 163, 184, 0.35); color: #e2e8f0; background: rgba(148, 163, 184, 0.12); }
 
   .hero-actions {
-    display: flex;
+    display: grid;
     gap: 10px;
-    flex-wrap: wrap;
   }
 
   .hero-kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
-    margin-top: 16px;
+    margin-top: 18px;
   }
 
-  .hero-kpi {
+  .kpi {
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.06);
     padding: 12px;
   }
-  .hero-kpi .k {
+  .kpi .k {
     font-size: 10px;
     letter-spacing: 0.14em;
     font-weight: 800;
     text-transform: uppercase;
     color: #93c5fd;
   }
-  .hero-kpi .v {
+  .kpi .v {
     font-size: 22px;
     font-weight: 800;
     color: #fff;
     margin-top: 4px;
-    line-height: 1.2;
   }
 
-  .neo-layout {
+  .dash-grid {
     display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
+    grid-template-columns: 320px minmax(0, 1fr);
     gap: 18px;
     align-items: start;
   }
 
-  .neo-card {
-    border: 1px solid var(--prof-edge);
+  .dash-rail {
+    display: grid;
+    gap: 12px;
+  }
+
+  .dash-main {
+    display: grid;
+    gap: 14px;
+  }
+
+  .card {
+    border: 1px solid var(--dash-edge);
     border-radius: 22px;
-    background: linear-gradient(160deg, var(--prof-glass), var(--prof-glass-2));
+    background: linear-gradient(160deg, var(--dash-card), var(--dash-card-2));
     padding: 14px;
     box-shadow: 0 18px 40px rgba(2, 6, 23, 0.35);
   }
 
-  .neo-head {
+  .card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
     margin-bottom: 12px;
   }
-  .neo-head h3 {
+  .card-head h3 {
     margin: 0;
     font-size: 14px;
     font-weight: 800;
-    color: var(--prof-ink);
+    color: var(--dash-ink);
     letter-spacing: 0.04em;
   }
-  .neo-head span {
+  .card-head span {
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--prof-ink-muted);
+    color: var(--dash-muted);
   }
 
   .session-list {
@@ -161,7 +175,7 @@
     padding-right: 2px;
   }
   .session-item {
-    border: 1px solid var(--prof-edge);
+    border: 1px solid var(--dash-edge);
     border-radius: 16px;
     background: rgba(12, 16, 30, 0.7);
     padding: 12px;
@@ -192,13 +206,13 @@
     display: block;
     font-size: 12px;
     font-weight: 800;
-    color: var(--prof-ink);
+    color: var(--dash-ink);
   }
   .session-item p {
     margin: 3px 0 0;
     font-size: 11px;
     font-weight: 600;
-    color: var(--prof-ink-muted);
+    color: var(--dash-muted);
   }
 
   .btnx {
@@ -225,13 +239,13 @@
   .btnx.pause { background: linear-gradient(135deg, #f59e0b, #fb7185); color: #111827; }
   .btnx.end { background: linear-gradient(135deg, #111827, #1f2937); color: #fff; }
   .btnx.studio { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
-  .btnx.ghost { background: rgba(15, 23, 42, 0.6); border-color: var(--prof-edge); color: var(--prof-ink); }
+  .btnx.ghost { background: rgba(15, 23, 42, 0.6); border-color: var(--dash-edge); color: var(--dash-ink); }
 
-  .ctrl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-  .studio-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .actions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .students-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 
   .stu {
-    border: 1px solid var(--prof-edge);
+    border: 1px solid var(--dash-edge);
     border-radius: 16px;
     background: rgba(10, 14, 24, 0.75);
     padding: 12px;
@@ -248,8 +262,8 @@
     color: #fff;
     background: linear-gradient(135deg, #8b5cf6, #06b6d4);
   }
-  .stu b { display: block; font-size: 12px; font-weight: 800; color: var(--prof-ink); }
-  .stu p { margin: 3px 0 0; font-size: 11px; font-weight: 600; color: var(--prof-ink-muted); }
+  .stu b { display: block; font-size: 12px; font-weight: 800; color: var(--dash-ink); }
+  .stu p { margin: 3px 0 0; font-size: 11px; font-weight: 600; color: var(--dash-muted); }
 
   .badge {
     display: inline-flex;
@@ -265,7 +279,7 @@
     border: 1px solid transparent;
   }
   .badge.on { background: rgba(34, 197, 94, 0.16); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
-  .badge.off { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.28); color: var(--prof-ink-muted); }
+  .badge.off { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.28); color: var(--dash-muted); }
 
   .tracking-wrap { max-height: 350px; overflow: auto; padding-right: 2px; }
   .tracking-table { width: 100%; border-collapse: collapse; }
@@ -273,21 +287,21 @@
     position: sticky;
     top: 0;
     background: rgba(10, 14, 24, 0.95);
-    border-bottom: 1px solid var(--prof-edge);
+    border-bottom: 1px solid var(--dash-edge);
     padding: 10px 8px;
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--prof-ink-muted);
+    color: var(--dash-muted);
     text-align: left;
   }
   .tracking-table td {
     padding: 10px 8px;
-    border-bottom: 1px solid var(--prof-edge);
+    border-bottom: 1px solid var(--dash-edge);
     font-size: 12px;
     font-weight: 700;
-    color: var(--prof-ink);
+    color: var(--dash-ink);
   }
   .score-pill {
     border-radius: 999px;
@@ -304,9 +318,9 @@
   .inp, .sel, .txt {
     width: 100%;
     border-radius: 14px;
-    border: 1px solid var(--prof-edge);
+    border: 1px solid var(--dash-edge);
     background: rgba(10, 14, 24, 0.85);
-    color: var(--prof-ink);
+    color: var(--dash-ink);
     font-size: 13px;
     font-weight: 600;
     padding: 11px;
@@ -324,19 +338,20 @@
   }
 
   @media (max-width: 1260px) {
-    .neo-layout { grid-template-columns: 1fr; }
+    .dash-grid { grid-template-columns: 1fr; }
     .hero-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero-grid { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 980px) {
-    .ctrl-grid { grid-template-columns: 1fr; }
-    .studio-grid { grid-template-columns: 1fr; }
+    .actions-grid { grid-template-columns: 1fr; }
+    .students-grid { grid-template-columns: 1fr; }
     .hero-title { font-size: 24px; }
   }
 </style>
 
 {% if external_professor_mode %}
-<div class="neo-shell">
+<div class="prof-dashboard">
   {% if external_error %}
   <div class="warn">
     External authority unavailable right now: {{ external_error }}.
@@ -347,10 +362,10 @@
   </div>
   {% endif %}
 
-  <section class="neo-hero">
-    <div class="hero-top">
+  <section class="prof-hero">
+    <div class="hero-grid">
       <div>
-        <div class="flex gap-2 flex-wrap mb-2">
+        <div class="hero-status mb-3">
           {% if external_live_state and external_live_state.status == 'live' %}
           <span class="pill live"><span class="material-symbols-outlined text-sm">live_tv</span>On Air</span>
           {% elif external_live_state and external_live_state.status == 'paused' %}
@@ -369,19 +384,21 @@
         {% else %}
         <span class="btnx ghost disabled"><span class="material-symbols-outlined text-base">videocam_off</span>Open Studio</span>
         {% endif %}
+        <a class="btnx ghost" href="{% url 'Prolean:professor_dashboard' %}"><span class="material-symbols-outlined text-base">refresh</span>Refresh</a>
       </div>
     </div>
     <div class="hero-kpis">
-      <div class="hero-kpi"><div class="k">Sessions</div><div class="v">{{ external_sessions|length }}</div></div>
-      <div class="hero-kpi"><div class="k">Students</div><div class="v">{{ students_count }}</div></div>
-      <div class="hero-kpi"><div class="k">Online Web</div><div class="v">{{ online_students_count|default:0 }}</div></div>
-      <div class="hero-kpi"><div class="k">Live State</div><div class="v">{% if external_live_state and external_live_state.status == 'live' %}ON{% elif external_live_state and external_live_state.status == 'paused' %}PAUSED{% else %}OFF{% endif %}</div></div>
+      <div class="kpi"><div class="k">Sessions</div><div class="v">{{ external_sessions|length }}</div></div>
+      <div class="kpi"><div class="k">Students</div><div class="v">{{ students_count }}</div></div>
+      <div class="kpi"><div class="k">Online Web</div><div class="v">{{ online_students_count|default:0 }}</div></div>
+      <div class="kpi"><div class="k">Live State</div><div class="v">{% if external_live_state and external_live_state.status == 'live' %}ON{% elif external_live_state and external_live_state.status == 'paused' %}PAUSED{% else %}OFF{% endif %}</div></div>
     </div>
   </section>
 
-  <section class="neo-layout">
-    <aside class="neo-card">
-      <div class="neo-head"><h3>Barka Sessions</h3><span>{{ external_sessions|length }} total</span></div>
+  <section class="dash-grid">
+    <aside class="dash-rail">
+      <div class="card">
+        <div class="card-head"><h3>Session Queue</h3><span>{{ external_sessions|length }} total</span></div>
       <div class="session-list">
         {% for sess in external_sessions %}
         <a href="?session_id={{ sess.id }}" class="session-item {% if external_selected_session and sess.id == external_selected_session.id %}active{% endif %}">
@@ -396,16 +413,25 @@
         <div class="session-item"><div class="session-ico"><span class="material-symbols-outlined">event_busy</span></div><div><b>No assigned sessions</b><p>Check assignments in Barka.</p></div></div>
         {% endfor %}
       </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Quick Actions</h3><span>Shortcuts</span></div>
+        <div class="actions-grid">
+          <a class="btnx ghost w-full" href="{% url 'Prolean:professor_dashboard' %}"><span class="material-symbols-outlined text-base">dashboard</span>Overview</a>
+          <a class="btnx ghost w-full" href="{% url 'Prolean:professor_students' %}"><span class="material-symbols-outlined text-base">groups</span>Students</a>
+          <a class="btnx ghost w-full" href="{% url 'Prolean:professor_profile' %}"><span class="material-symbols-outlined text-base">person</span>Profile</a>
+        </div>
+      </div>
     </aside>
 
-    <div class="grid gap-4">
-      <div class="neo-card">
-        <div class="neo-head">
+    <div class="dash-main">
+      <div class="card">
+        <div class="card-head">
           <h3>Live Controls</h3>
           <span>{% if external_selected_session and external_selected_session.id %}Session #{{ external_selected_session.id }}{% else %}Pick Session{% endif %}</span>
         </div>
         {% if external_selected_session and external_selected_session.id %}
-        <div class="ctrl-grid">
+        <div class="actions-grid">
           <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">{% csrf_token %}
             <button class="btnx start w-full {% if external_live_state and external_live_state.status == 'live' %}disabled{% endif %}" {% if external_live_state and external_live_state.status == 'live' %}disabled{% endif %}><span class="material-symbols-outlined text-base">radio_button_checked</span>Start & Join</button>
           </form>
@@ -424,9 +450,9 @@
         {% endif %}
       </div>
 
-      <div class="neo-card">
-        <div class="neo-head"><h3>Connected Students</h3><span>{{ students_count }} count</span></div>
-        <div class="studio-grid">
+      <div class="card">
+        <div class="card-head"><h3>Connected Students</h3><span>{{ students_count }} count</span></div>
+        <div class="students-grid">
           {% for st in external_students %}
           <div class="stu">
             <div class="av"><span class="material-symbols-outlined">person</span></div>
@@ -447,12 +473,12 @@
         </div>
       </div>
 
-      <div class="neo-card" id="live-tracking-card"
+      <div class="card" id="live-tracking-card"
            {% if external_selected_session and external_selected_session.id %}
            data-stats-url="{% url 'Prolean:external_live_stats_get' external_selected_session.id %}"
            data-status-url="{% url 'Prolean:external_live_status' external_selected_session.id %}"
            {% endif %}>
-        <div class="neo-head"><h3>Live Tracking</h3><span id="live-tracking-updated">--</span></div>
+        <div class="card-head"><h3>Live Tracking</h3><span id="live-tracking-updated">--</span></div>
         <div class="tracking-wrap">
           <table class="tracking-table">
             <thead><tr><th>Student</th><th>Watch</th><th>Speaks</th><th>Hands</th><th>Score</th></tr></thead>
@@ -461,8 +487,8 @@
         </div>
       </div>
 
-      <div class="neo-card">
-        <div class="neo-head"><h3>Banned Students</h3><span>{{ external_bans|length }} banned</span></div>
+      <div class="card">
+        <div class="card-head"><h3>Banned Students</h3><span>{{ external_bans|length }} banned</span></div>
         <div class="grid gap-2">
           {% for ban in external_bans %}
           <div class="session-item">
@@ -483,8 +509,8 @@
         </div>
       </div>
 
-      <div class="neo-card">
-        <div class="neo-head"><h3>Broadcast</h3><span>Notify</span></div>
+      <div class="card">
+        <div class="card-head"><h3>Broadcast</h3><span>Notify</span></div>
         {% if external_selected_session and external_selected_session.id %}
         <form class="broadcast-grid" method="post" action="{% url 'Prolean:external_send_session_notification' external_selected_session.id %}">
           {% csrf_token %}
@@ -507,8 +533,8 @@
 </div>
 
 {% else %}
-<div class="neo-shell">
-  <div class="neo-card">
+<div class="prof-dashboard">
+  <div class="card">
     <h3 class="m-0 text-lg font-black" style="color: var(--prof-text-main);">Local mode dashboard</h3>
     <p class="mt-2 text-sm font-bold" style="color: var(--prof-text-muted);">The new 2028-style command center is fully enabled in external (Barka) mode.</p>
   </div>
