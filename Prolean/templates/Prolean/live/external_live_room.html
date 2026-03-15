@@ -738,6 +738,9 @@
         align-items: center;
         justify-content: center;
     }
+    .agora-video-slot.clickable {
+        cursor: zoom-in;
+    }
 
     .agora-video-slot.fit-contain {
         background: #000;
@@ -1116,6 +1119,7 @@
         </button>
         {% endif %}
         <button id="enable-sound" class="ctrl-btn" title="Enable Sound"><span class="material-symbols-outlined">volume_up</span></button>
+        <button id="toggle-view" class="ctrl-btn" title="Switch view"><span class="material-symbols-outlined">switch_video</span></button>
         <button id="toggle-fullscreen" class="ctrl-btn" title="Fullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
         <div id="audio-sink" class="hidden"></div>
     </div>
@@ -1172,6 +1176,7 @@
   const btnRaiseHand = document.getElementById("raise-hand");
   const btnEndLive = document.getElementById("end-live");
   const btnSound = document.getElementById("enable-sound");
+  const btnToggleView = document.getElementById("toggle-view");
   const btnFullscreen = document.getElementById("toggle-fullscreen");
   const btnCycleMode = null;
   const btnModeScreen = null;
@@ -1208,6 +1213,8 @@
   let isResizing = false;
   const fixedThreePaneLayout = false;
   let rightMode = 1;
+  let screenFocusActive = false;
+  let screenFocusPrev = null;
   const SCREEN_UID_OFFSET = 1000;
 
   const participantLabels = new Map();
@@ -1262,11 +1269,21 @@
     connError.textContent = message;
     connError.classList.remove("hidden");
   };
+  let handChimeCtx = null;
+  const ensureHandChimeCtx = () => {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!handChimeCtx) handChimeCtx = new AudioCtx();
+    if (handChimeCtx.state === "suspended") {
+      handChimeCtx.resume().catch(() => {});
+    }
+    return handChimeCtx;
+  };
+  document.addEventListener("pointerdown", () => { ensureHandChimeCtx(); }, { once: true });
   const playHandChime = () => {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      const ctx = ensureHandChimeCtx();
+      if (!ctx) return;
       const master = ctx.createGain();
       master.gain.value = 0.14;
       master.connect(ctx.destination);
@@ -1286,9 +1303,6 @@
       };
       tone(494.0, now, 0.22);
       tone(659.25, now + 0.16, 0.26);
-      setTimeout(() => {
-        try { ctx.close(); } catch (_) {}
-      }, 700);
     } catch (_) {}
   };
   const showHandToast = (name) => {
@@ -1403,6 +1417,30 @@
       };
     } catch (_) {}
   };
+  const toggleScreenFocus = () => {
+    if (!screenFocusActive) {
+      screenFocusPrev = {
+        rightMode,
+        rightWidth: layoutPrefs.rightWidth,
+        swapped: layoutPrefs.swapped,
+      };
+      rightMode = 0;
+      layoutPrefs.rightWidth = 100;
+      layoutPrefs.swapped = false;
+      screenFocusActive = true;
+      applyLayoutPrefs();
+      rerender();
+      return;
+    }
+    if (screenFocusPrev) {
+      rightMode = screenFocusPrev.rightMode;
+      layoutPrefs.rightWidth = screenFocusPrev.rightWidth;
+      layoutPrefs.swapped = screenFocusPrev.swapped;
+    }
+    screenFocusActive = false;
+    applyLayoutPrefs();
+    rerender();
+  };
 
   const syncControlStates = () => {
     const micOn = !!localMicTrack && !localMicTrack.muted;
@@ -1466,6 +1504,13 @@
     media.className = "agora-video-slot";
     const fit = isScreenShare(data?.source) ? "contain" : "cover";
     if (fit === "contain") media.classList.add("fit-contain");
+    if (isScreenShare(data?.source)) {
+      media.classList.add("clickable");
+      media.addEventListener("click", () => {
+        toggleScreenFocus();
+        toggleFullscreen();
+      });
+    }
     host.appendChild(media);
     data.track.play(media, { fit });
     const wm = document.createElement("div");
@@ -2351,6 +2396,9 @@
       if (raised) raisedHands.add(who);
       else raisedHands.delete(who);
       if (raised) playHandChime();
+      if (isProfessor && raised && pollHandQueueNow) {
+        try { pollHandQueueNow(); } catch (_) {}
+      }
       if (isProfessor && raised && !wasRaised && who && !isProfessorLike(who)) {
         const stat = getOrInitStat(who);
         stat.hands = Number(stat.hands || 0) + 1;
@@ -2731,11 +2779,12 @@
     });
   }
   btnSound.addEventListener("click", () => {
+    ensureHandChimeCtx();
     audioTracks.forEach((track) => { try { track.play(); } catch (_) {} });
     setStatus("Connected", "ok");
   });
 
-  btnFullscreen.addEventListener("click", async () => {
+  const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
       roomRoot.classList.add("room-fullscreen");
       await roomRoot.requestFullscreen().catch(() => {});
@@ -2750,7 +2799,15 @@
       roomRoot.classList.remove("room-fullscreen");
       btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
     }
-  });
+  };
+  btnFullscreen.addEventListener("click", toggleFullscreen);
+  if (btnToggleView) {
+    btnToggleView.addEventListener("click", () => {
+      if (screenFocusActive) toggleScreenFocus();
+      rightMode = (rightMode + 1) % 3;
+      rerender();
+    });
+  }
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement) {
       roomRoot.classList.remove("room-fullscreen");
@@ -2795,9 +2852,6 @@
         if (data && data.mic_locked && !localMicTrack.muted) {
           try { await localMicTrack.setMuted(true); } catch (_) {}
           syncControlStates();
-        } else if ((!data || !data.mic_locked) && localMicTrack.muted) {
-          try { await localMicTrack.setMuted(false); } catch (_) {}
-          syncControlStates();
         }
       }
       if (!isProfessor && data && typeof data.hand_raised === "boolean") {
@@ -2833,6 +2887,7 @@
   };
   setInterval(pollStatus, 1200);
 
+  let pollHandQueueNow = null;
   if (isProfessor) {
     const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
     const pollHandQueue = async () => {
@@ -2844,6 +2899,7 @@
         }
       } catch (_) {}
     };
+    pollHandQueueNow = pollHandQueue;
 
     const tickTracking = () => {
       if (exiting) return;
@@ -2884,7 +2940,7 @@
     setInterval(tickTracking, 1000);
     setInterval(pushTracking, 5000);
     pollHandQueue();
-    setInterval(pollHandQueue, 3000);
+    setInterval(pollHandQueue, 1000);
   }
 })();
 </script>
