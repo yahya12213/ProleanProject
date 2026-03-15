@@ -11,6 +11,7 @@
         height: 100%;
         max-height: 100%;
         overflow: hidden;
+        background: #05070f;
     }
 
     #contact, .floating-buttons { display: none !important; }
@@ -60,24 +61,27 @@
     }
 
     .presenter-room[data-ui-theme="light"] {
-        --bg-main: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
-        --text-main: #0f172a;
-        --panel-bg: #ffffff;
-        --top-bg: #f8fafc;
-        --panel-border: rgba(15, 23, 42, 0.12);
-        --top-border: rgba(15, 23, 42, 0.12);
-        --media-bg: #e5e7eb;
-        --label-bg: rgba(15, 23, 42, 0.75);
-        --muted-text: #334155;
-        --layout-bg: #f1f5f9;
-        --ctrl-bg: #e2e8f0;
-        --mode-bg: #e2e8f0;
-        --resizer-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.06));
-        --resizer-border: rgba(15, 23, 42, 0.18);
-        --empty-text: #475569;
-        --accent: #2563eb;
-        --accent-2: #16a34a;
-        --danger: #dc2626;
+        --bg-main: radial-gradient(1400px 600px at 8% 8%, rgba(15, 23, 42, 0.7), transparent 60%),
+            radial-gradient(1200px 600px at 92% 10%, rgba(2, 6, 23, 0.9), transparent 60%),
+            radial-gradient(900px 520px at 40% 90%, rgba(8, 47, 73, 0.55), transparent 55%),
+            #05070f;
+        --text-main: #e2e8f0;
+        --panel-bg: rgba(8, 12, 20, 0.82);
+        --top-bg: rgba(8, 11, 21, 0.92);
+        --panel-border: rgba(148, 163, 184, 0.22);
+        --top-border: rgba(148, 163, 184, 0.2);
+        --media-bg: #070b14;
+        --label-bg: rgba(2, 6, 23, 0.72);
+        --muted-text: #94a3b8;
+        --layout-bg: rgba(9, 12, 24, 0.92);
+        --ctrl-bg: rgba(30, 41, 59, 0.65);
+        --mode-bg: rgba(30, 41, 59, 0.55);
+        --resizer-bg: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.06));
+        --resizer-border: rgba(148, 163, 184, 0.25);
+        --empty-text: #a3aed0;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --danger: #ef4444;
     }
 
     .room-top {
