@@ -261,6 +261,12 @@
         color: #dbe5ff;
         margin-bottom: 8px;
     }
+    .hand-queue-title .hand-queue-next {
+        margin-left: auto;
+        padding: 6px 10px;
+        font-size: 10px;
+        border-radius: 999px;
+    }
     .hand-queue-list {
         display: grid;
         gap: 6px;
@@ -741,6 +747,31 @@
     .agora-video-slot.clickable {
         cursor: zoom-in;
     }
+    .queue-label {
+        font-size: 11px;
+        font-weight: 800;
+        margin-left: 6px;
+        letter-spacing: 0.04em;
+    }
+    .speaker-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(16, 185, 129, 0.9);
+        color: #042f2e;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+        z-index: 6;
+    }
+    .active-speaker {
+        border-color: rgba(16, 185, 129, 0.85) !important;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+    }
 
     .agora-video-slot.fit-contain {
         background: #000;
@@ -1056,7 +1087,10 @@
     <div id="conn-error" class="hidden mx-3 mt-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-red-300 text-xs font-semibold"></div>
 
     <div id="hand-queue-panel" class="hand-queue-panel">
-        <div class="hand-queue-title"><span class="material-symbols-outlined">front_hand</span>Raised hands</div>
+        <div class="hand-queue-title">
+            <span class="material-symbols-outlined">front_hand</span>Raised hands
+            <button id="hand-queue-next" type="button" class="hand-queue-btn hand-queue-next">Next Up</button>
+        </div>
         <div id="hand-queue-list" class="hand-queue-list"></div>
     </div>
     <div id="hand-toast-rail" class="hand-toast-rail"></div>
@@ -1152,6 +1186,7 @@
   const liveRole = String("{{ live_role|escapejs }}").toLowerCase();
   const isProfessor = liveRole === "professor";
   const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
+  const selfUserId = Number("{{ user.id|default:'0'|escapejs }}") || 0;
   const selfCin = "{{ user.profile.cin_or_passport|default:''|escapejs }}";
   const professorNameHint = "{{ professor_name_hint|default:'Professor'|escapejs }}";
 
@@ -1192,6 +1227,7 @@
   const btnUnmuteAll = document.getElementById("unmute-all");
   const handQueuePanel = document.getElementById("hand-queue-panel");
   const handQueueList = document.getElementById("hand-queue-list");
+  const handQueueNext = document.getElementById("hand-queue-next");
   const handToastRail = document.getElementById("hand-toast-rail");
   const handSelfIndicator = document.getElementById("hand-self-indicator");
   const handSelfText = document.getElementById("hand-self-text");
@@ -1215,6 +1251,10 @@
   let rightMode = 1;
   let screenFocusActive = false;
   let screenFocusPrev = null;
+  let activeSpeakerUid = null;
+  let speakingHeartbeatTimer = null;
+  let lastNetworkQuality = 0;
+  let warnedPoorNetwork = false;
   const SCREEN_UID_OFFSET = 1000;
 
   const participantLabels = new Map();
@@ -1261,8 +1301,8 @@
   const raiseHandUrl = "{% url 'Prolean:api_raise_hand' %}";
   const raiseHandQueueUrl = "{% url 'Prolean:api_raise_hand_queue' %}";
   const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
-  const holdHandUrl = "{% url 'Prolean:api_hold_hand' %}";
   const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
+  const speakerHeartbeatUrl = "{% url 'Prolean:api_speaker_heartbeat' session_id %}";
   const setStatus = (_txt, _kind = "warn") => {};
   const showError = (message) => {
     if (!connError) return;
@@ -1450,6 +1490,37 @@
     btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
     btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
   };
+  const setRaiseHandLabel = (position = null) => {
+    if (!btnRaiseHand) return;
+    if (position && Number(position) > 0) {
+      btnRaiseHand.innerHTML = `<span class="material-symbols-outlined">front_hand</span><span class="queue-label">#${Number(position)}</span>`;
+      btnRaiseHand.title = `Position in queue: #${Number(position)}`;
+    } else {
+      btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">front_hand</span>';
+      btnRaiseHand.title = "Raise Hand";
+    }
+  };
+  const startSpeakingHeartbeat = (studentId) => {
+    if (speakingHeartbeatTimer) return;
+    speakingHeartbeatTimer = setInterval(async () => {
+      try {
+        await fetch(speakerHeartbeatUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+          body: JSON.stringify({
+            student_id: Number(studentId || 0),
+            network_quality: Number(lastNetworkQuality || 0),
+          }),
+          credentials: "same-origin",
+        });
+      } catch (_) {}
+    }, 5000);
+  };
+  const stopSpeakingHeartbeat = () => {
+    if (!speakingHeartbeatTimer) return;
+    clearInterval(speakingHeartbeatTimer);
+    speakingHeartbeatTimer = null;
+  };
 
   const addVideoTrack = (identity, track, source, isLocal = false) => {
     const key = `${identity}:${source}`;
@@ -1510,6 +1581,13 @@
         toggleScreenFocus();
         toggleFullscreen();
       });
+    }
+    if (activeSpeakerUid && String(data?.identity || "") === String(activeSpeakerUid)) {
+      media.classList.add("active-speaker");
+      const badge = document.createElement("div");
+      badge.className = "speaker-badge";
+      badge.textContent = "Speaking";
+      media.appendChild(badge);
     }
     host.appendChild(media);
     data.track.play(media, { fit });
@@ -1644,6 +1722,11 @@
     card.classList.remove("speaker-border", "raised-border");
     if (raisedHands.has(id)) card.classList.add("raised-border");
     if (speakingIds.has(id)) card.classList.add("speaker-border");
+    if (activeSpeakerUid && String(activeSpeakerUid) === id) {
+      card.classList.add("active-speaker");
+    } else {
+      card.classList.remove("active-speaker");
+    }
     const wave = card.querySelector(".student-talk-wave");
     if (wave) wave.style.setProperty("--wave-boost", String(voiceBoost(id)));
   };
@@ -2326,6 +2409,22 @@
     if (!handQueuePanel || !handQueueList || !isProfessor) return;
     handQueueList.innerHTML = "";
     const rows = Array.isArray(requests) ? requests : [];
+    if (handQueueNext) {
+      handQueueNext.disabled = !rows.length;
+      handQueueNext.onclick = async () => {
+        if (!rows.length) return;
+        const next = rows[0];
+        try {
+          await fetch(approveHandUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: next.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+        await setActiveSpeaker(String(next.student_id || ""));
+      };
+    }
     if (!rows.length) {
       handQueuePanel.classList.remove("open");
       return;
@@ -2335,10 +2434,8 @@
       const item = document.createElement("div");
       item.className = "hand-queue-item";
       const name = document.createElement("div");
-      const holdKey = String(row.id || "");
-      const isHeld = String(row.status || "").toLowerCase() === "hold";
       const baseName = String(row.name || `Student ${row.student_id}`);
-      name.textContent = isHeld ? `${baseName} (On hold)` : baseName;
+      name.textContent = baseName;
       const actions = document.createElement("div");
       actions.className = "hand-queue-actions";
       const approve = document.createElement("button");
@@ -2356,29 +2453,6 @@
         } catch (_) {}
         await setActiveSpeaker(String(row.student_id || ""));
       });
-      let hold = null;
-      const rowUid = userIdToUid(row.student_id) || "";
-      if (currentSpeakerId && rowUid && String(rowUid) !== String(currentSpeakerId)) {
-        hold = document.createElement("button");
-        hold.type = "button";
-        hold.className = "hand-queue-btn";
-        hold.textContent = isHeld ? "Unhold" : "Hold";
-        hold.addEventListener("click", async () => {
-          if (!holdKey) return;
-          try {
-            await fetch(holdHandUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
-              body: JSON.stringify({
-                session_id: "{{ session_id }}",
-                student_id: row.student_id,
-                hold: !isHeld,
-              }),
-              credentials: "same-origin",
-            });
-          } catch (_) {}
-        });
-      }
       const decline = document.createElement("button");
       decline.type = "button";
       decline.className = "hand-queue-btn danger";
@@ -2394,7 +2468,6 @@
         } catch (_) {}
       });
       actions.appendChild(approve);
-      if (hold) actions.appendChild(hold);
       actions.appendChild(decline);
       item.appendChild(name);
       item.appendChild(actions);
@@ -2695,6 +2768,18 @@
     paneResizer.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
+  mainClient.on("network-quality", (stats) => {
+    if (isProfessor) return;
+    const quality = Number(stats?.uplinkNetworkQuality || stats?.downlinkNetworkQuality || 0);
+    if (Number.isFinite(quality)) {
+      lastNetworkQuality = quality;
+      if (quality >= 5 && !warnedPoorNetwork) {
+        warnedPoorNetwork = true;
+        showError("Your connection is unstable. You may lose your spot in the queue.");
+        setTimeout(() => { warnedPoorNetwork = false; }, 10000);
+      }
+    }
+  });
   paneResizer.addEventListener("pointermove", (event) => { if (isResizing) setRightPaneWidthFromPointer(event.clientX); });
   const stopResizing = () => { if (isResizing) { isResizing = false; paneResizer.classList.remove("dragging"); persistLayoutPrefs(); } };
   paneResizer.addEventListener("pointerup", stopResizing);
@@ -2893,10 +2978,27 @@
         return;
       }
       if (!isProfessor && localMicTrack) {
-        if (data && data.mic_locked && !localMicTrack.muted) {
+        const activeUid = String(data?.active_speaker_uid || "");
+        const myUid = String(agoraUid);
+        if (activeUid && activeUid === myUid) {
+          try { await localMicTrack.setMuted(false); } catch (_) {}
+          startSpeakingHeartbeat(selfUserId);
+        } else {
           try { await localMicTrack.setMuted(true); } catch (_) {}
-          syncControlStates();
+          stopSpeakingHeartbeat();
         }
+        syncControlStates();
+      }
+      if (!isProfessor && data && data.queue_position) {
+        setRaiseHandLabel(data.queue_position);
+      } else if (!isProfessor) {
+        setRaiseHandLabel(null);
+      }
+      if (data && typeof data.active_speaker_uid !== "undefined") {
+        const nextActive = String(data.active_speaker_uid || "");
+        const changed = String(activeSpeakerUid || "") !== nextActive;
+        activeSpeakerUid = nextActive || null;
+        if (changed) rerender();
       }
       if (!isProfessor && data && typeof data.hand_raised === "boolean") {
         const id = String(agoraUid);

@@ -5,6 +5,7 @@ from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 from decimal import Decimal
 import uuid
 import json
@@ -1871,24 +1872,27 @@ class ExternalLiveRaiseHand(models.Model):
     """Raise-hand queue for external (Barka) live sessions."""
 
     STATUS_PENDING = "pending"
-    STATUS_HOLD = "hold"
-    STATUS_APPROVED = "approved"
     STATUS_SPEAKING = "speaking"
     STATUS_FINISHED = "finished"
-    STATUS_REJECTED = "rejected"
+    STATUS_EXPIRED = "expired"
+    STATUS_DISCONNECTED = "disconnected"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
-        (STATUS_HOLD, "On hold"),
-        (STATUS_APPROVED, "Approved"),
         (STATUS_SPEAKING, "Speaking"),
         (STATUS_FINISHED, "Finished"),
-        (STATUS_REJECTED, "Rejected"),
+        (STATUS_EXPIRED, "Expired"),
+        (STATUS_DISCONNECTED, "Disconnected"),
     ]
 
     session_id = models.CharField(max_length=64, db_index=True)
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="external_live_raise_hands")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    request_time = models.DateTimeField(default=timezone.now)
+    start_speaking_time = models.DateTimeField(null=True, blank=True)
+    end_speaking_time = models.DateTimeField(null=True, blank=True)
+    last_ping = models.DateTimeField(null=True, blank=True)
+    network_quality = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -4180,6 +4180,56 @@ def external_live_status(request, session_id):
     if hasattr(request.user, "id"):
         hand_raised = str(request.user.id) in hand_map
 
+    active_speaker_uid = None
+    speaking_row = None
+    try:
+        active_speaker_uid = cache.get(_active_speaker_cache_key(str(session_id)))
+    except Exception:
+        active_speaker_uid = None
+    try:
+        speaking_row = (
+            ExternalLiveRaiseHand.objects.filter(
+                session_id=str(session_id),
+                status=ExternalLiveRaiseHand.STATUS_SPEAKING,
+            )
+            .order_by("-start_speaking_time", "-created_at")
+            .first()
+        )
+    except Exception:
+        speaking_row = None
+    if speaking_row:
+        now = timezone.now()
+        if speaking_row.last_ping and (now - speaking_row.last_ping).total_seconds() > 15:
+            with transaction.atomic():
+                _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_EXPIRED, now=now)
+            active_speaker_uid = None
+        elif not active_speaker_uid:
+            active_speaker_uid = _resolve_student_agora_uid(str(session_id), int(speaking_row.student_id))
+            if active_speaker_uid:
+                try:
+                    cache.set(_active_speaker_cache_key(str(session_id)), active_speaker_uid, timeout=60 * 60 * 8)
+                except Exception:
+                    pass
+
+    queue_position = None
+    try:
+        pending = (
+            ExternalLiveRaiseHand.objects.filter(
+                session_id=str(session_id),
+                status=ExternalLiveRaiseHand.STATUS_PENDING,
+            )
+            .order_by("request_time", "created_at")
+            .values("id", "student_id")
+        )
+        idx = 1
+        for row in pending:
+            if int(row.get("student_id") or 0) == int(getattr(request.user, "id", 0) or 0):
+                queue_position = idx
+                break
+            idx += 1
+    except Exception:
+        queue_position = None
+
     return JsonResponse(
         {
             "session_id": str(session_id),
@@ -4191,6 +4241,8 @@ def external_live_status(request, session_id):
             "mic_locked": bool(mic_locked),
             "hand_raised": bool(hand_raised),
             "raised_hands": raised_hands if hasattr(request.user, "profile") and request.user.profile.role == "PROFESSOR" else [],
+            "active_speaker_uid": active_speaker_uid,
+            "queue_position": queue_position,
             "server_time": timezone.now().isoformat(),
         }
     )
@@ -4280,13 +4332,13 @@ def api_raise_hand_queue(request):
     pending = (
         ExternalLiveRaiseHand.objects.filter(
             session_id=str(session_id),
-            status__in=[ExternalLiveRaiseHand.STATUS_PENDING, ExternalLiveRaiseHand.STATUS_HOLD],
+            status=ExternalLiveRaiseHand.STATUS_PENDING,
         )
         .select_related("student", "student__profile")
-        .order_by("created_at")
+        .order_by("request_time", "created_at")
     )
     rows = []
-    for row in pending:
+    for idx, row in enumerate(pending, start=1):
         name = ""
         profile = getattr(row.student, "profile", None)
         if profile:
@@ -4300,39 +4352,59 @@ def api_raise_hand_queue(request):
                 "name": name,
                 "created_at": row.created_at.isoformat(),
                 "status": row.status,
+                "queue_position": idx,
             }
         )
     return JsonResponse({"ok": True, "requests": rows})
 
 
-@professor_required
-@require_POST
-def api_hold_hand(request):
+def _active_speaker_cache_key(session_id: str) -> str:
+    return f"prolean:active_speaker:{session_id}"
+
+
+def _resolve_student_agora_uid(session_id: str, student_id: int) -> str | None:
+    key = f"prolean:external_live_hands:{session_id}"
     try:
-        payload = json.loads(request.body or "{}")
+        hand_map = cache.get(key) or {}
     except Exception:
-        payload = {}
-    session_id = str(payload.get("session_id") or "").strip()
-    student_id = str(payload.get("student_id") or "").strip()
-    hold = bool(payload.get("hold"))
-    if not session_id or not student_id:
-        return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
-    if not _professor_owns_session(request, session_id):
-        return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
-    row = (
-        ExternalLiveRaiseHand.objects.filter(
-            session_id=str(session_id),
-            student_id=int(student_id),
-            status__in=[ExternalLiveRaiseHand.STATUS_PENDING, ExternalLiveRaiseHand.STATUS_HOLD],
+        hand_map = {}
+    if isinstance(hand_map, dict):
+        entry = hand_map.get(str(student_id)) or {}
+        uid = str((entry or {}).get("uid") or "").strip()
+        if uid:
+            return uid
+    try:
+        stat = (
+            ExternalLiveStudentStat.objects.filter(session_id=str(session_id), user_id=int(student_id))
+            .order_by("-updated_at")
+            .first()
         )
-        .order_by("created_at")
-        .first()
-    )
-    if not row:
-        return JsonResponse({"ok": False, "error": "No pending request."}, status=404)
-    row.status = ExternalLiveRaiseHand.STATUS_HOLD if hold else ExternalLiveRaiseHand.STATUS_PENDING
-    row.save(update_fields=["status", "updated_at"])
-    return JsonResponse({"ok": True, "status": row.status})
+        if stat and str(stat.agora_uid or "").strip():
+            return str(stat.agora_uid).strip()
+    except Exception:
+        pass
+    return None
+
+
+def _finish_current_speaker(session_id: str, *, status: str, now=None) -> None:
+    now = now or timezone.now()
+    try:
+        row = (
+            ExternalLiveRaiseHand.objects.select_for_update()
+            .filter(session_id=str(session_id), status=ExternalLiveRaiseHand.STATUS_SPEAKING)
+            .order_by("-start_speaking_time", "-created_at")
+            .first()
+        )
+    except Exception:
+        row = None
+    if row:
+        row.status = status
+        row.end_speaking_time = now
+        row.save(update_fields=["status", "end_speaking_time", "updated_at"])
+    try:
+        cache.delete(_active_speaker_cache_key(str(session_id)))
+    except Exception:
+        pass
 
 
 @professor_required
@@ -4348,25 +4420,33 @@ def api_approve_hand(request):
         return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
     if not _professor_owns_session(request, session_id):
         return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
-    row = (
-        ExternalLiveRaiseHand.objects.filter(
-            session_id=str(session_id),
-            student_id=int(student_id),
-            status=ExternalLiveRaiseHand.STATUS_PENDING,
+    now = timezone.now()
+    with transaction.atomic():
+        _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_FINISHED, now=now)
+        row = (
+            ExternalLiveRaiseHand.objects.select_for_update()
+            .filter(
+                session_id=str(session_id),
+                student_id=int(student_id),
+                status=ExternalLiveRaiseHand.STATUS_PENDING,
+            )
+            .order_by("request_time", "created_at")
+            .first()
         )
-        .order_by("created_at")
-        .first()
-    )
-    if not row:
-        return JsonResponse({"ok": False, "error": "No pending request."}, status=404)
-    row.status = ExternalLiveRaiseHand.STATUS_APPROVED
-    row.save(update_fields=["status", "updated_at"])
-    try:
-        key_user = f"prolean:external_live_mic_lock_user:{session_id}:{student_id}"
-        cache.delete(key_user)
-    except Exception:
-        pass
-    return JsonResponse({"ok": True, "status": row.status})
+        if not row:
+            return JsonResponse({"ok": False, "error": "No pending request."}, status=404)
+        row.status = ExternalLiveRaiseHand.STATUS_SPEAKING
+        row.start_speaking_time = now
+        row.last_ping = now
+        row.save(update_fields=["status", "start_speaking_time", "last_ping", "updated_at"])
+
+    active_uid = _resolve_student_agora_uid(str(session_id), int(student_id))
+    if active_uid:
+        try:
+            cache.set(_active_speaker_cache_key(str(session_id)), active_uid, timeout=60 * 60 * 8)
+        except Exception:
+            pass
+    return JsonResponse({"ok": True, "status": row.status, "active_speaker_uid": active_uid})
 
 
 @professor_required
@@ -4382,22 +4462,102 @@ def api_remove_speaker(request):
         return JsonResponse({"ok": False, "error": "Missing payload."}, status=400)
     if not _professor_owns_session(request, session_id):
         return JsonResponse({"ok": False, "error": "Not authorized for this session."}, status=403)
+    now = timezone.now()
     ExternalLiveRaiseHand.objects.filter(
         session_id=str(session_id),
         student_id=int(student_id),
         status__in=[
             ExternalLiveRaiseHand.STATUS_PENDING,
-            ExternalLiveRaiseHand.STATUS_HOLD,
-            ExternalLiveRaiseHand.STATUS_APPROVED,
             ExternalLiveRaiseHand.STATUS_SPEAKING,
         ],
-    ).update(status=ExternalLiveRaiseHand.STATUS_FINISHED, updated_at=timezone.now())
+    ).update(status=ExternalLiveRaiseHand.STATUS_FINISHED, end_speaking_time=now, updated_at=now)
+    try:
+        active_uid = cache.get(_active_speaker_cache_key(str(session_id)))
+        if active_uid and str(active_uid) == str(_resolve_student_agora_uid(str(session_id), int(student_id)) or ""):
+            cache.delete(_active_speaker_cache_key(str(session_id)))
+    except Exception:
+        pass
     try:
         key_user = f"prolean:external_live_mic_lock_user:{session_id}:{student_id}"
         cache.set(key_user, True, timeout=8 * 60 * 60)
     except Exception:
         pass
     return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def api_speaker_heartbeat(request, session_id):
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    student_id = str(payload.get("student_id") or "").strip()
+    network_score = int(payload.get("network_quality") or 0)
+    if not student_id:
+        return JsonResponse({"ok": False, "error": "Missing student_id."}, status=400)
+
+    now = timezone.now()
+    active_uid = None
+    try:
+        active_uid = cache.get(_active_speaker_cache_key(str(session_id)))
+    except Exception:
+        active_uid = None
+
+    row = (
+        ExternalLiveRaiseHand.objects.filter(
+            session_id=str(session_id),
+            student_id=int(student_id),
+            status=ExternalLiveRaiseHand.STATUS_SPEAKING,
+        )
+        .order_by("-start_speaking_time", "-created_at")
+        .first()
+    )
+    if not row:
+        return JsonResponse({"ok": False, "error": "Not active speaker."}, status=404)
+
+    row.last_ping = now
+    row.network_quality = max(0, min(5, int(network_score)))
+    row.save(update_fields=["last_ping", "network_quality", "updated_at"])
+
+    poor_key = f"prolean:active_speaker_poor:{session_id}:{student_id}"
+    if row.network_quality >= 5:
+        try:
+            poor_count = int(cache.get(poor_key) or 0) + 1
+            cache.set(poor_key, poor_count, timeout=60)
+        except Exception:
+            poor_count = 0
+    else:
+        try:
+            cache.delete(poor_key)
+        except Exception:
+            pass
+        poor_count = 0
+
+    if poor_count >= 3:
+        with transaction.atomic():
+            _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_DISCONNECTED, now=now)
+        try:
+            cache.set(f"prolean:external_live_mic_lock_user:{session_id}:{student_id}", True, timeout=60 * 60 * 8)
+        except Exception:
+            pass
+        try:
+            cache.delete(poor_key)
+        except Exception:
+            pass
+        return JsonResponse({"ok": True, "status": "disconnected"})
+
+    # auto-expire if stale
+    if row.last_ping and (now - row.last_ping).total_seconds() > 15:
+        with transaction.atomic():
+            _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_EXPIRED, now=now)
+        try:
+            cache.set(f"prolean:external_live_mic_lock_user:{session_id}:{student_id}", True, timeout=60 * 60 * 8)
+        except Exception:
+            pass
+        return JsonResponse({"ok": True, "status": "expired"})
+
+    return JsonResponse({"ok": True, "status": row.status, "active_speaker_uid": active_uid})
 
 
 @login_required
@@ -4594,6 +4754,14 @@ def external_live_mute_user(request, session_id):
         cache.set(f"prolean:external_live_mic_lock_user:{session_id}:{target.id}", True, timeout=60 * 60 * 8)
     except Exception:
         pass
+    try:
+        active_uid = cache.get(_active_speaker_cache_key(str(session_id)))
+    except Exception:
+        active_uid = None
+    target_uid = _resolve_student_agora_uid(str(session_id), int(target.id))
+    if active_uid and target_uid and str(active_uid) == str(target_uid):
+        with transaction.atomic():
+            _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_FINISHED, now=timezone.now())
 
     try:
         ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=target, event_type="mute_user", payload={})
@@ -4620,6 +4788,35 @@ def external_live_unmute_user(request, session_id):
         cache.delete(f"prolean:external_live_mic_lock_user:{session_id}:{target.id}")
     except Exception:
         pass
+    now = timezone.now()
+    with transaction.atomic():
+        _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_FINISHED, now=now)
+        row = (
+            ExternalLiveRaiseHand.objects.select_for_update()
+            .filter(session_id=str(session_id), student=target)
+            .order_by("-request_time", "-created_at")
+            .first()
+        )
+        if not row:
+            row = ExternalLiveRaiseHand.objects.create(
+                session_id=str(session_id),
+                student=target,
+                status=ExternalLiveRaiseHand.STATUS_SPEAKING,
+                request_time=now,
+                start_speaking_time=now,
+                last_ping=now,
+            )
+        else:
+            row.status = ExternalLiveRaiseHand.STATUS_SPEAKING
+            row.start_speaking_time = now
+            row.last_ping = now
+            row.save(update_fields=["status", "start_speaking_time", "last_ping", "updated_at"])
+    active_uid = _resolve_student_agora_uid(str(session_id), int(target.id))
+    if active_uid:
+        try:
+            cache.set(_active_speaker_cache_key(str(session_id)), active_uid, timeout=60 * 60 * 8)
+        except Exception:
+            pass
 
     try:
         ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=target, event_type="unmute_user", payload={})
@@ -4638,6 +4835,8 @@ def external_live_mute_all(request, session_id):
         cache.set(f"prolean:external_live_mic_lock_all:{session_id}", True, timeout=60 * 60 * 8)
     except Exception:
         pass
+    with transaction.atomic():
+        _finish_current_speaker(session_id, status=ExternalLiveRaiseHand.STATUS_FINISHED, now=timezone.now())
     try:
         ExternalLiveSecurityEvent.objects.create(session_id=str(session_id), actor=request.user, target=None, event_type="mute_all", payload={})
     except Exception:
