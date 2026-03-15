@@ -3606,6 +3606,12 @@
     });
   }
 
+  leftPane.addEventListener("click", () => {
+    if (screenFocusActive) toggleScreenFocus();
+    rightMode = 1;
+    rerender();
+  });
+
   const clampRightPaneWidth = (next) => Math.min(100, Math.max(0, Number(next || 28)));
   const setRightPaneWidthFromPointer = (clientX) => {
     const shellRect = roomRoot.querySelector(".room-shell").getBoundingClientRect();
