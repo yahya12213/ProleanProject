@@ -82,61 +82,101 @@
 
     .room-top {
         border-bottom: 1px solid var(--top-border);
-        background: linear-gradient(180deg, rgba(8, 12, 26, 0.92), rgba(6, 9, 20, 0.96));
+        background: linear-gradient(180deg, rgba(8, 12, 26, 0.95), rgba(6, 9, 20, 0.98));
         flex: 0 0 auto;
-        backdrop-filter: blur(14px);
-        padding: 10px 16px;
-        box-shadow: 0 12px 24px rgba(2, 6, 23, 0.35);
+        backdrop-filter: blur(16px);
+        padding: 12px 18px;
+        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
     }
 
-    .room-title {
-        color: var(--muted-text);
-        font-size: 10px;
-        letter-spacing: 0.2em;
-    }
-    .room-meta {
+    .header-left,
+    .header-right {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        color: var(--muted-text);
-        font-size: 10px;
-        letter-spacing: 0.14em;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .session-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
+        color: #f8fafc;
+    }
+
+    .session-id {
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.6);
+        font-size: 10px;
         font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-text);
+    }
+
+    .header-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .header-pill .material-symbols-outlined {
+        font-size: 16px;
     }
     .status-dot {
         width: 8px;
         height: 8px;
         border-radius: 999px;
         background: #22c55e;
-        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
     }
-    .security-pill {
-        padding: 4px 8px;
+    .conn-dot {
+        width: 8px;
+        height: 8px;
         border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(15, 23, 42, 0.6);
-        color: #e2e8f0;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+        background: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
     }
+    .conn-pill.ok .conn-dot {
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .conn-pill.err .conn-dot {
+        background: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    }
+
     .leave-btn {
-        padding: 6px 12px;
+        padding: 8px 14px;
         border-radius: 999px;
-        border: 1px solid rgba(239, 68, 68, 0.6);
+        border: 1px solid rgba(239, 68, 68, 0.65);
         background: rgba(239, 68, 68, 0.18);
         color: #fee2e2;
         font-size: 10px;
         font-weight: 900;
         text-transform: uppercase;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.14em;
         transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
     }
     .leave-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 10px 18px rgba(239, 68, 68, 0.28);
-        border-color: rgba(239, 68, 68, 0.85);
+        box-shadow: 0 12px 20px rgba(239, 68, 68, 0.32);
+        border-color: rgba(239, 68, 68, 0.9);
     }
 
     .room-shell {
@@ -1298,27 +1338,520 @@
         font-weight: 700;
         padding: 20px;
     }
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .presenter-room {
+        --bg-main: radial-gradient(1200px 520px at 10% 10%, rgba(14, 165, 233, 0.22), transparent 55%),
+            radial-gradient(900px 520px at 90% 10%, rgba(16, 185, 129, 0.18), transparent 55%),
+            radial-gradient(900px 520px at 40% 90%, rgba(251, 191, 36, 0.14), transparent 55%),
+            #0a0f1e;
+        --panel-bg: rgba(15, 23, 42, 0.72);
+        --panel-border: rgba(148, 163, 184, 0.25);
+        --panel-glow: rgba(56, 189, 248, 0.18);
+        --text-main: #e2e8f0;
+        --muted-text: #94a3b8;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --danger: #ef4444;
+        --warn: #f59e0b;
+        --hand: #fbbf24;
+        --muted: #64748b;
+    }
+
+    .room-top.live-header {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        background: linear-gradient(180deg, rgba(10, 14, 26, 0.95), rgba(8, 11, 21, 0.9));
+        padding: 14px 18px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr);
+        gap: 14px;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        backdrop-filter: blur(16px);
+    }
+
+    .header-left,
+    .header-center,
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .header-center {
+        justify-content: center;
+    }
+
+    .header-right {
+        justify-content: flex-end;
+    }
+
+    .session-title {
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #f8fafc;
+    }
+
+    .session-subtitle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .session-id,
+    .session-chip {
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.6);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-text);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .header-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.55);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+    }
+
+    .live-pill {
+        border-color: rgba(248, 113, 113, 0.6);
+        color: #fecaca;
+    }
+
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #ef4444;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+        animation: livePulse 1.6s ease-out infinite;
+    }
+
+    @keyframes livePulse {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    .conn-pill.ok .conn-dot {
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .conn-pill.err .conn-dot {
+        background: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    }
+    .conn-pill.warn .conn-dot {
+        background: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    .security-pill {
+        border-color: rgba(56, 189, 248, 0.5);
+        color: #bae6fd;
+    }
+
+    .leave-btn {
+        padding: 9px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(239, 68, 68, 0.65);
+        background: rgba(239, 68, 68, 0.18);
+        color: #fee2e2;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+
+    .room-shell {
+        padding: 16px 16px 140px;
+        gap: 16px;
+    }
+
+    .pane {
+        border-radius: 22px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.94));
+        box-shadow: 0 28px 60px rgba(2, 6, 23, 0.5), inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+    }
+
+    .pane.live-glow {
+        border-color: rgba(248, 113, 113, 0.35);
+        box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.22), 0 28px 60px rgba(2, 6, 23, 0.5);
+    }
+
+    .pane-title {
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .video-host {
+        border-radius: 18px;
+        overflow: hidden;
+        position: relative;
+        background: #000;
+    }
+
+    .stage-meta {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        display: inline-flex;
+        gap: 8px;
+        z-index: 6;
+    }
+
+    .stage-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.7);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        backdrop-filter: blur(8px);
+    }
+
+    .stage-chip.live {
+        border-color: rgba(248, 113, 113, 0.5);
+        color: #fecaca;
+    }
+
+    .prof-overlay {
+        border-color: rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.7);
+        font-size: 10px;
+    }
+
+    .placeholder {
+        gap: 12px;
+        color: var(--muted-text);
+    }
+    .placeholder .icon {
+        background: rgba(2, 6, 23, 0.6);
+        border-color: rgba(56, 189, 248, 0.4);
+        color: #60a5fa;
+        box-shadow: 0 18px 30px rgba(2, 6, 23, 0.45);
+    }
+    .placeholder .title {
+        color: #e2e8f0;
+    }
+    .placeholder .desc {
+        color: var(--muted-text);
+    }
+
+    .control-dock {
+        position: fixed;
+        left: 50%;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: linear-gradient(180deg, rgba(10, 14, 24, 0.92), rgba(7, 10, 18, 0.95));
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.55);
+        backdrop-filter: blur(16px);
+    }
+
+    .dock-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.55);
+    }
+
+    .dock-group-session {
+        gap: 6px;
+    }
+
+    .ctrl-btn.dock-btn {
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: radial-gradient(circle at 30% 25%, rgba(30, 41, 59, 0.98) 0%, rgba(10, 16, 30, 0.98) 100%);
+        color: #e2e8f0;
+        box-shadow: 0 10px 20px rgba(4, 7, 20, 0.45);
+        transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+    }
+
+    .ctrl-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        filter: grayscale(0.2);
+        box-shadow: none;
+    }
+
+    .ctrl-btn.dock-btn:hover {
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 18px 30px rgba(5, 7, 18, 0.55);
+        border-color: rgba(56, 189, 248, 0.6);
+    }
+
+    .ctrl-btn.dock-btn[data-state="off"] {
+        background: radial-gradient(circle at 35% 25%, rgba(239, 68, 68, 0.95) 0%, rgba(127, 29, 29, 0.98) 100%);
+        border-color: rgba(248, 113, 113, 0.85);
+        color: #fee2e2;
+        box-shadow: 0 12px 26px rgba(239, 68, 68, 0.35);
+    }
+
+    .ctrl-btn.primary {
+        background: radial-gradient(circle at 35% 25%, rgba(251, 191, 36, 0.95) 0%, rgba(217, 119, 6, 0.98) 100%);
+        border-color: rgba(251, 191, 36, 0.85);
+        color: #1f1300;
+    }
+
+    .ctrl-btn.active {
+        background: radial-gradient(circle at 35% 25%, rgba(56, 189, 248, 0.98) 0%, rgba(37, 99, 235, 0.98) 100%);
+        border-color: rgba(125, 211, 252, 0.85);
+        color: #f8fafc;
+    }
+
+    .ctrl-btn.danger {
+        background: radial-gradient(circle at 35% 25%, rgba(239, 68, 68, 0.95) 0%, rgba(153, 27, 27, 0.98) 100%);
+        border-color: rgba(248, 113, 113, 0.85);
+        color: #fee2e2;
+    }
+
+    .ctrl-btn[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        opacity: 0;
+        pointer-events: none;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(2, 6, 23, 0.85);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transition: opacity .15s ease, transform .15s ease;
+        white-space: nowrap;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        z-index: 4;
+    }
+
+    .ctrl-btn[data-tooltip]:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .dock-volume {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.7);
+        color: #e2e8f0;
+        position: relative;
+    }
+
+    .dock-volume[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        opacity: 0;
+        pointer-events: none;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(2, 6, 23, 0.85);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transition: opacity .15s ease, transform .15s ease;
+        white-space: nowrap;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        z-index: 4;
+    }
+
+    .dock-volume[data-tooltip]:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .vol-slider {
+        width: 90px;
+        accent-color: var(--accent);
+    }
+
+    .student-status {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: inline-flex;
+        gap: 4px;
+        z-index: 6;
+    }
+
+    .status-pill {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(2, 6, 23, 0.6);
+        color: #cbd5f5;
+        opacity: 0.35;
+        transition: opacity .2s ease, transform .2s ease, background .2s ease;
+    }
+
+    .status-pill.connected {
+        opacity: 1;
+        color: #86efac;
+        border-color: rgba(34, 197, 94, 0.45);
+        background: rgba(16, 185, 129, 0.2);
+    }
+
+    .student-card.hand-raised .status-pill.hand {
+        opacity: 1;
+        color: #fef3c7;
+        border-color: rgba(251, 191, 36, 0.75);
+        background: rgba(217, 119, 6, 0.3);
+        transform: scale(1.04);
+    }
+
+    .student-card.speaking .status-pill.speaking {
+        opacity: 1;
+        color: #bbf7d0;
+        border-color: rgba(34, 197, 94, 0.6);
+        background: rgba(16, 185, 129, 0.25);
+        transform: scale(1.04);
+    }
+
+    .student-card.muted .status-pill.muted {
+        opacity: 1;
+        color: #e2e8f0;
+        border-color: rgba(148, 163, 184, 0.6);
+        background: rgba(71, 85, 105, 0.5);
+    }
+
+    .hand-toast {
+        animation: toastIn .35s ease;
+    }
+
+    @keyframes toastIn {
+        from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 1100px) {
+        .room-top.live-header {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .header-center {
+            justify-content: flex-start;
+        }
+        .control-dock {
+            left: 50%;
+            width: calc(100% - 20px);
+            justify-content: center;
+            flex-wrap: wrap;
+            border-radius: 24px;
+        }
+        .dock-group {
+            flex-wrap: wrap;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div id="room-root" class="presenter-room">
-    <div class="room-top flex items-center justify-between">
-        <div class="room-meta">
-            <span class="room-title">{% if CURRENT_LANGUAGE == 'ar' %}غرفة البث{% elif CURRENT_LANGUAGE == 'en' %}Live Classroom{% else %}Classe en direct{% endif %}</span>
-            <span>•</span>
-            <span>ID: {{ session_id }}</span>
+    <div class="room-top live-header">
+        <div class="header-left">
+            <div class="session-title">{% if CURRENT_LANGUAGE == 'ar' %}غرفة البث{% elif CURRENT_LANGUAGE == 'en' %}Live Classroom{% else %}Classe en direct{% endif %}</div>
+            <div class="session-subtitle">
+                <span class="session-id">ID: {{ session_id }}</span>
+                <span class="session-chip">
+                    <span class="material-symbols-outlined">school</span>
+                    {{ professor_name_hint|default:"Professor" }}
+                </span>
+            </div>
         </div>
-        <div class="room-meta">
-            <span class="status-dot"></span>
-            <span id="header-status-text">Live</span>
-            <span class="security-pill">
+        <div class="header-center">
+            <div class="header-pill live-pill">
+                <span class="live-dot"></span>
+                <span id="live-status-text">Live</span>
+                <span id="header-status-text" class="sr-only">Live</span>
+            </div>
+            <div class="header-pill">
+                <span class="material-symbols-outlined">schedule</span>
+                <span id="live-clock">--:--:--</span>
+            </div>
+            <div id="conn-pill" class="header-pill conn-pill warn">
+                <span class="conn-dot"></span>
+                <span id="conn-status-text">Connecting</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="header-pill security-pill">
                 <span class="material-symbols-outlined">verified</span>
                 Secure
             </span>
             <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
                 {% csrf_token %}
-                <button type="submit" class="leave-btn">{% if CURRENT_LANGUAGE == 'ar' %}خروج{% elif CURRENT_LANGUAGE == 'en' %}Leave{% else %}Quitter{% endif %}</button>
+                <button type="submit" class="leave-btn">{% if CURRENT_LANGUAGE == 'ar' %}خروج{% elif CURRENT_LANGUAGE == 'en' %}Quit Session{% else %}Quitter{% endif %}</button>
             </form>
         </div>
     </div>
@@ -1366,6 +1899,16 @@
         <section id="left-pane" class="pane pane-main live-glow">
             <div class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}كاميرا الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Camera{% else %}Caméra professeur{% endif %}</div>
             <div id="left-host" class="video-host"></div>
+            <div class="stage-meta">
+                <div class="stage-chip live">
+                    <span class="live-dot"></span>
+                    <span>Live</span>
+                </div>
+                <div class="stage-chip">
+                    <span class="material-symbols-outlined">shield</span>
+                    <span>Encrypted</span>
+                </div>
+            </div>
             <div class="prof-overlay">
                 <span class="dot"></span>
                 <span id="prof-date">--/--</span>
@@ -1382,42 +1925,51 @@
         </section>
     </div>
 
-    <div class="bottom-bar">
-        <div class="bottom-left">
-            <div class="status-chip">
-                <span class="material-symbols-outlined">schedule</span>
-                <span id="live-clock">--:--:--</span>
-            </div>
-            <div class="status-chip">
-                <span class="material-symbols-outlined">cast_connected</span>
-                <span id="live-status-text">Live</span>
-            </div>
+    <div class="control-dock">
+        <div class="dock-group">
+            <button id="toggle-audio" class="ctrl-btn dock-btn" data-state="on" title="Microphone" data-tooltip="Microphone">
+                <span class="material-symbols-outlined">mic</span>
+            </button>
+            <button id="toggle-video" class="ctrl-btn dock-btn" data-state="on" title="Camera" data-tooltip="Camera">
+                <span class="material-symbols-outlined">videocam</span>
+            </button>
         </div>
-        <div class="dock">
-            <button id="toggle-audio" class="ctrl-btn dock-btn" data-state="on" title="Microphone"><span class="material-symbols-outlined">mic</span></button>
-            <button id="toggle-video" class="ctrl-btn dock-btn" data-state="on" title="Camera"><span class="material-symbols-outlined">videocam</span></button>
-            <button id="toggle-screen" class="ctrl-btn dock-btn" title="Screen Share"><span class="material-symbols-outlined">present_to_all</span></button>
-            <button id="raise-hand" class="ctrl-btn dock-btn primary" title="Raise Hand"><span class="material-symbols-outlined">front_hand</span></button>
+        <div class="dock-group">
+            <button id="toggle-screen" class="ctrl-btn dock-btn" title="Screen Share" data-tooltip="Screen share">
+                <span class="material-symbols-outlined">present_to_all</span>
+            </button>
+            <button id="raise-hand" class="ctrl-btn dock-btn primary" title="Raise Hand" data-tooltip="Raise hand">
+                <span class="material-symbols-outlined">front_hand</span>
+            </button>
+        </div>
+        <div class="dock-group dock-group-session">
             {% if live_role|lower == 'professor' %}
-            <button id="open-mod" class="ctrl-btn dock-btn" title="Moderation">
+            <button id="open-mod" class="ctrl-btn dock-btn" title="Moderation" data-tooltip="Moderation">
                 <span class="material-symbols-outlined">shield_person</span>
             </button>
             {% endif %}
             {% if live_role|lower == 'professor' %}
-            <button id="end-live" class="ctrl-btn dock-btn danger" title="End Live" data-end-url="{% url 'Prolean:external_professor_live_end' session_id %}">
+            <button id="end-live" class="ctrl-btn dock-btn danger" title="End Live" data-tooltip="End live" data-end-url="{% url 'Prolean:external_professor_live_end' session_id %}">
                 <span class="material-symbols-outlined">stop_circle</span>
             </button>
             {% endif %}
-            <button id="enable-sound" class="ctrl-btn dock-btn" title="Enable Sound"><span class="material-symbols-outlined">volume_up</span></button>
-            <button id="toggle-view" class="ctrl-btn dock-btn" title="Switch view"><span class="material-symbols-outlined">switch_video</span></button>
-            <button id="toggle-fullscreen" class="ctrl-btn dock-btn" title="Fullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
-            <div id="audio-sink" class="hidden"></div>
-        </div>
-        <div class="bottom-right">
-            <div class="vol-control">
+            <button id="toggle-recording" class="ctrl-btn dock-btn" title="Recording" data-tooltip="Recording" disabled>
+                <span class="material-symbols-outlined">fiber_manual_record</span>
+            </button>
+            <button id="enable-sound" class="ctrl-btn dock-btn" title="Enable Sound" data-tooltip="Enable sound">
+                <span class="material-symbols-outlined">volume_up</span>
+            </button>
+            <button id="toggle-view" class="ctrl-btn dock-btn" title="Switch view" data-tooltip="Switch view">
+                <span class="material-symbols-outlined">switch_video</span>
+            </button>
+            <button id="toggle-fullscreen" class="ctrl-btn dock-btn" title="Fullscreen" data-tooltip="Fullscreen">
+                <span class="material-symbols-outlined">fullscreen</span>
+            </button>
+            <div class="dock-volume" data-tooltip="Volume">
                 <span class="material-symbols-outlined">volume_up</span>
                 <input type="range" min="0" max="100" value="80" class="vol-slider" />
             </div>
+            <div id="audio-sink" class="hidden"></div>
         </div>
     </div>
 </div>
@@ -1455,6 +2007,8 @@
   const liveClock = document.getElementById("live-clock");
   const liveStatusText = document.getElementById("live-status-text");
   const headerStatusText = document.getElementById("header-status-text");
+  const connPill = document.getElementById("conn-pill");
+  const connStatusText = document.getElementById("conn-status-text");
   const profDate = document.getElementById("prof-date");
   const profTime = document.getElementById("prof-time");
 
@@ -1572,7 +2126,13 @@
   const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
   const speakerHeartbeatUrl = "{% url 'Prolean:api_speaker_heartbeat' session_id %}";
   const liveAuditUrl = "{% url 'Prolean:api_live_audit_event' %}";
-  const setStatus = (_txt, _kind = "warn") => {};
+  const setStatus = (txt, kind = "warn") => {
+    if (connStatusText) connStatusText.textContent = String(txt || "");
+    if (connPill) {
+      connPill.classList.remove("ok", "warn", "err");
+      connPill.classList.add(kind);
+    }
+  };
   const showError = (message) => {
     if (!connError) return;
     connError.textContent = message;
@@ -2002,9 +2562,10 @@
   const applyStudentActivityVisuals = (card, identity) => {
     const id = String(identity || "");
     if (!id || !card) return;
-    card.classList.remove("speaker-border", "raised-border");
-    if (raisedHands.has(id)) card.classList.add("raised-border");
-    if (speakingIds.has(id)) card.classList.add("speaker-border");
+    card.classList.remove("speaker-border", "raised-border", "hand-raised", "speaking", "muted");
+    if (raisedHands.has(id)) card.classList.add("raised-border", "hand-raised");
+    if (speakingIds.has(id)) card.classList.add("speaker-border", "speaking");
+    if (remotelyMutedIds.has(id)) card.classList.add("muted");
     if (activeSpeakerUid && String(activeSpeakerUid) === id) {
       card.classList.add("active-speaker");
     } else {
@@ -2050,6 +2611,7 @@
     for (const student of students) {
       const card = document.createElement("div");
       card.className = "student-card";
+      card.classList.add("fade-in");
       card.dataset.identity = String(student.id);
       card.style.minHeight = "0";
       applyStudentActivityVisuals(card, student.id);
@@ -2112,16 +2674,19 @@
         actions.appendChild(kickBtn);
         card.appendChild(actions);
       }
+      const status = document.createElement("div");
+      status.className = "student-status";
+      status.innerHTML = `
+        <span class="status-pill connected" title="Connected"><span class="material-symbols-outlined">wifi_tethering</span></span>
+        <span class="status-pill hand" title="Raised hand"><span class="material-symbols-outlined">front_hand</span></span>
+        <span class="status-pill speaking" title="Speaking"><span class="material-symbols-outlined">graphic_eq</span></span>
+        <span class="status-pill muted" title="Muted"><span class="material-symbols-outlined">mic_off</span></span>
+      `;
+      card.appendChild(status);
       const footer = document.createElement("div");
       footer.className = "student-label";
       footer.textContent = student.name;
       card.appendChild(footer);
-      if (raisedHands.has(String(student.id))) {
-        const handEmoji = document.createElement("div");
-        handEmoji.className = "raised-emoji";
-        handEmoji.textContent = "🖐️";
-        card.appendChild(handEmoji);
-      }
       const wave = document.createElement("div");
       wave.className = "student-talk-wave";
       wave.innerHTML = "<span></span><span></span><span></span>";
@@ -2138,15 +2703,6 @@
       const id = String(card.dataset.identity || "");
       if (!id) return;
       applyStudentActivityVisuals(card, id);
-      const currentEmoji = card.querySelector(".raised-emoji");
-      if (raisedHands.has(id) && !currentEmoji) {
-        const handEmoji = document.createElement("div");
-        handEmoji.className = "raised-emoji";
-        handEmoji.textContent = "🖐️";
-        card.appendChild(handEmoji);
-      } else if (!raisedHands.has(id) && currentEmoji) {
-        currentEmoji.remove();
-      }
     });
   };
   const renderRightPane = () => {
