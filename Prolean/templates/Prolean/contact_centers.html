@@ -78,6 +78,30 @@
                     {% if city.map_x and city.map_y %}
                     <div class="map-dot" title="{{ city.name }}"
                          style="top: {{ city.map_y }}%; left: {{ city.map_x }}%;"></div>
+                    {% else %}
+                        {% with city_name=city.name|lower %}
+                            {% if 'casablanca' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 41%; left: 52%;"></div>
+                            {% elif 'rabat' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 35%; left: 50%;"></div>
+                            {% elif 'tanger' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 18%; left: 47%;"></div>
+                            {% elif 'marrakech' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 55%; left: 47%;"></div>
+                            {% elif 'agadir' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 68%; left: 41%;"></div>
+                            {% elif 'fès' in city_name or 'fes' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 32%; left: 58%;"></div>
+                            {% elif 'meknès' in city_name or 'meknes' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 34%; left: 56%;"></div>
+                            {% elif 'oujda' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 36%; left: 68%;"></div>
+                            {% elif 'laâyoune' in city_name or 'laayoune' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 83%; left: 32%;"></div>
+                            {% elif 'dakhla' in city_name %}
+                                <div class="map-dot" title="{{ city.name }}" style="top: 92%; left: 30%;"></div>
+                            {% endif %}
+                        {% endwith %}
                     {% endif %}
                 {% endfor %}
                 
