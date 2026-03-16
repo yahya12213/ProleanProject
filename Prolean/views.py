@@ -107,13 +107,47 @@ def _is_user_banned_from_external_session(session_id: str, user: User) -> tuple[
 # External authority (Barka) integration
 from Prolean.integration.client import ManagementContractClient
 from Prolean.integration.exceptions import ContractError, UpstreamUnavailable
-from Prolean.integration.trainings import to_external_training
+from Prolean.integration.trainings import to_external_training, training_defaults_from_barka
 from agora_token_builder import RtcTokenBuilder
 
 
 def _is_barka_token_expired(exc: Exception) -> bool:
     msg = str(exc or "").lower()
     return ("token expired" in msg) or ("token_expired" in msg) or ("code\":\"token_expired" in msg)
+
+
+def _sync_training_from_barka(formation_id: str) -> Training | None:
+    client = ManagementContractClient()
+    if not client.is_configured():
+        return None
+    try:
+        payload = client.get_formation(str(formation_id or "").strip())
+    except (ContractError, UpstreamUnavailable) as exc:
+        logger.warning("Barka formation fetch failed for %s: %s", formation_id, exc)
+        return None
+    if not isinstance(payload, dict) or not payload:
+        return None
+
+    defaults = training_defaults_from_barka(payload)
+    slug = defaults.get("slug") or ""
+    if not slug:
+        return None
+
+    existing = Training.objects.filter(slug__iexact=slug).first()
+    if existing:
+        for key, value in defaults.items():
+            setattr(existing, key, value)
+        try:
+            existing.save(update_fields=list(defaults.keys()))
+        except Exception:
+            existing.save()
+        return existing
+
+    try:
+        return Training.objects.create(**defaults)
+    except Exception as exc:
+        logger.warning("Failed to create training from Barka payload %s: %s", slug, exc)
+        return None
 
 
 def _norm_identifier(value) -> str:
@@ -1040,11 +1074,15 @@ def training_catalog(request):
 # Update the training_detail function in views.py
 def training_detail(request, slug):
     """Training detail view with reviews and optimized queries"""
-    training = get_object_or_404(
-        Training.objects.select_related(None),
-        slug__iexact=slug,
-        is_active=True
-    )
+    training = Training.objects.select_related(None).filter(slug__iexact=slug).first()
+    if not training or not training.is_active:
+        training = _sync_training_from_barka(slug)
+    if not training or not training.is_active:
+        training = get_object_or_404(
+            Training.objects.select_related(None),
+            slug__iexact=slug,
+            is_active=True
+        )
     
     # Increment view count
     training.increment_view_count()

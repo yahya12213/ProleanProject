@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from decimal import Decimal
+from django.utils.text import slugify
 
 
 @dataclass(slots=True)
@@ -86,3 +88,51 @@ def to_external_training(payload: dict[str, Any]) -> ExternalTraining:
         price_mad_float=price,
         price_in_preferred=price,
     )
+
+
+def _truncate(text: str, max_len: int) -> str:
+    cleaned = str(text or "").strip()
+    if len(cleaned) <= max_len:
+        return cleaned
+    if max_len <= 3:
+        return cleaned[:max_len]
+    return f"{cleaned[: max_len - 3].rstrip()}..."
+
+
+def training_defaults_from_barka(payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Build Training model defaults from a Barka formation payload.
+    Keeps required fields populated so Prolean templates don't break.
+    """
+    formation_id = str(payload.get("id", "")).strip()
+    title = str(payload.get("title", "")).strip() or "Formation"
+    description = str(payload.get("description", "")).strip()
+    price = _as_float(payload.get("price"), 0.0)
+    duration_hours = _as_int(payload.get("duration_hours"), 0)
+    duration_days = max(1, (duration_hours + 7) // 8) if duration_hours else 1
+
+    thumbnail = payload.get("thumbnail_url") or payload.get("thumbnail") or None
+    thumbnail = str(thumbnail).strip() if thumbnail not in (None, "", "undefined") else None
+
+    status = str(payload.get("status", "")).strip().lower()
+    is_active = status not in {"draft", "inactive", "archived"} if status else True
+
+    slug = formation_id or slugify(title)
+    slug = slug.lower().strip()
+
+    short_description = _truncate(description, 300) or _truncate(title, 300)
+    detailed_description = description or f"Formation {title}."
+
+    return {
+        "title": title,
+        "slug": slug,
+        "short_description": short_description,
+        "detailed_description": detailed_description,
+        "price_mad": Decimal(str(price or 0)),
+        "duration_days": duration_days,
+        "thumbnail": thumbnail,
+        "is_active": is_active,
+        "max_students": 20,
+        "success_rate": 95,
+        "badge": "none",
+    }
