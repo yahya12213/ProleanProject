@@ -490,28 +490,6 @@
         {% endif %}
       </div>
 
-      <div class="card">
-        <div class="card-head"><h3>Connected Students</h3><span>{{ students_count }} count</span></div>
-        <div class="students-grid">
-          {% for st in external_students %}
-          <div class="stu">
-            <div class="av"><span class="material-symbols-outlined">person</span></div>
-            <div class="min-w-0">
-              <b class="truncate">{{ st.display_name|default:"Student" }}</b>
-              <p class="truncate">{{ st.display_email|default:"" }}</p>
-              <p class="truncate">{{ st.display_phone|default:"" }}</p>
-              {% if st.is_online_web %}
-                <span class="badge on"><span class="material-symbols-outlined text-sm">wifi</span>Online</span>
-              {% else %}
-                <span class="badge off"><span class="material-symbols-outlined text-sm">wifi_off</span>Offline</span>
-              {% endif %}
-            </div>
-          </div>
-          {% empty %}
-          <div class="stu"><div class="av"><span class="material-symbols-outlined">person_off</span></div><div><b>No students</b><p>Students appear after enrollment.</p></div></div>
-          {% endfor %}
-        </div>
-      </div>
 
       <div class="card" id="live-tracking-card"
            {% if external_selected_session and external_selected_session.id %}

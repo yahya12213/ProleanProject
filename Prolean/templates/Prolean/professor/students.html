@@ -158,6 +158,19 @@
     gap: 10px;
     position: relative;
   }
+  .sc-student::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    pointer-events: none;
+    background: linear-gradient(160deg, rgba(37, 99, 235, 0.08), transparent 45%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .sc-student:hover::before {
+    opacity: 1;
+  }
   .sc-student.top-engaged {
     border-color: rgba(34, 197, 94, 0.6);
     box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
@@ -188,6 +201,12 @@
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 10px;
     align-items: center;
+  }
+  .sc-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
   .sc-status {
     display: inline-flex;
@@ -291,6 +310,11 @@
     background: var(--prof-surface-hover);
     padding: 8px 9px;
   }
+  .sc-metric .row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
   .sc-metric .l {
     font-size: 10px;
     font-weight: 900;
@@ -328,6 +352,45 @@
     gap: 7px;
   }
   .sc-row { display: flex; gap: 8px; }
+
+  .sc-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .sc-details {
+    border: 1px solid var(--prof-border);
+    border-radius: 12px;
+    background: var(--prof-surface-hover);
+    padding: 8px 10px;
+  }
+  .sc-details summary {
+    cursor: pointer;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--prof-text-main);
+  }
+  .sc-details summary::-webkit-details-marker { display: none; }
+  .sc-meta-grid {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+  }
+  .sc-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--prof-text-muted);
+  }
 
   .sc-btn {
     border-radius: 14px;
@@ -466,17 +529,19 @@
               {% endif %}
             </div>
             <div class="min-w-0">
-              <h4 class="truncate">{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
+              <div class="sc-name-row">
+                <h4 class="truncate">{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
+                {% if st.is_online_web %}
+                <span class="sc-status online"><span class="material-symbols-outlined text-xs">wifi</span>Online</span>
+                {% else %}
+                <span class="sc-status offline"><span class="material-symbols-outlined text-xs">wifi_off</span>Offline</span>
+                {% endif %}
+              </div>
               <div class="meta truncate">{{ st.display_email|default:st.student_email|default:"-" }}</div>
               <div class="meta truncate">{{ st.display_phone|default:st.student_phone|default:"-" }}</div>
             </div>
           </div>
           <div class="sc-badges">
-            {% if st.is_online_web %}
-            <span class="sc-status online">Online</span>
-            {% else %}
-            <span class="sc-status offline">Offline</span>
-            {% endif %}
             {% if st.join_invite_used_at %}
             <span class="sc-badge used">Invite Used</span>
             {% elif st.join_invite_expires_at %}
@@ -487,21 +552,41 @@
             <span class="sc-badge idle">{{ st.join_invite_status|default:"none"|upper }}</span>
           </div>
           <div class="sc-metrics">
-            <div class="sc-metric"><div class="l">Watched</div><div class="v">{{ st.tracking_watch_label|default:"0m" }}</div></div>
-            <div class="sc-metric"><div class="l">Engagement</div><div class="v">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div></div>
-            <div class="sc-metric"><div class="l">Speaking</div><div class="v">{{ st.tracking_speaking_label|default:"0m" }}</div></div>
-            <div class="sc-metric"><div class="l">Hand Raise</div><div class="v">{{ st.tracking_hand_label|default:"0m" }}</div></div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">play_circle</span><div class="l">Watched</div></div>
+              <div class="v">{{ st.tracking_watch_label|default:"0m" }}</div>
+            </div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">insights</span><div class="l">Engagement</div></div>
+              <div class="v">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div>
+            </div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">graphic_eq</span><div class="l">Speaking</div></div>
+              <div class="v">{{ st.tracking_speaking_label|default:"0m" }}</div>
+            </div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">front_hand</span><div class="l">Hand Raise</div></div>
+              <div class="v">{{ st.tracking_hand_label|default:"0m" }}</div>
+            </div>
           </div>
           <div class="sc-bar" style="--bar: {{ st.tracking_engagement|floatformat:0|default:'0' }};"></div>
           <div class="sc-link-box">
             <div class="meta">CIN: {{ st.display_cin|default:"-" }} • Status: {{ st.join_invite_status|default:"none"|upper }}</div>
-            {% if st.join_invite_used_at %}<div class="meta">Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}</div>{% endif %}
-            {% if st.join_invite_expires_at %}<div class="meta">Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>{% endif %}
-            <div class="sc-row">
+            <details class="sc-details">
+              <summary><span class="material-symbols-outlined text-xs">expand_more</span>Details</summary>
+              <div class="sc-meta-grid">
+                {% if st.join_invite_created_at %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">schedule</span>Sent: {{ st.join_invite_created_at|date:"Y-m-d H:i" }}</div>{% endif %}
+                {% if st.join_invite_used_at %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">done_all</span>Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}</div>{% endif %}
+                {% if st.join_invite_expires_at %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">timer_off</span>Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>{% endif %}
+                {% if st.join_invite_used_location %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">location_on</span>{{ st.join_invite_used_location }}</div>{% endif %}
+                {% if st.join_invite_used_device %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">devices</span>{{ st.join_invite_used_device }}</div>{% endif %}
+              </div>
+            </details>
+            <div class="sc-action-row">
               <button type="button" class="sc-btn brand flex-1"
                 {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
                 onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
-                Generate + Copy
+                <span class="material-symbols-outlined text-xs">link</span>Generate
               </button>
               <button type="button" class="sc-btn ghost flex-1"
                 data-send-whatsapp="1"
@@ -512,8 +597,27 @@
                 data-email="{{ st.display_email|default:''|escapejs }}"
                 {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
                 onclick="sendSingleWhatsApp(this)">
-                Send WhatsApp
+                <span class="material-symbols-outlined text-xs">send</span>WhatsApp
               </button>
+            </div>
+            <div class="sc-action-row">
+              {% if st.local_user_id %}
+              {% if st.is_banned %}
+              <form method="post" action="{% url 'Prolean:external_live_unban_user' external_selected_session.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ st.local_user_id }}">
+                <button class="sc-btn ghost w-full" type="submit"><span class="material-symbols-outlined text-xs">undo</span>Unban</button>
+              </form>
+              {% else %}
+              <form method="post" action="{% url 'Prolean:external_live_ban_user' external_selected_session.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ st.local_user_id }}">
+                <button class="sc-btn ghost w-full" type="submit"><span class="material-symbols-outlined text-xs">flag</span>Ban</button>
+              </form>
+              {% endif %}
+              {% else %}
+              <button class="sc-btn ghost w-full" disabled><span class="material-symbols-outlined text-xs">flag</span>Ban</button>
+              {% endif %}
             </div>
           </div>
         </article>
