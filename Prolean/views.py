@@ -1042,7 +1042,7 @@ def training_detail(request, slug):
     """Training detail view with reviews and optimized queries"""
     training = get_object_or_404(
         Training.objects.select_related(None),
-        slug=slug,
+        slug__iexact=slug,
         is_active=True
     )
     
