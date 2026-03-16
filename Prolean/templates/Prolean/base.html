@@ -505,6 +505,15 @@
                 this.currentCurrency = localStorage.getItem('prolean_currency') || 'MAD';
                 this.rates = {};
                 this.currencyFormatters = {};
+                this.defaultRates = {
+                    'MAD': 1,
+                    'EUR': 0.093,
+                    'USD': 0.100,
+                    'GBP': 0.079,
+                    'CAD': 0.136,
+                    'AED': 0.367,
+                    'CHF': 0.090,
+                };
                 this.init();
             }
             
@@ -512,6 +521,8 @@
                 const cachedRates = localStorage.getItem('prolean_currency_rates');
                 if (cachedRates) {
                     this.rates = JSON.parse(cachedRates);
+                } else {
+                    this.rates = { ...this.defaultRates };
                 }
                 
                 this.initFormatters();
@@ -545,15 +556,7 @@
                         }
                     }
                 } catch (error) {
-                    this.rates = {
-                        'MAD': 1,
-                        'EUR': 0.093,
-                        'USD': 0.100,
-                        'GBP': 0.079,
-                        'CAD': 0.136,
-                        'AED': 0.367,
-                        'CHF': 0.090,
-                    };
+                    this.rates = { ...this.defaultRates };
                 }
             }
             
@@ -646,7 +649,7 @@
             }
             
             setCurrency(currency) {
-                if (this.rates[currency] !== undefined || currency === 'MAD') {
+                if ((this.rates[currency] !== undefined || this.defaultRates[currency] !== undefined || currency === 'MAD') && currency) {
                     this.currentCurrency = currency;
                     this.updateAllPrices();
                     
@@ -669,9 +672,11 @@
                         e.stopPropagation();
                         const currency = option.getAttribute('data-currency');
                         if (this.setCurrency(currency)) {
-                            window.dispatchEvent(new CustomEvent('currencyChanged', { 
+                            const currencyEvent = new CustomEvent('currencyChanged', { 
                                 detail: { currency: currency }
-                            }));
+                            });
+                            document.dispatchEvent(currencyEvent);
+                            window.dispatchEvent(currencyEvent);
                         }
                     });
                 });
@@ -682,9 +687,11 @@
                         e.stopPropagation();
                         const currency = option.getAttribute('data-currency');
                         if (this.setCurrency(currency)) {
-                            window.dispatchEvent(new CustomEvent('currencyChanged', { 
+                            const currencyEvent = new CustomEvent('currencyChanged', { 
                                 detail: { currency: currency }
-                            }));
+                            });
+                            document.dispatchEvent(currencyEvent);
+                            window.dispatchEvent(currencyEvent);
                         }
                     });
                 });

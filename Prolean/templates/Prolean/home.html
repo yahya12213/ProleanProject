@@ -82,6 +82,17 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     video.addEventListener('error', showFallback, { once: true });
     video.addEventListener('stalled', showFallback, { once: true });
+    video.addEventListener('abort', showFallback, { once: true });
+    video.addEventListener('suspend', showFallback, { once: true });
+    video.addEventListener('emptied', showFallback, { once: true });
+    video.addEventListener('waiting', () => {
+        if (video.readyState < 2) showFallback();
+    }, { once: true });
+    video.muted = true;
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(showFallback);
+    }
     setTimeout(() => {
         if (video.readyState < 2) showFallback();
     }, 3000);
