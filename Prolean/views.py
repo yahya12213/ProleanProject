@@ -5179,22 +5179,29 @@ def professor_students(request):
                 except Exception:
                     banned_user_ids = set()
 
-            top_engagement_id = None
+            top_engagement_key = None
             top_engagement = -1.0
             for ext_student in students:
                 if not isinstance(ext_student, dict):
                     continue
                 engagement = float(ext_student.get("tracking_engagement", 0.0) or 0.0)
+                engagement_key = _norm_identifier(
+                    ext_student.get("display_cin")
+                    or ext_student.get("display_email")
+                    or ext_student.get("display_name")
+                    or ""
+                ) or ext_student.get("display_name") or ext_student.get("display_email") or ext_student.get("display_cin")
+                ext_student["engagement_key"] = engagement_key
                 if engagement > top_engagement:
                     top_engagement = engagement
-                    top_engagement_id = ext_student.get("local_user_id")
+                    top_engagement_key = engagement_key
 
             for ext_student in students:
                 if not isinstance(ext_student, dict):
                     continue
                 local_user_id = ext_student.get("local_user_id")
                 ext_student["is_banned"] = bool(local_user_id and int(local_user_id) in banned_user_ids)
-                ext_student["is_top_engaged"] = bool(local_user_id and int(local_user_id) == int(top_engagement_id or 0))
+                ext_student["is_top_engaged"] = bool(ext_student.get("engagement_key") and ext_student.get("engagement_key") == top_engagement_key and top_engagement > 0)
 
             latest_invite_by_cin = {}
             invite_rows = []
