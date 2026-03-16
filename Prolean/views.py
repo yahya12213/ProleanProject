@@ -5163,9 +5163,38 @@ def professor_students(request):
                 if matched_user:
                     ext_student["local_user_id"] = int(matched_user.id)
                     ext_student["local_full_name"] = matched_user.get_full_name() or matched_user.username
+                    ext_student["profile_picture"] = getattr(getattr(matched_user, "profile", None), "profile_picture", "") or ""
                 else:
                     ext_student["local_user_id"] = None
                     ext_student["local_full_name"] = None
+                    ext_student["profile_picture"] = ""
+
+            banned_user_ids = set()
+            if selected_session_id:
+                try:
+                    banned_user_ids = set(
+                        ExternalLiveSessionBan.objects.filter(session_id=selected_session_id, active=True)
+                        .values_list("user_id", flat=True)
+                    )
+                except Exception:
+                    banned_user_ids = set()
+
+            top_engagement_id = None
+            top_engagement = -1.0
+            for ext_student in students:
+                if not isinstance(ext_student, dict):
+                    continue
+                engagement = float(ext_student.get("tracking_engagement", 0.0) or 0.0)
+                if engagement > top_engagement:
+                    top_engagement = engagement
+                    top_engagement_id = ext_student.get("local_user_id")
+
+            for ext_student in students:
+                if not isinstance(ext_student, dict):
+                    continue
+                local_user_id = ext_student.get("local_user_id")
+                ext_student["is_banned"] = bool(local_user_id and int(local_user_id) in banned_user_ids)
+                ext_student["is_top_engaged"] = bool(local_user_id and int(local_user_id) == int(top_engagement_id or 0))
 
             latest_invite_by_cin = {}
             invite_rows = []

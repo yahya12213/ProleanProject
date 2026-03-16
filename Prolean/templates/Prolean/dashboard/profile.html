@@ -10,11 +10,11 @@
     <div class="glass-card p-8 mb-8">
         <div class="flex flex-col md:flex-row items-center gap-10">
             <div class="relative group">
-                <div id="profile-picture-preview" class="size-40 rounded-[40px] overflow-hidden bg-surface-hover border-8 border-white dark:border-neutral-800 shadow-2xl relative transition-colors">
+                <div id="profile-picture-preview" class="size-40 rounded-2xl overflow-hidden bg-surface-hover border-8 border-white dark:border-neutral-800 shadow-2xl relative transition-colors avatar-fallback" data-avatar-seed="{{ profile.full_name|default:profile.user.username }}">
                     {% if profile.profile_picture %}
                     <img src="{{ profile.profile_picture }}" alt="{{ profile.full_name }}" class="w-full h-full object-cover">
                     {% else %}
-                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand to-blue-600 text-white text-5xl font-black">
+                    <div class="w-full h-full flex items-center justify-center text-white text-5xl font-black avatar-letter" data-avatar-seed="{{ profile.full_name|default:profile.user.username }}">
                         {{ profile.full_name|first|upper }}
                     </div>
                     {% endif %}
@@ -26,7 +26,7 @@
                     </label>
                 </div>
                 
-                <div id="upload-spinner" class="hidden absolute inset-0 bg-white/80 dark:bg-black/80 rounded-[40px] flex items-center justify-center z-10 transition-colors">
+                <div id="upload-spinner" class="hidden absolute inset-0 bg-white/80 dark:bg-black/80 rounded-2xl flex items-center justify-center z-10 transition-colors">
                     <div class="animate-spin size-10 border-4 border-brand border-t-transparent rounded-full"></div>
                 </div>
             </div>
@@ -177,6 +177,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    const palette = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#22c55e"];
+    const hashCode = (text) => {
+        let hash = 0;
+        const str = String(text || "");
+        for (let i = 0; i < str.length; i += 1) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    };
+    const applyAvatarColor = (el) => {
+        if (!el) return;
+        const seed = el.dataset.avatarSeed || el.textContent || "";
+        const color = palette[hashCode(seed) % palette.length];
+        el.style.background = color;
+    };
+    applyAvatarColor(document.querySelector(".avatar-fallback"));
     
     function showMessage(message, type) {
         messageDiv.className = `mt-4 p-4 rounded-xl text-xs font-black uppercase tracking-widest ${

@@ -85,7 +85,7 @@
 
   .sc-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: 1fr;
     gap: 18px;
     align-items: start;
   }
@@ -145,7 +145,7 @@
 
   .sc-students {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
   }
 
@@ -156,6 +156,94 @@
     padding: 12px;
     display: grid;
     gap: 10px;
+    position: relative;
+  }
+  .sc-student.top-engaged {
+    border-color: rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+  }
+  .sc-student.banned {
+    border-color: rgba(239, 68, 68, 0.6);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+  }
+
+  .sc-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 900;
+    font-size: 18px;
+    overflow: hidden;
+  }
+  .sc-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .sc-student-head {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+  .sc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .sc-status.online {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #16a34a;
+  }
+  .sc-status.offline {
+    background: rgba(148, 163, 184, 0.12);
+    border-color: rgba(148, 163, 184, 0.26);
+    color: var(--prof-text-muted);
+  }
+  .sc-flag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.16);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #b91c1c;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sc-star {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.16);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    color: #16a34a;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .sc-student h4 {
@@ -287,11 +375,27 @@
 
   @media (max-width: 1200px) {
     .sc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .sc-main { grid-template-columns: 1fr; }
+    .sc-students { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 980px) {
     .sc-students { grid-template-columns: 1fr; }
   }
+
+  .dark .sc-header {
+    background:
+      linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(2, 6, 23, 0.88)),
+      radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.18), transparent 40%);
+  }
+  .dark .sc-panel {
+    background: var(--prof-surface);
+  }
+  .dark .sc-kpi {
+    background: rgba(15, 23, 42, 0.6);
+    box-shadow: none;
+  }
+  .dark .sc-status.online { color: #86efac; }
+  .dark .sc-flag { color: #fecaca; }
+  .dark .sc-star { color: #86efac; }
 </style>
 
 {% if external_professor_mode %}
@@ -328,18 +432,51 @@
   <section class="sc-main">
     <div class="sc-panel">
       <div class="sc-panel-head">
+        <h3>Broadcast Queue</h3>
+        <span>WhatsApp</span>
+      </div>
+      <div class="sc-broadcast">
+        <p>Send one-time links to all students or handle individually in the grid.</p>
+        <button type="button" id="send-all-whatsapp" class="sc-btn brand" {% if not external_selected_session or not external_selected_session.id %}disabled{% endif %}>
+          <span class="material-symbols-outlined text-base">send</span>Send All
+        </button>
+        <div id="broadcast-status" class="sc-status"></div>
+      </div>
+    </div>
+
+    <div class="sc-panel">
+      <div class="sc-panel-head">
         <h3>Students Overview</h3>
         <span>{{ external_students|length }} total</span>
       </div>
       <div class="sc-students">
         {% for st in external_students %}
-        <article class="sc-student">
-          <div>
-            <h4>{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
-            <div class="meta">{{ st.display_email|default:st.student_email|default:"-" }}</div>
-            <div class="meta">{{ st.display_phone|default:st.student_phone|default:"-" }}</div>
+        <article class="sc-student {% if st.is_top_engaged %}top-engaged{% endif %} {% if st.is_banned %}banned{% endif %}">
+          {% if st.is_banned %}
+          <div class="sc-flag"><span class="material-symbols-outlined text-xs">flag</span>Banned</div>
+          {% elif st.is_top_engaged %}
+          <div class="sc-star"><span class="material-symbols-outlined text-xs">star</span>Top</div>
+          {% endif %}
+          <div class="sc-student-head">
+            <div class="sc-avatar" data-avatar-seed="{{ st.display_name|default:st.student_name|default:'Student' }}">
+              {% if st.profile_picture %}
+              <img src="{{ st.profile_picture }}" alt="{{ st.display_name|default:'Student' }}">
+              {% else %}
+              {{ st.display_name|default:st.student_name|default:"Student"|first|upper }}
+              {% endif %}
+            </div>
+            <div class="min-w-0">
+              <h4 class="truncate">{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
+              <div class="meta truncate">{{ st.display_email|default:st.student_email|default:"-" }}</div>
+              <div class="meta truncate">{{ st.display_phone|default:st.student_phone|default:"-" }}</div>
+            </div>
           </div>
           <div class="sc-badges">
+            {% if st.is_online_web %}
+            <span class="sc-status online">Online</span>
+            {% else %}
+            <span class="sc-status offline">Offline</span>
+            {% endif %}
             {% if st.join_invite_used_at %}
             <span class="sc-badge used">Invite Used</span>
             {% elif st.join_invite_expires_at %}
@@ -386,19 +523,12 @@
       </div>
     </div>
 
-    <aside class="sc-panel">
+    <div class="sc-panel">
       <div class="sc-panel-head">
-        <h3>Broadcast & Timeline</h3>
+        <h3>Attendance Timeline</h3>
         <span>{{ attendance_timeline|length }} events</span>
       </div>
-      <div class="sc-broadcast">
-        <p>Send one-time links to all students or handle individually in the grid.</p>
-        <button type="button" id="send-all-whatsapp" class="sc-btn brand" {% if not external_selected_session or not external_selected_session.id %}disabled{% endif %}>
-          <span class="material-symbols-outlined text-base">send</span>Send All
-        </button>
-        <div id="broadcast-status" class="sc-status"></div>
-      </div>
-      <div class="sc-timeline mt-3">
+      <div class="sc-timeline">
         {% for event in attendance_timeline %}
         <div class="sc-event">
           <div class="e1">{{ event.event_label }} • {{ event.student_name }}</div>
@@ -409,7 +539,7 @@
         <div class="sc-event"><div class="e1">No timeline events yet for this session.</div></div>
         {% endfor %}
       </div>
-    </aside>
+    </div>
   </section>
 </div>
 {% else %}
@@ -424,6 +554,26 @@
 {{ block.super }}
 {% if external_professor_mode %}
 <script>
+  const palette = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#22c55e"];
+  const hashCode = (text) => {
+    let hash = 0;
+    const str = String(text || "");
+    for (let i = 0; i < str.length; i += 1) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  };
+  const applyAvatarColors = () => {
+    document.querySelectorAll(".sc-avatar[data-avatar-seed]").forEach((el) => {
+      if (el.querySelector("img")) return;
+      const seed = el.dataset.avatarSeed || el.textContent || "";
+      const color = palette[hashCode(seed) % palette.length];
+      el.style.background = color;
+    });
+  };
+  applyAvatarColors();
+
   function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
