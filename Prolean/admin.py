@@ -12,6 +12,44 @@ from .models import (
 
 # ========== INLINES FOR CONSOLIDATED MANAGEMENT ==========
 
+def _is_assistant(request) -> bool:
+    try:
+        return (not request.user.is_superuser) and hasattr(request.user, "profile") and request.user.profile.role == "ASSISTANT"
+    except Exception:
+        return False
+
+
+class AssistantPolicyMixin:
+    assistant_module = False
+    assistant_can_add = False
+    assistant_can_change = False
+    assistant_can_delete = False
+
+    def has_module_permission(self, request):
+        if _is_assistant(request):
+            return bool(self.assistant_module)
+        return super().has_module_permission(request)
+
+    def has_view_permission(self, request, obj=None):
+        if _is_assistant(request):
+            return bool(self.assistant_module)
+        return super().has_view_permission(request, obj=obj)
+
+    def has_add_permission(self, request):
+        if _is_assistant(request):
+            return bool(self.assistant_can_add)
+        return super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        if _is_assistant(request):
+            return bool(self.assistant_can_change)
+        return super().has_change_permission(request, obj=obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if _is_assistant(request):
+            return bool(self.assistant_can_delete)
+        return super().has_delete_permission(request, obj=obj)
+
 class RecordedVideoInline(admin.TabularInline):
     model = RecordedVideo
     extra = 1
@@ -41,7 +79,7 @@ class SeanceInline(admin.TabularInline):
 # ========== UPDATED ADMIN CLASSES ==========
 
 @admin.register(City)
-class CityAdmin(admin.ModelAdmin):
+class CityAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
     
@@ -51,7 +89,7 @@ class CityAdmin(admin.ModelAdmin):
         return super().has_module_permission(request)
 
 @admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
+class NotificationAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('title', 'user', 'notification_type', 'is_read', 'created_at')
     list_filter = ('notification_type', 'is_read', 'created_at')
     list_editable = ('is_read',)
@@ -63,7 +101,7 @@ class NotificationAdmin(admin.ModelAdmin):
         return super().has_module_permission(request)
 
 @admin.register(Training)
-class TrainingAdmin(admin.ModelAdmin):
+class TrainingAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('title', 'price_mad', 'duration_days', 'get_student_count', 'is_active', 'is_featured')
     list_filter = ('is_active', 'is_featured', 'badge')
     list_editable = ('is_active', 'is_featured')
@@ -76,7 +114,9 @@ class TrainingAdmin(admin.ModelAdmin):
     get_student_count.short_description = 'Students'
 
 @admin.register(ContactRequest)
-class ContactRequestAdmin(admin.ModelAdmin):
+class ContactRequestAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_change = True
     list_display = ('full_name', 'email', 'phone', 'request_type', 'status', 'payment_status', 'submitted_at')
     list_filter = ('request_type', 'status', 'payment_status', 'is_threat')
     list_editable = ('status', 'payment_status')
@@ -84,63 +124,67 @@ class ContactRequestAdmin(admin.ModelAdmin):
     readonly_fields = ('submitted_at', 'ip_address', 'user_agent', 'session_id')
 
 @admin.register(TrainingWaitlist)
-class TrainingWaitlistAdmin(admin.ModelAdmin):
+class TrainingWaitlistAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_change = True
     list_display = ('full_name', 'email', 'training', 'city', 'notified', 'created_at')
     list_filter = ('notified', 'training', 'city')
     list_editable = ('notified',)
     search_fields = ('full_name', 'email', 'phone')
 
 @admin.register(TrainingReview)
-class TrainingReviewAdmin(admin.ModelAdmin):
+class TrainingReviewAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_change = True
     list_display = ('full_name', 'training', 'rating', 'is_verified', 'is_approved', 'created_at')
     list_filter = ('rating', 'is_verified', 'is_approved', 'training')
     list_editable = ('is_verified', 'is_approved')
     search_fields = ('full_name', 'email', 'title', 'comment')
 
 @admin.register(DailyStat)
-class DailyStatAdmin(admin.ModelAdmin):
+class DailyStatAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('date', 'total_visitors', 'total_pageviews', 'total_form_submissions')
     date_hierarchy = 'date'
 
 @admin.register(CurrencyRate)
-class CurrencyRateAdmin(admin.ModelAdmin):
+class CurrencyRateAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('currency_code', 'currency_name', 'rate_to_mad', 'last_updated')
     list_editable = ('rate_to_mad',)
     search_fields = ('currency_code', 'currency_name')
 
 @admin.register(ThreatIP)
-class ThreatIPAdmin(admin.ModelAdmin):
+class ThreatIPAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('ip_address', 'threat_level', 'request_count', 'is_blocked', 'last_detected')
     list_filter = ('threat_level', 'is_blocked')
     list_editable = ('is_blocked', 'threat_level')
     search_fields = ('ip_address', 'reason')
 
 @admin.register(RateLimitLog)
-class RateLimitLogAdmin(admin.ModelAdmin):
+class RateLimitLogAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('ip_address', 'endpoint', 'request_count', 'last_request', 'is_threat')
     list_filter = ('is_threat',)
     search_fields = ('ip_address', 'endpoint')
 
 @admin.register(FormSubmission)
-class FormSubmissionAdmin(admin.ModelAdmin):
+class FormSubmissionAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('form_type', 'training_title', 'city', 'timestamp')
     list_filter = ('form_type', 'city')
     search_fields = ('training_title', 'ip_address')
 
 @admin.register(VisitorSession)
-class VisitorSessionAdmin(admin.ModelAdmin):
+class VisitorSessionAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('session_id', 'city', 'device_type', 'browser', 'page_views', 'start_time')
     list_filter = ('device_type', 'browser', 'city')
     search_fields = ('session_id', 'ip_address')
 
 @admin.register(PageView)
-class PageViewAdmin(admin.ModelAdmin):
+class PageViewAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('url', 'page_title', 'city', 'device_type', 'timestamp')
     list_filter = ('device_type', 'city')
     search_fields = ('url', 'page_title', 'session_id')
 
 @admin.register(WhatsAppClick)
-class WhatsAppClickAdmin(admin.ModelAdmin):
+class WhatsAppClickAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('phone_number', 'city', 'timestamp')
     list_filter = ('city',)
     search_fields = ('phone_number', 'ip_address')
@@ -176,7 +220,8 @@ class ProfessorProfileInline(admin.StackedInline):
     fk_name = 'profile'
 
 # Custom User Admin
-class UserAdmin(BaseUserAdmin):
+class UserAdmin(AssistantPolicyMixin, BaseUserAdmin):
+    assistant_module = False
     def get_inlines(self, request, obj=None):
         if obj:
             return (ProfileInline,)
@@ -202,7 +247,7 @@ class UserAdmin(BaseUserAdmin):
 
 # Profile Admin
 @admin.register(Profile)
-class ProfileAdmin(admin.ModelAdmin):
+class ProfileAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('user', 'full_name', 'role', 'status', 'phone_number', 'city')
     list_filter = ('role', 'status', 'city')
     list_editable = ('status', 'role')
@@ -224,7 +269,9 @@ class ProfileAdmin(admin.ModelAdmin):
 
 # StudentProfile Admin
 @admin.register(StudentProfile)
-class StudentProfileAdmin(admin.ModelAdmin):
+class StudentProfileAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_change = True
     list_display = ('profile', 'get_full_name', 'amount_paid', 'total_amount_due', 'get_formations_count', 'get_session_info')
     filter_horizontal = ('authorized_formations',)
     search_fields = ('profile__full_name', 'profile__user__email', 'profile__cin_or_passport')
@@ -264,7 +311,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
 
 # ProfessorProfile Admin
 @admin.register(ProfessorProfile)
-class ProfessorProfileAdmin(admin.ModelAdmin):
+class ProfessorProfileAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('profile', 'get_full_name', 'specialization', 'bio')
     search_fields = ('profile__full_name', 'specialization')
     
@@ -277,7 +324,7 @@ class ProfessorProfileAdmin(admin.ModelAdmin):
 
 # AssistantProfile Admin
 @admin.register(AssistantProfile)
-class AssistantProfileAdmin(admin.ModelAdmin):
+class AssistantProfileAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('profile', 'get_full_name', 'get_cities')
     search_fields = ('profile__full_name',)
     filter_horizontal = ('assigned_cities',)
@@ -295,7 +342,10 @@ class AssistantProfileAdmin(admin.ModelAdmin):
 
 # Session Admin
 @admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
+class SessionAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_add = True
+    assistant_can_change = True
     list_display = ('get_formations', 'professor', 'start_date', 'city', 'is_live', 'is_active', 'status')
     list_filter = ('is_live', 'is_active', 'city', 'start_date', 'status')
     list_editable = ('is_active', 'status', 'is_live')
@@ -333,14 +383,17 @@ class SessionAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Seance)
-class SeanceAdmin(admin.ModelAdmin):
+class SeanceAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_add = True
+    assistant_can_change = True
     list_display = ('title', 'session', 'type', 'date', 'time', 'location')
     list_filter = ('type', 'date', 'session')
     search_fields = ('title', 'location', 'session__formations__title')
 
 # RecordedVideo Admin
 @admin.register(RecordedVideo)
-class RecordedVideoAdmin(admin.ModelAdmin):
+class RecordedVideoAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('title', 'training', 'duration_seconds', 'video_provider', 'is_active', 'created_at')
     list_filter = ('video_provider', 'is_active', 'training')
     list_editable = ('is_active',)
@@ -362,7 +415,7 @@ class RecordedVideoAdmin(admin.ModelAdmin):
 
 # LiveRecording Admin
 @admin.register(LiveRecording)
-class LiveRecordingAdmin(admin.ModelAdmin):
+class LiveRecordingAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('session', 'recording_url', 'duration_seconds', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('session__trainings__title',)
@@ -370,7 +423,7 @@ class LiveRecordingAdmin(admin.ModelAdmin):
 
 # AttendanceLog Admin
 @admin.register(AttendanceLog)
-class AttendanceLogAdmin(admin.ModelAdmin):
+class AttendanceLogAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('student', 'session', 'join_time', 'leave_time', 'duration_minutes')
     list_filter = ('session__formations', 'join_time')
     search_fields = ('student__full_name', 'session__formations__title')
@@ -385,7 +438,7 @@ class AttendanceLogAdmin(admin.ModelAdmin):
 
 # VideoProgress Admin
 @admin.register(VideoProgress)
-class VideoProgressAdmin(admin.ModelAdmin):
+class VideoProgressAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('student', 'video', 'watched_seconds', 'completed', 'last_watched_at')
     list_filter = ('completed', 'video__training')
     search_fields = ('student__full_name', 'video__title')
@@ -393,7 +446,7 @@ class VideoProgressAdmin(admin.ModelAdmin):
 
 # Question Admin
 @admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
+class QuestionAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     list_display = ('student', 'video', 'text_preview', 'is_answered', 'is_deleted', 'created_at')
     list_filter = ('created_at', 'video__training', 'is_answered', 'is_deleted')
     list_editable = ('is_answered', 'is_deleted')

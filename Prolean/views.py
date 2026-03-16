@@ -104,6 +104,31 @@ def _is_user_banned_from_external_session(session_id: str, user: User) -> tuple[
         return False, ""
     return True, str(row.reason or "")
 
+
+def _apply_external_role(django_user: User, profile: Profile, raw_role: str) -> None:
+    role = str(raw_role or "").strip().upper()
+    if role in {"ADMIN", "GERANT", "SUPERADMIN"}:
+        profile.role = "ADMIN"
+        django_user.is_staff = True
+        django_user.is_superuser = True
+    elif role in {"ASSISTANT", "ASSISTANCE", "ASSISTANTE"}:
+        profile.role = "ASSISTANT"
+        django_user.is_staff = True
+        django_user.is_superuser = False
+    elif role in {"PROFESSOR", "PROFESSEUR"}:
+        profile.role = "PROFESSOR"
+        django_user.is_staff = False
+        django_user.is_superuser = False
+    else:
+        profile.role = "STUDENT"
+        django_user.is_staff = False
+        django_user.is_superuser = False
+
+    try:
+        django_user.save(update_fields=["is_staff", "is_superuser"])
+    except Exception:
+        django_user.save()
+
 # External authority (Barka) integration
 from Prolean.integration.client import ManagementContractClient
 from Prolean.integration.exceptions import ContractError, UpstreamUnavailable
@@ -2002,21 +2027,21 @@ def login_view(request):
                         from .models import Profile as ProleanProfile
                         profile, _ = ProleanProfile.objects.get_or_create(user=django_user)
 
-                    raw_role = str(user_data.get("role", "")).strip().upper()
-                    if raw_role == "STUDENT" or raw_role == "student":
-                        profile.role = "STUDENT"
-                    elif raw_role == "PROFESSOR" or raw_role == "professor":
-                        profile.role = "PROFESSOR"
-                    elif raw_role == "ADMIN" or raw_role == "GERANT":
-                        profile.role = "ADMIN"
-                    else:
-                        # Default safe role.
-                        profile.role = "STUDENT"
+                    raw_role = str(user_data.get("role", "")).strip()
+                    _apply_external_role(django_user, profile, raw_role)
 
                     if user_data.get("full_name"):
                         profile.full_name = str(user_data.get("full_name"))
                     profile.status = "ACTIVE"
                     profile.save()
+
+                    if profile.role == "ASSISTANT":
+                        try:
+                            assistant_profile, _ = AssistantProfile.objects.get_or_create(profile=profile)
+                            if assistant_profile.assigned_cities.count() == 0:
+                                assistant_profile.assigned_cities.set(City.objects.all())
+                        except Exception:
+                            pass
 
                     if token:
                         request.session["barka_token"] = token
