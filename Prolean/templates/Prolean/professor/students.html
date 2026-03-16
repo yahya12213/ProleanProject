@@ -93,9 +93,10 @@
   .sc-panel {
     border: 1px solid var(--prof-border);
     border-radius: 20px;
-    background: #fff;
-    padding: 14px;
-    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.75);
+    padding: 18px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(10px);
   }
 
   .sc-panel-head {
@@ -146,17 +147,18 @@
   .sc-students {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: 16px;
   }
 
   .sc-student {
     border: 1px solid var(--prof-border);
     border-radius: 18px;
-    background: var(--prof-bg);
-    padding: 12px;
+    background: rgba(255, 255, 255, 0.72);
+    padding: 16px;
     display: grid;
-    gap: 10px;
+    gap: 14px;
     position: relative;
+    backdrop-filter: blur(10px);
   }
   .sc-student::before {
     content: "";
@@ -201,6 +203,10 @@
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 10px;
     align-items: center;
+  }
+  .sc-student-meta {
+    display: grid;
+    gap: 4px;
   }
   .sc-name-row {
     display: flex;
@@ -282,7 +288,7 @@
   .sc-badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
 
   .sc-badge {
@@ -301,14 +307,14 @@
   .sc-metrics {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 10px;
   }
 
   .sc-metric {
     border: 1px solid var(--prof-border);
     border-radius: 12px;
     background: var(--prof-surface-hover);
-    padding: 8px 9px;
+    padding: 10px;
   }
   .sc-metric .row {
     display: inline-flex;
@@ -347,9 +353,9 @@
   .sc-link-box {
     border: 1px dashed var(--prof-border);
     border-radius: 14px;
-    padding: 9px;
+    padding: 12px;
     display: grid;
-    gap: 7px;
+    gap: 10px;
   }
   .sc-row { display: flex; gap: 8px; }
 
@@ -358,12 +364,15 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
+  .sc-action-row.full {
+    grid-template-columns: 1fr;
+  }
 
   .sc-details {
     border: 1px solid var(--prof-border);
     border-radius: 12px;
     background: var(--prof-surface-hover);
-    padding: 8px 10px;
+    padding: 10px 12px;
   }
   .sc-details summary {
     cursor: pointer;
@@ -381,7 +390,7 @@
   .sc-meta-grid {
     margin-top: 8px;
     display: grid;
-    gap: 6px;
+    gap: 8px;
   }
   .sc-meta {
     display: flex;
@@ -450,11 +459,61 @@
       radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.18), transparent 40%);
   }
   .dark .sc-panel {
-    background: var(--prof-surface);
+    background: rgba(15, 23, 42, 0.7);
   }
   .dark .sc-kpi {
     background: rgba(15, 23, 42, 0.6);
     box-shadow: none;
+  }
+  .dark .sc-student {
+    background: rgba(15, 23, 42, 0.6);
+  }
+  .dark .sc-panel,
+  .dark .sc-student,
+  .dark .sc-details {
+    backdrop-filter: blur(12px);
+  }
+
+  .ban-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.55);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 80;
+    padding: 16px;
+  }
+  .ban-modal.open { display: flex; }
+  .ban-card {
+    width: min(520px, 100%);
+    border-radius: 18px;
+    border: 1px solid var(--prof-border);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+  .dark .ban-card {
+    background: rgba(15, 23, 42, 0.92);
+  }
+  .ban-card textarea {
+    width: 100%;
+    min-height: 100px;
+    border-radius: 12px;
+    border: 1px solid var(--prof-border);
+    background: var(--prof-surface-hover);
+    color: var(--prof-text-main);
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+  }
+  .ban-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
   }
   .dark .sc-status.online { color: #86efac; }
   .dark .sc-flag { color: #fecaca; }
@@ -528,7 +587,7 @@
               {{ st.display_name|default:st.student_name|default:"Student"|first|upper }}
               {% endif %}
             </div>
-            <div class="min-w-0">
+            <div class="min-w-0 sc-student-meta">
               <div class="sc-name-row">
                 <h4 class="truncate">{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
                 {% if st.is_online_web %}
@@ -600,7 +659,7 @@
                 <span class="material-symbols-outlined text-xs">send</span>WhatsApp
               </button>
             </div>
-            <div class="sc-action-row">
+            <div class="sc-action-row full">
               {% if st.local_user_id %}
               {% if st.is_banned %}
               <form method="post" action="{% url 'Prolean:external_live_unban_user' external_selected_session.id %}">
@@ -609,10 +668,11 @@
                 <button class="sc-btn ghost w-full" type="submit"><span class="material-symbols-outlined text-xs">undo</span>Unban</button>
               </form>
               {% else %}
-              <form method="post" action="{% url 'Prolean:external_live_ban_user' external_selected_session.id %}">
+              <form method="post" action="{% url 'Prolean:external_live_ban_user' external_selected_session.id %}" data-ban-form="1">
                 {% csrf_token %}
                 <input type="hidden" name="user_id" value="{{ st.local_user_id }}">
-                <button class="sc-btn ghost w-full" type="submit"><span class="material-symbols-outlined text-xs">flag</span>Ban</button>
+                <input type="hidden" name="reason" value="">
+                <button class="sc-btn ghost w-full" type="button" data-ban-trigger="1"><span class="material-symbols-outlined text-xs">flag</span>Ban</button>
               </form>
               {% endif %}
               {% else %}
@@ -652,6 +712,18 @@
   <p class="text-sm font-bold mt-2" style="color: var(--prof-text-muted);">Switch to an external session to use the new command center.</p>
 </div>
 {% endif %}
+
+<div id="ban-modal" class="ban-modal">
+  <div class="ban-card">
+    <div class="text-sm font-black uppercase tracking-widest" style="color: var(--prof-text-main);">Ban Student</div>
+    <div class="text-sm font-bold" style="color: var(--prof-text-muted);">Provide a reason (required).</div>
+    <textarea id="ban-reason-input" maxlength="200" placeholder="Reason for ban..."></textarea>
+    <div class="ban-actions">
+      <button type="button" id="ban-cancel" class="sc-btn ghost">Cancel</button>
+      <button type="button" id="ban-confirm" class="sc-btn brand">Ban</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -677,6 +749,45 @@
     });
   };
   applyAvatarColors();
+
+  const banModal = document.getElementById("ban-modal");
+  const banReasonInput = document.getElementById("ban-reason-input");
+  const banCancel = document.getElementById("ban-cancel");
+  const banConfirm = document.getElementById("ban-confirm");
+  let pendingBanForm = null;
+
+  const openBanModal = (form) => {
+    pendingBanForm = form;
+    if (banReasonInput) banReasonInput.value = "";
+    if (banModal) banModal.classList.add("open");
+  };
+  const closeBanModal = () => {
+    pendingBanForm = null;
+    if (banModal) banModal.classList.remove("open");
+  };
+
+  document.querySelectorAll("[data-ban-trigger='1']").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      const form = event.currentTarget.closest("form");
+      if (!form) return;
+      openBanModal(form);
+    });
+  });
+  if (banCancel) banCancel.addEventListener("click", closeBanModal);
+  if (banModal) banModal.addEventListener("click", (event) => {
+    if (event.target === banModal) closeBanModal();
+  });
+  if (banConfirm) banConfirm.addEventListener("click", () => {
+    if (!pendingBanForm) return;
+    const reason = String(banReasonInput?.value || "").trim();
+    if (!reason) {
+      alert("Please provide a reason.");
+      return;
+    }
+    const reasonInput = pendingBanForm.querySelector("input[name='reason']");
+    if (reasonInput) reasonInput.value = reason;
+    pendingBanForm.submit();
+  });
 
   function getCookie(name) {
     const value = `; ${document.cookie}`;
