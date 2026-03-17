@@ -110,7 +110,7 @@ class ManagementContractClient:
         resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/cours/formations"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=resolved)
         # Barka returns a JSON array for this endpoint.
         if isinstance(data, list):
@@ -123,7 +123,7 @@ class ManagementContractClient:
         resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/cours/formations/{formation_id}"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         return self._request("GET", endpoint, bearer_token=resolved)
 
     def list_cities(self, *, bearer_token: str | None = None) -> list[dict[str, Any]]:
@@ -132,7 +132,7 @@ class ManagementContractClient:
         resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/cities"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=resolved)
         if isinstance(data, list):
             return data
@@ -177,7 +177,7 @@ class ManagementContractClient:
         resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/students/with-sessions"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=resolved)
         if isinstance(data, list):
             return data
@@ -192,7 +192,7 @@ class ManagementContractClient:
         resolved = bearer_token or self._get_service_bearer_token()
         endpoint = f"{self.config.base_url}/sessions-formation"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=resolved)
         if isinstance(data, dict) and isinstance(data.get("sessions"), list):
             return data["sessions"]
@@ -208,7 +208,7 @@ class ManagementContractClient:
             raise ContractError("Management contract URL is not configured.")
         endpoint = f"{self.config.base_url}/sessions-formation/{session_id}"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=bearer_token)
         if isinstance(data, dict) and isinstance(data.get("session"), dict):
             return data["session"]
@@ -221,7 +221,7 @@ class ManagementContractClient:
             raise ContractError("Management contract URL is not configured.")
         endpoint = f"{self.config.base_url}/sessions-formation/my-sessions"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=bearer_token)
         if isinstance(data, dict) and isinstance(data.get("sessions"), list):
             return data["sessions"]
@@ -234,7 +234,7 @@ class ManagementContractClient:
             raise ContractError("Management contract URL is not configured.")
         endpoint = f"{self.config.base_url}/sessions-formation/my-sessions/{session_id}"
         if self.config.segment_id:
-            endpoint = f"{endpoint}?segment_id={self.config.segment_id}"
+            endpoint = f"{endpoint}?segment_name={self.config.segment_id}"
         data = self._request("GET", endpoint, bearer_token=bearer_token)
         if isinstance(data, dict) and isinstance(data.get("session"), dict):
             return data["session"]
