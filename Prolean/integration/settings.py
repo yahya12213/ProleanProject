@@ -11,6 +11,7 @@ class ContractSettings:
     api_token: str
     service_username: str
     service_password: str
+    segment_id: str
     timeout_seconds: int
     max_retries: int
     access_cache_ttl_seconds: int
@@ -25,6 +26,7 @@ def get_contract_settings() -> ContractSettings:
         api_token=getattr(settings, "PROLEAN_MANAGEMENT_API_TOKEN", ""),
         service_username=getattr(settings, "PROLEAN_MANAGEMENT_SERVICE_USERNAME", ""),
         service_password=getattr(settings, "PROLEAN_MANAGEMENT_SERVICE_PASSWORD", ""),
+        segment_id=str(getattr(settings, "PROLEAN_MANAGEMENT_SEGMENT_ID", "") or "").strip(),
         timeout_seconds=int(getattr(settings, "PROLEAN_MANAGEMENT_API_TIMEOUT_SECONDS", 8)),
         max_retries=int(getattr(settings, "PROLEAN_MANAGEMENT_API_MAX_RETRIES", 2)),
         access_cache_ttl_seconds=int(
