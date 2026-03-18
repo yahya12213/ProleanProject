@@ -12,9 +12,27 @@ from .models import (
 
 # ========== INLINES FOR CONSOLIDATED MANAGEMENT ==========
 
+def _get_profile(request):
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+    return getattr(user, "profile", None)
+
+
+def _get_assistant_profile(request):
+    profile = _get_profile(request)
+    return getattr(profile, "assistant_profile", None) if profile else None
+
+
 def _is_assistant(request) -> bool:
     try:
-        return (not request.user.is_superuser) and hasattr(request.user, "profile") and request.user.profile.role == "ASSISTANT"
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        if getattr(user, "is_superuser", False):
+            return False
+        profile = getattr(user, "profile", None)
+        return bool(profile) and getattr(profile, "role", None) == "ASSISTANT"
     except Exception:
         return False
 
@@ -80,28 +98,29 @@ class SeanceInline(admin.TabularInline):
 
 @admin.register(City)
 class CityAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_add = True
+    assistant_can_change = True
+    assistant_can_delete = True
     list_display = ('name',)
     search_fields = ('name',)
-    
-    def has_module_permission(self, request):
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            return False 
-        return super().has_module_permission(request)
 
 @admin.register(Notification)
 class NotificationAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_add = True
+    assistant_can_change = True
+    assistant_can_delete = True
     list_display = ('title', 'user', 'notification_type', 'is_read', 'created_at')
     list_filter = ('notification_type', 'is_read', 'created_at')
     list_editable = ('is_read',)
     search_fields = ('title', 'message', 'user__username')
-    
-    def has_module_permission(self, request):
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            return False
-        return super().has_module_permission(request)
 
 @admin.register(Training)
 class TrainingAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_add = True
+    assistant_can_change = True
     list_display = ('title', 'price_mad', 'duration_days', 'get_student_count', 'is_active', 'is_featured')
     list_filter = ('is_active', 'is_featured', 'badge')
     list_editable = ('is_active', 'is_featured')
@@ -248,15 +267,34 @@ class UserAdmin(AssistantPolicyMixin, BaseUserAdmin):
 # Profile Admin
 @admin.register(Profile)
 class ProfileAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_change = True
     list_display = ('user', 'full_name', 'role', 'status', 'phone_number', 'city')
     list_filter = ('role', 'status', 'city')
     list_editable = ('status', 'role')
     search_fields = ('full_name', 'cin_or_passport', 'phone_number', 'user__email')
-    
-    def has_module_permission(self, request):
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            return False
-        return super().has_module_permission(request)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if _is_assistant(request) and not request.user.is_superuser:
+            assistant = _get_assistant_profile(request)
+            qs = qs.filter(role="STUDENT")
+            if assistant:
+                qs = qs.filter(city__in=assistant.assigned_cities.all())
+        return qs
+
+    def get_list_editable(self, request):
+        if _is_assistant(request) and not request.user.is_superuser:
+            return ("status",)
+        return self.list_editable
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj=obj))
+        if _is_assistant(request) and not request.user.is_superuser:
+            for field in ("user", "role"):
+                if field not in readonly_fields:
+                    readonly_fields.append(field)
+        return readonly_fields
     
     def get_inlines(self, request, obj=None):
         if obj and obj.role == 'STUDENT':
@@ -278,15 +316,10 @@ class StudentProfileAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     
     def get_queryset(self, request):
         qs = super().get_queryset(request).filter(profile__role='STUDENT')
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            assistant = request.user.profile.assistant_profile
+        assistant = _get_assistant_profile(request)
+        if assistant and not request.user.is_superuser:
             qs = qs.filter(profile__city__in=assistant.assigned_cities.all())
         return qs
-    
-    def has_module_permission(self, request):
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            return True # Students are allowed
-        return super().has_module_permission(request)
     
     def get_full_name(self, obj):
         return obj.profile.full_name
@@ -356,15 +389,10 @@ class SessionAdmin(AssistantPolicyMixin, admin.ModelAdmin):
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            assistant = request.user.profile.assistant_profile
+        assistant = _get_assistant_profile(request)
+        if assistant and not request.user.is_superuser:
             qs = qs.filter(city__in=assistant.assigned_cities.all())
         return qs
-
-    def has_module_permission(self, request):
-        if not request.user.is_superuser and hasattr(request.user.profile, 'assistant_profile'):
-            return True # Sessions are allowed
-        return super().has_module_permission(request)
 
     def get_formations(self, obj):
         return ", ".join([t.title for t in obj.formations.all()])
@@ -394,6 +422,9 @@ class SeanceAdmin(AssistantPolicyMixin, admin.ModelAdmin):
 # RecordedVideo Admin
 @admin.register(RecordedVideo)
 class RecordedVideoAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_add = True
+    assistant_can_change = True
     list_display = ('title', 'training', 'duration_seconds', 'video_provider', 'is_active', 'created_at')
     list_filter = ('video_provider', 'is_active', 'training')
     list_editable = ('is_active',)
@@ -416,6 +447,7 @@ class RecordedVideoAdmin(AssistantPolicyMixin, admin.ModelAdmin):
 # LiveRecording Admin
 @admin.register(LiveRecording)
 class LiveRecordingAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
     list_display = ('session', 'recording_url', 'duration_seconds', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('session__trainings__title',)
@@ -424,6 +456,7 @@ class LiveRecordingAdmin(AssistantPolicyMixin, admin.ModelAdmin):
 # AttendanceLog Admin
 @admin.register(AttendanceLog)
 class AttendanceLogAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
     list_display = ('student', 'session', 'join_time', 'leave_time', 'duration_minutes')
     list_filter = ('session__formations', 'join_time')
     search_fields = ('student__full_name', 'session__formations__title')
@@ -439,6 +472,7 @@ class AttendanceLogAdmin(AssistantPolicyMixin, admin.ModelAdmin):
 # VideoProgress Admin
 @admin.register(VideoProgress)
 class VideoProgressAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
     list_display = ('student', 'video', 'watched_seconds', 'completed', 'last_watched_at')
     list_filter = ('completed', 'video__training')
     search_fields = ('student__full_name', 'video__title')
@@ -447,6 +481,8 @@ class VideoProgressAdmin(AssistantPolicyMixin, admin.ModelAdmin):
 # Question Admin
 @admin.register(Question)
 class QuestionAdmin(AssistantPolicyMixin, admin.ModelAdmin):
+    assistant_module = True
+    assistant_can_change = True
     list_display = ('student', 'video', 'text_preview', 'is_answered', 'is_deleted', 'created_at')
     list_filter = ('created_at', 'video__training', 'is_answered', 'is_deleted')
     list_editable = ('is_answered', 'is_deleted')
