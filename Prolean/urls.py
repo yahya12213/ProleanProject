@@ -1,0 +1,111 @@
+# urls.py - FIXED
+from django.urls import path
+from . import views
+from .integration import views as integration_views
+
+app_name = "Prolean"
+
+urlpatterns = [
+    # Main pages
+    path("", views.home, name="home"),
+    path("formations/", views.training_catalog, name="training_catalog"),
+    path("formations/<slug:slug>/", views.training_detail, name="training_detail"),
+    path("migration/", views.migration_services, name="migration_services"),
+    path("centres-contact/", views.contact_centers, name="contact_centers"),
+    
+    # API endpoints
+    path("api/integration/health/", integration_views.integration_health, name="integration_health"),
+    path("api/contact/", views.submit_contact_request, name="submit_contact_request"),
+    path("api/review/", views.submit_review, name="submit_review"),
+    path("api/waitlist/", views.join_waitlist, name="join_waitlist"),
+    path("api/update-currency/", views.update_currency, name="update_currency"),
+    path("api/currency-rates/", views.get_currency_rates_api, name="get_currency_rates"),
+    path("api/track-click/", views.track_click_event, name="track_click_event"),
+    path("api/track-call/", views.track_phone_call, name="track_phone_call"),
+    path("api/track-whatsapp/", views.track_whatsapp_click, name="track_whatsapp_click"),
+    path("api/location/browser/", views.browser_location_update, name="browser_location_update"),
+    path("api/training/<int:training_id>/reviews/", views.get_training_reviews, name="get_training_reviews"),
+    path("api/review/helpful/", views.mark_review_helpful, name="mark_review_helpful"),
+    path("api/dashboard/updates/", views.check_updates_ajax, name="check_updates_ajax"),
+    path("api/presence/heartbeat/", views.presence_heartbeat, name="presence_heartbeat"),
+
+    # i18n helpers removed (language switching disabled)
+    
+    # New endpoints - FIXED: removed slug parameter
+    path('api/pre-subscribe/', views.create_pre_subscription, name='create_pre_subscription'),
+    path('api/subscribe-promotion/', views.subscribe_promotion, name='subscribe_promotion'),
+    
+    # Auth
+    path('register/', views.register, name='register'),
+    path('login/', views.login_view, name='login'),
+    path('login/', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
+    
+    # Dashboard
+    path('mon-espace/', views.dashboard, name='dashboard'),
+    path('mon-emploi-du-temps/', views.student_schedule, name='student_schedule'),
+    path('mon-profil/', views.student_profile, name='student_profile'),
+    path('mes-certificats/', views.student_certificates, name='student_certificates'),
+    path('api/profile/upload-picture/', views.upload_profile_picture, name='upload_profile_picture'),
+    
+    # Classroom
+    path('classroom/<slug:training_slug>/', views.classroom, name='classroom'),
+    path('classroom/<slug:training_slug>/video/<int:video_id>/', views.classroom, name='classroom_video'),
+    
+    # Live Sessions
+    path('live/<int:stream_id>/', views.live_session, name='live_session'),
+    path('live/<int:stream_id>/status/', views.live_stream_status, name='live_stream_status'),
+    path('professor/sessions/start-live/<int:session_id>/', views.start_live_stream, name='start_live_stream'),
+    path('professor/live/end/<int:stream_id>/', views.end_live_stream, name='end_live_stream'),
+    path('professor/session/update/<int:session_id>/', views.update_session_status, name='update_session_status'),
+    path('account-status/', views.account_status, name='account_status'),
+    path('api/attendance/heartbeat/<int:stream_id>/', views.attendance_heartbeat, name='attendance_heartbeat'),
+    
+    # Recorded Videos
+    path('videos/<slug:training_slug>/', views.recorded_videos_list, name='recorded_videos_list'),
+    
+    # Professor Dashboard
+    path('professor/', views.professor_dashboard, name='professor_dashboard'),
+    path('external/live/<str:session_id>/', views.external_live_room, name='external_live_room'),
+    path('external/live/<str:session_id>/status/', views.external_live_status, name='external_live_status'),
+    path('external/live/invite/<str:session_id>/regen/', views.external_live_join_invite_regen, name='external_live_join_invite_regen'),
+    path('external/live/invite/<str:session_id>/list/', views.external_live_join_invite_list, name='external_live_join_invite_list'),
+    path('external/live/join/<str:token>/', views.external_live_join_with_token, name='external_live_join_with_token'),
+    path('external/live/<str:session_id>/stats/', views.external_live_stats_get, name='external_live_stats_get'),
+    path('external/live/<str:session_id>/stats/push/', views.external_live_stats_push, name='external_live_stats_push'),
+    path('external/live/<str:session_id>/ban/', views.external_live_ban_user, name='external_live_ban_user'),
+    path('external/live/<str:session_id>/unban/', views.external_live_unban_user, name='external_live_unban_user'),
+    path('external/live/<str:session_id>/mute/', views.external_live_mute_user, name='external_live_mute_user'),
+    path('external/live/<str:session_id>/unmute/', views.external_live_unmute_user, name='external_live_unmute_user'),
+    path('external/live/<str:session_id>/mute-all/', views.external_live_mute_all, name='external_live_mute_all'),
+    path('external/live/<str:session_id>/unmute-all/', views.external_live_unmute_all, name='external_live_unmute_all'),
+    path('external/live/<str:session_id>/events/', views.external_live_event_log, name='external_live_event_log'),
+    path('external/live/<str:session_id>/hand/', views.external_live_hand_state, name='external_live_hand_state'),
+    path('external/live/<str:session_id>/leave/', views.external_live_leave, name='external_live_leave'),
+    path('api/live/raise-hand', views.api_raise_hand, name='api_raise_hand'),
+    path('api/live/raise-hand-queue', views.api_raise_hand_queue, name='api_raise_hand_queue'),
+    path('api/live/speaker-heartbeat/<str:session_id>', views.api_speaker_heartbeat, name='api_speaker_heartbeat'),
+    path('api/live/audit', views.api_live_audit_event, name='api_live_audit_event'),
+    path('api/live/approve-hand', views.api_approve_hand, name='api_approve_hand'),
+    path('api/live/remove-speaker', views.api_remove_speaker, name='api_remove_speaker'),
+    path('external/professor/sessions/<str:session_id>/live/start/', views.external_professor_live_start, name='external_professor_live_start'),
+    path('external/professor/sessions/<str:session_id>/live/pause/', views.external_professor_live_pause, name='external_professor_live_pause'),
+    path('external/professor/sessions/<str:session_id>/live/end/', views.external_professor_live_end, name='external_professor_live_end'),
+    path('external/professor/sessions/<str:session_id>/notify/', views.external_send_session_notification, name='external_send_session_notification'),
+    path('professor/students/', views.professor_students, name='professor_students'),
+    path('professor/sessions/', views.professor_sessions, name='professor_sessions'),
+    path('professor/sessions/manage/', views.professor_sessions, name='manage_sessions'), # Alias for compatibility
+    path('professor/sessions/add-seance/', views.add_seance, name='add_seance'),
+    path('professor/comments/', views.professor_comments, name='professor_comments'),
+    path('assistant/', views.assistant_dashboard, name='assistant_dashboard'),
+    path('api/assistant/create-entity/', views.create_entity_ajax, name='create_entity_ajax'),
+    path('api/student/<int:student_id>/toggle-status/', views.toggle_student_status, name='toggle_student_status'),
+    path('api/assistant/assign-training/', views.assistant_assign_training, name='assistant_assign_training'),
+    path('api/assistant/assign-session/', views.assistant_assign_session, name='assistant_assign_session'),
+    path('api/assistant/create-session/', views.assistant_create_session, name='assistant_create_session'),
+    path('director/', views.director_dashboard, name='director_dashboard'),
+    
+    # Notifications
+    path('notifications/read/<int:notification_id>/', views.mark_notification_read, name='mark_notification_read'),
+    path('professor/sessions/<int:session_id>/notify/', views.send_session_notification, name='send_session_notification'),
+]

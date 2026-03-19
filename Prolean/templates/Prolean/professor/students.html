@@ -1,0 +1,916 @@
+{% extends 'Prolean/professor/base_professor.html' %}
+{% load static %}
+
+{% block header_title %}Student Command Center{% endblock %}
+{% block header_subtitle %}Real-time live links, attendance intelligence, and communication control.{% endblock %}
+
+{% block professor_content %}
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap");
+
+  .sc-shell {
+    display: grid;
+    gap: 18px;
+    font-family: "Manrope", "Segoe UI", sans-serif;
+  }
+
+  .sc-header {
+    border: 1px solid var(--prof-border);
+    border-radius: 22px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.9)),
+      radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.14), transparent 40%);
+    padding: 18px 20px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .sc-title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--prof-text-main);
+  }
+
+  .sc-subtitle {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--prof-text-muted);
+  }
+
+  .sc-session-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sc-chip {
+    border: 1px solid var(--prof-border);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--prof-surface-hover);
+    color: var(--prof-text-main);
+  }
+
+  .sc-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .sc-kpi {
+    border: 1px solid var(--prof-border);
+    border-radius: 16px;
+    background: #fff;
+    padding: 10px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
+  .sc-kpi .k {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #2563eb;
+  }
+  .sc-kpi .v {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--prof-text-main);
+    margin-top: 2px;
+  }
+
+  .sc-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .sc-panel {
+    border: 1px solid var(--prof-border);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.75);
+    padding: 18px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(10px);
+  }
+
+  .sc-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .sc-panel-head h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--prof-text-main);
+  }
+  .sc-panel-head span {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--prof-text-muted);
+  }
+
+  .sc-sessions {
+    display: flex;
+    gap: 8px;
+    overflow: auto;
+    padding-bottom: 4px;
+  }
+  .sc-session-pill {
+    border: 1px solid var(--prof-border);
+    border-radius: 999px;
+    padding: 9px 14px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: var(--prof-surface-hover);
+    color: var(--prof-text-main);
+  }
+  .sc-session-pill.active {
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    color: #fff;
+    border-color: rgba(99, 102, 241, 0.7);
+  }
+
+  .sc-students {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .sc-student {
+    border: 1px solid var(--prof-border);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+    position: relative;
+    backdrop-filter: blur(10px);
+  }
+  .sc-student::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    pointer-events: none;
+    background: linear-gradient(160deg, rgba(37, 99, 235, 0.08), transparent 45%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .sc-student:hover::before {
+    opacity: 1;
+  }
+  .sc-student.top-engaged {
+    border-color: rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+  }
+  .sc-student.banned {
+    border-color: rgba(239, 68, 68, 0.6);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+  }
+
+  .sc-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 900;
+    font-size: 18px;
+    overflow: hidden;
+  }
+  .sc-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .sc-student-head {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+  .sc-student-meta {
+    display: grid;
+    gap: 4px;
+  }
+  .sc-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .sc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .sc-status.online {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #16a34a;
+  }
+  .sc-status.offline {
+    background: rgba(148, 163, 184, 0.12);
+    border-color: rgba(148, 163, 184, 0.26);
+    color: var(--prof-text-muted);
+  }
+  .sc-flag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.16);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #b91c1c;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sc-star {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.16);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    color: #16a34a;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .sc-student h4 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--prof-text-main);
+  }
+
+  .sc-student .meta {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--prof-text-muted);
+    line-height: 1.3;
+  }
+
+  .sc-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sc-badge {
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 900;
+    border: 1px solid transparent;
+  }
+  .sc-badge.used { background: rgba(34, 197, 94, 0.16); border-color: rgba(34, 197, 94, 0.3); color: #16a34a; }
+  .sc-badge.pending { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.35); color: #92400e; }
+  .sc-badge.idle { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.26); color: var(--prof-text-muted); }
+
+  .sc-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .sc-metric {
+    border: 1px solid var(--prof-border);
+    border-radius: 12px;
+    background: var(--prof-surface-hover);
+    padding: 10px;
+  }
+  .sc-metric .row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sc-metric .l {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--prof-text-muted);
+  }
+  .sc-metric .v {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--prof-text-main);
+    margin-top: 2px;
+  }
+
+  .sc-bar {
+    margin-top: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.2);
+    overflow: hidden;
+  }
+  .sc-bar::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: min(100%, calc(var(--bar, 0) * 1%));
+    background: linear-gradient(90deg, #38bdf8, #6366f1);
+  }
+
+  .sc-link-box {
+    border: 1px dashed var(--prof-border);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .sc-row { display: flex; gap: 8px; }
+
+  .sc-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sc-action-row.full {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-details {
+    border: 1px solid var(--prof-border);
+    border-radius: 12px;
+    background: var(--prof-surface-hover);
+    padding: 10px 12px;
+  }
+  .sc-details summary {
+    cursor: pointer;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--prof-text-main);
+  }
+  .sc-details summary::-webkit-details-marker { display: none; }
+  .sc-meta-grid {
+    margin-top: 8px;
+    display: grid;
+    gap: 8px;
+  }
+  .sc-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--prof-text-muted);
+  }
+
+  .sc-btn {
+    border-radius: 14px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: transform 0.18s ease, filter 0.18s ease;
+  }
+  .sc-btn:hover { transform: translateY(-1px); filter: brightness(1.03); }
+  .sc-btn[disabled] { opacity: 0.55; pointer-events: none; }
+  .sc-btn.brand { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
+  .sc-btn.ghost { background: var(--prof-surface-hover); border-color: var(--prof-border); color: var(--prof-text-main); }
+
+  .sc-status {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--prof-text-muted);
+  }
+
+  .sc-timeline {
+    max-height: 70vh;
+    overflow: auto;
+    display: grid;
+    gap: 8px;
+    padding-right: 2px;
+  }
+
+  .sc-event {
+    border: 1px solid var(--prof-border);
+    border-radius: 14px;
+    background: var(--prof-surface-hover);
+    padding: 10px;
+    display: grid;
+    gap: 4px;
+  }
+  .sc-event .e1 { font-size: 12px; font-weight: 900; color: var(--prof-text-main); line-height: 1.25; }
+  .sc-event .e2, .sc-event .e3 { font-size: 11px; font-weight: 700; color: var(--prof-text-muted); }
+
+  @media (max-width: 1200px) {
+    .sc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sc-students { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 980px) {
+    .sc-students { grid-template-columns: 1fr; }
+  }
+
+  .dark .sc-header {
+    background:
+      linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(2, 6, 23, 0.88)),
+      radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.18), transparent 40%);
+  }
+  .dark .sc-panel {
+    background: rgba(15, 23, 42, 0.7);
+  }
+  .dark .sc-kpi {
+    background: rgba(15, 23, 42, 0.6);
+    box-shadow: none;
+  }
+  .dark .sc-student {
+    background: rgba(15, 23, 42, 0.6);
+  }
+  .dark .sc-panel,
+  .dark .sc-student,
+  .dark .sc-details {
+    backdrop-filter: blur(12px);
+  }
+
+  .ban-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.55);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 80;
+    padding: 16px;
+  }
+  .ban-modal.open { display: flex; }
+  .ban-card {
+    width: min(520px, 100%);
+    border-radius: 18px;
+    border: 1px solid var(--prof-border);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+  .dark .ban-card {
+    background: rgba(15, 23, 42, 0.92);
+  }
+  .ban-card textarea {
+    width: 100%;
+    min-height: 100px;
+    border-radius: 12px;
+    border: 1px solid var(--prof-border);
+    background: var(--prof-surface-hover);
+    color: var(--prof-text-main);
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+  }
+  .ban-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .dark .sc-status.online { color: #86efac; }
+  .dark .sc-flag { color: #fecaca; }
+  .dark .sc-star { color: #86efac; }
+</style>
+
+{% if external_professor_mode %}
+<div class="sc-shell">
+  <section class="sc-header">
+    <div>
+      <div class="sc-title">Student Command Center</div>
+      <div class="sc-subtitle">Invite status, engagement analytics, and attendance signals.</div>
+    </div>
+    <div class="sc-session-summary">
+      <span class="sc-chip">Session: {{ external_selected_session.titre|default:"-" }}</span>
+      <span class="sc-chip">City: {{ external_selected_session.ville_name|default:"-" }}</span>
+      <span class="sc-chip">Type: {{ external_selected_session.session_type|default:"-" }}</span>
+      <span class="sc-chip">Status: {{ external_selected_session.statut|default:"-" }}</span>
+    </div>
+    <div class="sc-kpis">
+      <div class="sc-kpi"><div class="k">Students</div><div class="v">{{ external_students|length }}</div></div>
+      <div class="sc-kpi"><div class="k">Timeline</div><div class="v">{{ attendance_timeline|length }}</div></div>
+      <div class="sc-kpi"><div class="k">Queue</div><div class="v">WhatsApp</div></div>
+      <div class="sc-kpi"><div class="k">Session</div><div class="v">{{ external_selected_session.titre|default:"-" }}</div></div>
+    </div>
+  </section>
+
+  {% if external_sessions %}
+  <div class="sc-sessions">
+    {% for sess in external_sessions %}
+    <a href="?session_id={{ sess.id }}" class="sc-session-pill {% if external_selected_session and external_selected_session.id == sess.id %}active{% endif %}">
+      {{ sess.titre|default:"Session" }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <section class="sc-main">
+    <div class="sc-panel">
+      <div class="sc-panel-head">
+        <h3>Broadcast Queue</h3>
+        <span>WhatsApp</span>
+      </div>
+      <div class="sc-broadcast">
+        <p>Send one-time links to all students or handle individually in the grid.</p>
+        <button type="button" id="send-all-whatsapp" class="sc-btn brand" {% if not external_selected_session or not external_selected_session.id %}disabled{% endif %}>
+          <span class="material-symbols-outlined text-base">send</span>Send All
+        </button>
+        <div id="broadcast-status" class="sc-status"></div>
+      </div>
+    </div>
+
+    <div class="sc-panel">
+      <div class="sc-panel-head">
+        <h3>Students Overview</h3>
+        <span>{{ external_students|length }} total</span>
+      </div>
+      <div class="sc-students">
+        {% for st in external_students %}
+        <article class="sc-student {% if st.is_top_engaged %}top-engaged{% endif %} {% if st.is_banned %}banned{% endif %}">
+          {% if st.is_banned %}
+          <div class="sc-flag"><span class="material-symbols-outlined text-xs">flag</span>Banned</div>
+          {% elif st.is_top_engaged %}
+          <div class="sc-star"><span class="material-symbols-outlined text-xs">star</span>Top</div>
+          {% endif %}
+          <div class="sc-student-head">
+            <div class="sc-avatar" data-avatar-seed="{{ st.display_name|default:st.student_name|default:'Student' }}">
+              {% if st.profile_picture %}
+              <img src="{{ st.profile_picture }}" alt="{{ st.display_name|default:'Student' }}">
+              {% else %}
+              {{ st.display_name|default:st.student_name|default:"Student"|first|upper }}
+              {% endif %}
+            </div>
+            <div class="min-w-0 sc-student-meta">
+              <div class="sc-name-row">
+                <h4 class="truncate">{{ st.display_name|default:st.student_name|default:"Student" }}</h4>
+                {% if st.is_online_web %}
+                <span class="sc-status online"><span class="material-symbols-outlined text-xs">wifi</span>Online</span>
+                {% else %}
+                <span class="sc-status offline"><span class="material-symbols-outlined text-xs">wifi_off</span>Offline</span>
+                {% endif %}
+              </div>
+              <div class="meta truncate">{{ st.display_email|default:st.student_email|default:"-" }}</div>
+              <div class="meta truncate">{{ st.display_phone|default:st.student_phone|default:"-" }}</div>
+            </div>
+          </div>
+          <div class="sc-badges">
+            {% if st.join_invite_used_at %}
+            <span class="sc-badge used">Invite Used</span>
+            {% elif st.join_invite_expires_at %}
+            <span class="sc-badge pending">Invite Sent</span>
+            {% else %}
+            <span class="sc-badge idle">Not Sent</span>
+            {% endif %}
+            <span class="sc-badge idle">{{ st.join_invite_status|default:"none"|upper }}</span>
+          </div>
+          <div class="sc-metrics">
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">play_circle</span><div class="l">Watched</div></div>
+              <div class="v">{{ st.tracking_watch_label|default:"0m" }}</div>
+            </div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">insights</span><div class="l">Engagement</div></div>
+              <div class="v">{{ st.tracking_engagement|floatformat:0|default:"0" }}</div>
+            </div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">graphic_eq</span><div class="l">Speaking</div></div>
+              <div class="v">{{ st.tracking_speaking_label|default:"0m" }}</div>
+            </div>
+            <div class="sc-metric">
+              <div class="row"><span class="material-symbols-outlined text-xs">front_hand</span><div class="l">Hand Raise</div></div>
+              <div class="v">{{ st.tracking_hand_label|default:"0m" }}</div>
+            </div>
+          </div>
+          <div class="sc-bar" style="--bar: {{ st.tracking_engagement|floatformat:0|default:'0' }};"></div>
+          <div class="sc-link-box">
+            <div class="meta">CIN: {{ st.display_cin|default:"-" }} • Status: {{ st.join_invite_status|default:"none"|upper }}</div>
+            <details class="sc-details">
+              <summary><span class="material-symbols-outlined text-xs">expand_more</span>Details</summary>
+              <div class="sc-meta-grid">
+                {% if st.join_invite_created_at %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">schedule</span>Sent: {{ st.join_invite_created_at|date:"Y-m-d H:i" }}</div>{% endif %}
+                {% if st.join_invite_used_at %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">done_all</span>Used: {{ st.join_invite_used_at|date:"Y-m-d H:i" }}</div>{% endif %}
+                {% if st.join_invite_expires_at %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">timer_off</span>Expires: {{ st.join_invite_expires_at|date:"Y-m-d H:i" }}</div>{% endif %}
+                {% if st.join_invite_used_location %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">location_on</span>{{ st.join_invite_used_location }}</div>{% endif %}
+                {% if st.join_invite_used_device %}<div class="sc-meta"><span class="material-symbols-outlined text-xs">devices</span>{{ st.join_invite_used_device }}</div>{% endif %}
+              </div>
+            </details>
+            <div class="sc-action-row">
+              <button type="button" class="sc-btn brand flex-1"
+                {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
+                onclick="generateJoinLink('{{ external_selected_session.id|default:'' }}', '{{ st.display_cin|escapejs }}', '{{ st.display_name|escapejs }}', this)">
+                <span class="material-symbols-outlined text-xs">link</span>Generate
+              </button>
+              <button type="button" class="sc-btn ghost flex-1"
+                data-send-whatsapp="1"
+                data-session-id="{{ external_selected_session.id|default:'' }}"
+                data-cin="{{ st.display_cin|default:''|escapejs }}"
+                data-name="{{ st.display_name|default:''|escapejs }}"
+                data-phone="{{ st.display_phone|default:''|escapejs }}"
+                data-email="{{ st.display_email|default:''|escapejs }}"
+                {% if not external_selected_session or not external_selected_session.id or not st.display_cin %}disabled{% endif %}
+                onclick="sendSingleWhatsApp(this)">
+                <span class="material-symbols-outlined text-xs">send</span>WhatsApp
+              </button>
+            </div>
+            <div class="sc-action-row full">
+              {% if st.local_user_id %}
+              {% if st.is_banned %}
+              <form method="post" action="{% url 'Prolean:external_live_unban_user' external_selected_session.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ st.local_user_id }}">
+                <button class="sc-btn ghost w-full" type="submit"><span class="material-symbols-outlined text-xs">undo</span>Unban</button>
+              </form>
+              {% else %}
+              <form method="post" action="{% url 'Prolean:external_live_ban_user' external_selected_session.id %}" data-ban-form="1">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ st.local_user_id }}">
+                <input type="hidden" name="reason" value="">
+                <button class="sc-btn ghost w-full" type="button" data-ban-trigger="1"><span class="material-symbols-outlined text-xs">flag</span>Ban</button>
+              </form>
+              {% endif %}
+              {% else %}
+              <button class="sc-btn ghost w-full" disabled><span class="material-symbols-outlined text-xs">flag</span>Ban</button>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+        {% empty %}
+        <div class="sc-event"><div class="e1">No students found for this session.</div></div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sc-panel">
+      <div class="sc-panel-head">
+        <h3>Attendance Timeline</h3>
+        <span>{{ attendance_timeline|length }} events</span>
+      </div>
+      <div class="sc-timeline">
+        {% for event in attendance_timeline %}
+        <div class="sc-event">
+          <div class="e1">{{ event.event_label }} • {{ event.student_name }}</div>
+          {% if event.meta_label %}<div class="e2">{{ event.meta_label }}</div>{% endif %}
+          <div class="e3">{{ event.happened_at|date:"Y-m-d H:i:s" }}</div>
+        </div>
+        {% empty %}
+        <div class="sc-event"><div class="e1">No timeline events yet for this session.</div></div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+</div>
+{% else %}
+<div class="glass-card p-6">
+  <h3 class="text-lg font-black" style="color: var(--prof-text-main);">Student dashboard redesign applies to external (Barka) mode.</h3>
+  <p class="text-sm font-bold mt-2" style="color: var(--prof-text-muted);">Switch to an external session to use the new command center.</p>
+</div>
+{% endif %}
+
+<div id="ban-modal" class="ban-modal">
+  <div class="ban-card">
+    <div class="text-sm font-black uppercase tracking-widest" style="color: var(--prof-text-main);">Ban Student</div>
+    <div class="text-sm font-bold" style="color: var(--prof-text-muted);">Provide a reason (required).</div>
+    <textarea id="ban-reason-input" maxlength="200" placeholder="Reason for ban..."></textarea>
+    <div class="ban-actions">
+      <button type="button" id="ban-cancel" class="sc-btn ghost">Cancel</button>
+      <button type="button" id="ban-confirm" class="sc-btn brand">Ban</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% if external_professor_mode %}
+<script>
+  const palette = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#22c55e"];
+  const hashCode = (text) => {
+    let hash = 0;
+    const str = String(text || "");
+    for (let i = 0; i < str.length; i += 1) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  };
+  const applyAvatarColors = () => {
+    document.querySelectorAll(".sc-avatar[data-avatar-seed]").forEach((el) => {
+      if (el.querySelector("img")) return;
+      const seed = el.dataset.avatarSeed || el.textContent || "";
+      const color = palette[hashCode(seed) % palette.length];
+      el.style.background = color;
+    });
+  };
+  applyAvatarColors();
+
+  const banModal = document.getElementById("ban-modal");
+  const banReasonInput = document.getElementById("ban-reason-input");
+  const banCancel = document.getElementById("ban-cancel");
+  const banConfirm = document.getElementById("ban-confirm");
+  let pendingBanForm = null;
+
+  const openBanModal = (form) => {
+    pendingBanForm = form;
+    if (banReasonInput) banReasonInput.value = "";
+    if (banModal) banModal.classList.add("open");
+  };
+  const closeBanModal = () => {
+    pendingBanForm = null;
+    if (banModal) banModal.classList.remove("open");
+  };
+
+  document.querySelectorAll("[data-ban-trigger='1']").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      const form = event.currentTarget.closest("form");
+      if (!form) return;
+      openBanModal(form);
+    });
+  });
+  if (banCancel) banCancel.addEventListener("click", closeBanModal);
+  if (banModal) banModal.addEventListener("click", (event) => {
+    if (event.target === banModal) closeBanModal();
+  });
+  if (banConfirm) banConfirm.addEventListener("click", () => {
+    if (!pendingBanForm) return;
+    const reason = String(banReasonInput?.value || "").trim();
+    if (!reason) {
+      alert("Please provide a reason.");
+      return;
+    }
+    const reasonInput = pendingBanForm.querySelector("input[name='reason']");
+    if (reasonInput) reasonInput.value = reason;
+    pendingBanForm.submit();
+  });
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+  }
+  function normalizeWhatsAppPhone(rawPhone) {
+    let digits = String(rawPhone || '').replace(/\D+/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    if (digits.length === 10 && digits.startsWith('0')) digits = `212${digits.slice(1)}`;
+    return digits;
+  }
+  function cautionMessageArabic(joinUrl) {
+    return `رابط الحصة الخاصة بك: ${joinUrl}. يرجى عدم مشاركة هذا الرابط مع أي شخص آخر للحفاظ على أمان الفصل.`;
+  }
+  async function trackWhatsAppClick(phone, message) {
+    try {
+      await fetch('/api/track-whatsapp/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phone || '', message: message || '', url: window.location.pathname }),
+      });
+    } catch (_) {}
+  }
+  async function requestJoinLink(sessionId, cin, name, email, phone) {
+    const resp = await fetch(`/external/live/invite/${encodeURIComponent(sessionId)}/regen/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
+      body: JSON.stringify({ cin, name, email, phone }),
+    });
+    const text = await resp.text();
+    let data = {};
+    try { data = JSON.parse(text || '{}'); } catch (_) { data = {}; }
+    if (!data || !data.ok || !data.join_url) {
+      const msg = (data && data.error) ? data.error : (text || `Unable to generate link (HTTP ${resp.status}).`);
+      throw new Error(String(msg).slice(0, 600));
+    }
+    return data;
+  }
+  async function generateJoinLink(sessionId, cin, name, btn) {
+    try {
+      if (!sessionId || !cin) return;
+      if (btn) btn.disabled = true;
+      const data = await requestJoinLink(sessionId, cin, name, '', '');
+      try {
+        await navigator.clipboard.writeText(String(data.join_url));
+      } catch (_) {
+        prompt('Copy this link:', String(data.join_url));
+      }
+      alert('Join link copied.');
+    } catch (e) {
+      alert(String(e && e.message ? e.message : 'Unable to generate link.'));
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+  async function sendSingleWhatsApp(btn, options = {}) {
+    if (!btn) return false;
+    const sessionId = btn.dataset.sessionId || '';
+    const cin = btn.dataset.cin || '';
+    const name = btn.dataset.name || '';
+    const email = btn.dataset.email || '';
+    const phone = btn.dataset.phone || '';
+    if (!sessionId || !cin) return false;
+    const original = btn.textContent;
+    try {
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      const data = await requestJoinLink(sessionId, cin, name, email, phone);
+      const msg = cautionMessageArabic(String(data.join_url));
+      const waPhone = normalizeWhatsAppPhone(phone);
+      const waUrl = waPhone ? `https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      const opened = window.open(waUrl, '_blank', 'noopener');
+      await trackWhatsAppClick(waPhone, msg);
+      if (!opened && !options.silent) alert('Popup blocked. Allow popups for this site.');
+      btn.textContent = 'Sent';
+      setTimeout(() => { btn.textContent = original; }, 1000);
+      return !!opened;
+    } catch (e) {
+      if (!options.silent) alert(String(e && e.message ? e.message : 'Unable to send via WhatsApp.'));
+      btn.textContent = original;
+      return false;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  async function sendAllWhatsAppQueue() {
+    const status = document.getElementById('broadcast-status');
+    const buttons = Array.from(document.querySelectorAll('button[data-send-whatsapp="1"]')).filter((btn) => !btn.disabled);
+    if (!buttons.length) {
+      if (status) status.textContent = 'No students available for queue.';
+      return;
+    }
+    let sent = 0;
+    let failed = 0;
+    for (let index = 0; index < buttons.length; index += 1) {
+      const btn = buttons[index];
+      const label = btn.dataset.name || btn.dataset.cin || `Student ${index + 1}`;
+      if (status) status.textContent = `Queue ${index + 1}/${buttons.length}: ${label}`;
+      const ok = await sendSingleWhatsApp(btn, { silent: true });
+      if (ok) sent += 1; else failed += 1;
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+    if (status) status.textContent = `Queue completed. Sent: ${sent}, Failed: ${failed}.`;
+  }
+  (function initBroadcastQueue() {
+    const sendAllBtn = document.getElementById('send-all-whatsapp');
+    if (!sendAllBtn) return;
+    sendAllBtn.addEventListener('click', async () => {
+      sendAllBtn.disabled = true;
+      const original = sendAllBtn.textContent;
+      sendAllBtn.textContent = 'Sending...';
+      try { await sendAllWhatsAppQueue(); } finally {
+        sendAllBtn.disabled = false;
+        sendAllBtn.textContent = original;
+      }
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

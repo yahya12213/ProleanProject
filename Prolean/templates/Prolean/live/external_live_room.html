@@ -1,0 +1,4016 @@
+{% extends 'Prolean/base.html' %}
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
+
+{% block title %}Live Presenter Room{% endblock %}
+{% block main_class %}w-full max-w-none{% endblock %}
+{% block extra_css %}
+<style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+    html, body {
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        background: #05070f;
+    }
+
+    #contact, .floating-buttons { display: none !important; }
+    body > header, body > footer { display: none !important; }
+
+    .presenter-room {
+        --bg-main: radial-gradient(1200px 420px at 12% 8%, rgba(99, 102, 241, 0.22), transparent 60%),
+            radial-gradient(800px 420px at 85% 18%, rgba(16, 185, 129, 0.18), transparent 60%),
+            radial-gradient(700px 420px at 30% 85%, rgba(14, 165, 233, 0.16), transparent 60%),
+            #0b0f1d;
+        --text-main: #f8fafc;
+        --panel-bg: rgba(16, 19, 34, 0.92);
+        --top-bg: rgba(10, 12, 24, 0.92);
+        --panel-border: rgba(148, 163, 184, 0.22);
+        --top-border: rgba(148, 163, 184, 0.18);
+        --media-bg: #0f172a;
+        --label-bg: rgba(2, 6, 23, 0.72);
+        --muted-text: #cbd5f5;
+        --layout-bg: rgba(9, 12, 24, 0.92);
+        --ctrl-bg: rgba(30, 41, 59, 0.65);
+        --mode-bg: rgba(30, 41, 59, 0.55);
+        --resizer-bg: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.06));
+        --resizer-border: rgba(148, 163, 184, 0.25);
+        --empty-text: #a3aed0;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --danger: #ef4444;
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-main);
+        color: var(--text-main);
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+    }
+    .presenter-room.force-landscape {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100dvh;
+        height: 100dvw;
+        max-height: 100dvw;
+        transform-origin: top left;
+        transform: rotate(90deg) translateY(-100%);
+        z-index: 120;
+    }
+
+    .presenter-room[data-ui-theme="light"] {
+        --bg-main: radial-gradient(1400px 600px at 8% 8%, rgba(15, 23, 42, 0.7), transparent 60%),
+            radial-gradient(1200px 600px at 92% 10%, rgba(2, 6, 23, 0.9), transparent 60%),
+            radial-gradient(900px 520px at 40% 90%, rgba(8, 47, 73, 0.55), transparent 55%),
+            #05070f;
+        --text-main: #e2e8f0;
+        --panel-bg: rgba(8, 12, 20, 0.82);
+        --top-bg: rgba(8, 11, 21, 0.92);
+        --panel-border: rgba(148, 163, 184, 0.22);
+        --top-border: rgba(148, 163, 184, 0.2);
+        --media-bg: #070b14;
+        --label-bg: rgba(2, 6, 23, 0.72);
+        --muted-text: #94a3b8;
+        --layout-bg: rgba(9, 12, 24, 0.92);
+        --ctrl-bg: rgba(30, 41, 59, 0.65);
+        --mode-bg: rgba(30, 41, 59, 0.55);
+        --resizer-bg: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.06));
+        --resizer-border: rgba(148, 163, 184, 0.25);
+        --empty-text: #a3aed0;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --danger: #ef4444;
+    }
+
+    .room-top {
+        border-bottom: 1px solid var(--top-border);
+        background: linear-gradient(180deg, rgba(8, 12, 26, 0.95), rgba(6, 9, 20, 0.98));
+        flex: 0 0 auto;
+        backdrop-filter: blur(16px);
+        padding: 12px 18px;
+        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .header-left,
+    .header-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .session-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #f8fafc;
+    }
+
+    .session-id {
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.6);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-text);
+    }
+
+    .header-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .header-pill .material-symbols-outlined {
+        font-size: 16px;
+    }
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .conn-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+    }
+    .conn-pill.ok .conn-dot {
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .conn-pill.err .conn-dot {
+        background: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    }
+
+    .leave-btn {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(239, 68, 68, 0.65);
+        background: rgba(239, 68, 68, 0.18);
+        color: #fee2e2;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .leave-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 20px rgba(239, 68, 68, 0.32);
+        border-color: rgba(239, 68, 68, 0.9);
+    }
+
+    .room-shell {
+        display: grid;
+        grid-template-columns: minmax(0, calc(100% - var(--right-pane-width, 28%))) 10px minmax(0, var(--right-pane-width, 28%));
+        grid-template-areas: "left resize right";
+        gap: 14px;
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 14px 16px 96px;
+        overflow: hidden;
+    }
+
+    .presence-board {
+        margin: 0 16px 12px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 16px;
+        background: rgba(9, 12, 24, 0.72);
+        padding: 12px 14px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.05), 0 14px 28px rgba(2, 6, 23, 0.35);
+        backdrop-filter: blur(12px);
+    }
+
+    .watermark {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 10px;
+        opacity: 0.72;
+        mix-blend-mode: screen;
+        overflow: hidden;
+    }
+    .presenter-room[data-ui-theme="light"] .watermark { mix-blend-mode: multiply; opacity: 0.55; }
+    .wm-chip {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 2px;
+        max-width: 70%;
+        border-radius: 12px;
+        padding: 6px 8px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(0, 0, 0, 0.25);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        filter: drop-shadow(0 8px 18px rgba(0,0,0,.25));
+    }
+    .presenter-room[data-ui-theme="light"] .wm-chip {
+        background: rgba(255, 255, 255, 0.55);
+        color: #0f172a;
+    }
+    .wm-chip .small { font-size: 9px; opacity: 0.85; letter-spacing: 0.10em; }
+    .wm-chip.right { align-items: flex-end; max-width: 48%; }
+    .wm-float-left { animation: wmFloatLeft 5.8s ease-in-out infinite; }
+    .wm-float-right { animation: wmFloatRight 6.4s ease-in-out infinite; }
+    @keyframes wmFloatLeft {
+        0% { transform: translate3d(0, 0, 0); }
+        35% { transform: translate3d(8px, -5px, 0); }
+        70% { transform: translate3d(-5px, 4px, 0); }
+        100% { transform: translate3d(0, 0, 0); }
+    }
+    @keyframes wmFloatRight {
+        0% { transform: translate3d(0, 0, 0); }
+        40% { transform: translate3d(-9px, 4px, 0); }
+        75% { transform: translate3d(5px, -5px, 0); }
+        100% { transform: translate3d(0, 0, 0); }
+    }
+
+    .mod-drawer {
+        position: fixed;
+        top: 76px;
+        right: 12px;
+        width: min(420px, calc(100vw - 24px));
+        max-height: calc(100vh - 140px);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        background: var(--panel-bg);
+        box-shadow: 0 24px 80px rgba(0,0,0,.35);
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        z-index: 60;
+    }
+    .mod-drawer.open { display: flex; }
+    .mod-head {
+        padding: 12px;
+        border-bottom: 1px solid var(--panel-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: linear-gradient(135deg, rgba(255, 107, 0, 0.10), rgba(6, 182, 212, 0.08));
+    }
+    .mod-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: var(--text-main);
+    }
+    .mod-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mod-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.55);
+        color: var(--text-main);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .mod-btn.loading {
+        opacity: 0.6;
+        cursor: wait;
+        transform: none;
+        box-shadow: none;
+    }
+    .mod-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(2, 6, 23, 0.35);
+        border-color: rgba(56, 189, 248, 0.6);
+    }
+    .mod-btn.danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.28); }
+    .mod-body { padding: 12px; overflow: auto; display: grid; gap: 10px; }
+    .mod-row {
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 10px;
+        background: rgba(148, 163, 184, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-width: 0;
+    }
+    .mod-row .name { font-size: 12px; font-weight: 900; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mod-row .meta { font-size: 10px; font-weight: 900; color: var(--muted-text); letter-spacing: 0.10em; text-transform: uppercase; }
+    .mod-row .btns { display: flex; gap: 8px; flex: 0 0 auto; }
+    .mod-mini {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.55);
+        color: var(--text-main);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .mod-mini:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(2, 6, 23, 0.35);
+        border-color: rgba(56, 189, 248, 0.6);
+    }
+    .mod-mini.danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.28); }
+
+    .hand-queue-panel {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 70;
+        min-width: 220px;
+        border-radius: 16px;
+        padding: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(12, 16, 30, 0.92);
+        box-shadow: 0 22px 48px rgba(2, 6, 23, 0.5);
+        display: none;
+    }
+    .hand-queue-panel.open { display: block; }
+    .hand-queue-title {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #dbeafe;
+        margin-bottom: 8px;
+    }
+    .hand-queue-title .hand-queue-next {
+        margin-left: auto;
+        padding: 6px 10px;
+        font-size: 10px;
+        border-radius: 999px;
+    }
+    .hand-queue-list {
+        display: grid;
+        gap: 6px;
+    }
+    .hand-queue-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.55);
+        font-size: 12px;
+        font-weight: 700;
+        color: #f1f5ff;
+    }
+    .hand-queue-actions {
+        display: inline-flex;
+        gap: 6px;
+    }
+    .hand-queue-btn {
+        border-radius: 999px;
+        border: 1px solid rgba(56, 189, 248, 0.55);
+        background: rgba(14, 116, 144, 0.2);
+        color: #e0f2fe;
+        font-size: 9px;
+        font-weight: 900;
+        padding: 6px 9px;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .hand-queue-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(2, 6, 23, 0.35);
+        border-color: rgba(56, 189, 248, 0.9);
+    }
+    .hand-queue-btn.danger {
+        background: rgba(239, 68, 68, 0.22);
+        border-color: rgba(239, 68, 68, 0.65);
+        color: #fecaca;
+    }
+
+    .hand-toast-rail {
+        position: fixed;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 75;
+        display: grid;
+        gap: 8px;
+        pointer-events: none;
+    }
+    .hand-toast {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        background: rgba(10, 14, 28, 0.88);
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .02em;
+        box-shadow: 0 16px 30px rgba(8, 10, 26, 0.4);
+    }
+
+    .hand-self-indicator {
+        position: fixed;
+        bottom: 84px;
+        left: 16px;
+        z-index: 60;
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        background: rgba(10, 14, 28, 0.86);
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 800;
+    }
+    .hand-self-indicator.open { display: inline-flex; }
+
+    .kick-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.58);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 80;
+        padding: 12px;
+    }
+    .kick-modal.open { display: flex; }
+    .kick-modal-card {
+        width: min(520px, 100%);
+        border-radius: 18px;
+        border: 1px solid rgba(129, 140, 248, 0.46);
+        background: linear-gradient(160deg, rgba(20, 24, 44, 0.98) 0%, rgba(15, 18, 34, 0.98) 100%);
+        box-shadow: 0 26px 70px rgba(0, 0, 0, 0.45);
+        padding: 16px;
+        display: grid;
+        gap: 12px;
+    }
+    .kick-modal-title {
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: #dbe5ff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .kick-modal textarea {
+        width: 100%;
+        min-height: 100px;
+        border-radius: 12px;
+        border: 1px solid rgba(129, 140, 248, 0.36);
+        background: rgba(8, 12, 26, 0.74);
+        color: #f1f5ff;
+        padding: 12px;
+        resize: vertical;
+        outline: none;
+    }
+    .kick-modal textarea:focus {
+        border-color: rgba(59, 130, 246, 0.68);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+    }
+    .kick-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .kick-modal-btn {
+        border-radius: 10px;
+        border: 1px solid rgba(129, 140, 248, 0.42);
+        background: linear-gradient(180deg, #2f3362 0%, #24284f 100%);
+        color: #e8ecff;
+        padding: 9px 13px;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .kick-modal-btn.confirm {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.5);
+        color: #fecaca;
+    }
+
+    .presence-col {
+        min-width: 0;
+    }
+
+    .presence-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+
+    .presence-title {
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted-text);
+    }
+
+    .presence-count {
+        font-size: 11px;
+        font-weight: 900;
+        color: var(--text-main);
+        background: rgba(148, 163, 184, 0.16);
+        border-radius: 999px;
+        padding: 2px 8px;
+    }
+
+    .presence-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 30px;
+    }
+
+    .presence-chip {
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 999px;
+        padding: 3px 9px;
+        border: 1px solid transparent;
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--text-main);
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .presence-chip.online {
+        background: rgba(34, 197, 94, 0.18);
+        border-color: rgba(34, 197, 94, 0.45);
+        color: #86efac;
+    }
+
+    .presence-chip.speaking {
+        background: rgba(239, 68, 68, 0.16);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #fca5a5;
+    }
+
+    .presence-chip.hand {
+        background: rgba(34, 197, 94, 0.18);
+        border-color: rgba(34, 197, 94, 0.45);
+        color: #86efac;
+    }
+
+    .presence-empty {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--empty-text);
+    }
+
+    @media (max-width: 1100px) {
+        .room-shell {
+            grid-template-columns: 1fr;
+            grid-template-areas: "left" "right";
+            grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .presence-board {
+            grid-template-columns: 1fr;
+            margin: 0 8px 8px;
+            padding: 8px;
+        }
+
+    .pane-main, .pane-side {
+        min-height: 0;
+    }
+}
+
+    .pane {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.8), rgba(2, 6, 23, 0.92));
+        border-radius: 18px;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5), inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+    }
+    .pane.live-glow {
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2), 0 24px 48px rgba(2, 6, 23, 0.5);
+        border-color: rgba(56, 189, 248, 0.45);
+    }
+
+    .pane-main {
+        min-height: 0;
+        grid-area: left;
+    }
+
+    .pane-side {
+        min-height: 0;
+        cursor: pointer;
+        min-width: 0;
+        grid-area: right;
+    }
+
+    .right-split {
+        height: 100%;
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        min-height: 0;
+    }
+
+    .right-split-top, .right-split-bottom {
+        position: relative;
+        min-height: 0;
+        background: var(--media-bg);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .right-split-bottom {
+        border-top: 2px solid rgba(56, 189, 248, 0.6);
+    }
+
+    .pane-title {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 5;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(2, 6, 23, 0.9));
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        box-shadow: 0 10px 22px rgba(2, 6, 23, 0.35);
+    }
+    .prof-overlay {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 6;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.75);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        backdrop-filter: blur(8px);
+    }
+    .prof-overlay .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--accent);
+    }
+    .placeholder {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--muted-text);
+        gap: 10px;
+    }
+    .placeholder .icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: var(--accent);
+    }
+    .placeholder .title {
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #e2e8f0;
+    }
+    .placeholder .desc {
+        font-size: 12px;
+        color: var(--muted-text);
+        max-width: 280px;
+    }
+
+    .speaker-border { box-shadow: none; animation: none; }
+    .raised-border { box-shadow: none; }
+
+    @keyframes speakerPulse {
+        0% { box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 0.88), 0 0 0 0 rgba(34, 197, 94, 0.42), 0 0 20px rgba(34, 197, 94, 0.2); }
+        50% { box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 1), 0 0 0 7px rgba(34, 197, 94, 0.18), 0 0 26px rgba(34, 197, 94, 0.36); }
+        100% { box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 0.88), 0 0 0 0 rgba(34, 197, 94, 0.42), 0 0 20px rgba(34, 197, 94, 0.2); }
+    }
+
+    .video-host {
+        width: 100%;
+        height: 100%;
+        background: var(--media-bg);
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .video-host video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-host {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 20% 20%, #1f2937 0%, #0b0d11 100%);
+    }
+
+    .avatar-badge {
+        width: 96px;
+        height: 96px;
+        border-radius: 999px;
+        background: #f97316;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 38px;
+        font-weight: 900;
+    }
+
+    .student-grid {
+        display: grid;
+        grid-template-columns: repeat(var(--student-grid-cols, 2), minmax(0, 1fr));
+        gap: 10px;
+        padding: 44px 10px 10px;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+        align-items: stretch;
+    }
+
+    .student-grid.compact {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+        padding: 8px;
+    }
+
+    .student-grid.compact .student-card {
+        min-height: 0;
+    }
+
+    .student-card {
+        min-height: var(--student-tile-min-h, 120px);
+        height: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 14px;
+        overflow: hidden;
+        position: relative;
+        background: var(--media-bg);
+        box-shadow: 0 16px 28px rgba(2, 6, 23, 0.45);
+        transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .student-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(56, 189, 248, 0.55);
+        box-shadow: 0 22px 36px rgba(2, 6, 23, 0.55);
+    }
+    .student-card.fade-in {
+        animation: fadeInUp .4s ease;
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .raised-emoji {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 5;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        border: 1px solid rgba(250, 204, 21, 0.5);
+        background: rgba(113, 63, 18, 0.76);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+    }
+
+    .student-talk-wave {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        z-index: 5;
+        width: 42px;
+        height: 24px;
+        border-radius: 10px;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 3px;
+        padding: 4px 5px;
+        background: rgba(6, 12, 22, 0.66);
+        border: 1px solid rgba(74, 222, 128, 0.4);
+        --wave-boost: 1;
+    }
+
+    .student-card.speaker-border .student-talk-wave {
+        display: inline-flex;
+    }
+
+    .student-talk-wave span {
+        width: 4px;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #bbf7d0, #16a34a);
+        height: calc((8px + var(--wave-boost) * 8px) * var(--bar));
+        animation: talkWave 640ms ease-in-out infinite;
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+    }
+
+    .student-talk-wave span:nth-child(1) { --bar: 0.64; animation-delay: 0s; }
+    .student-talk-wave span:nth-child(2) { --bar: 1; animation-delay: 0.12s; }
+    .student-talk-wave span:nth-child(3) { --bar: 0.7; animation-delay: 0.24s; }
+
+    @keyframes talkWave {
+        0%, 100% { transform: scaleY(0.8); opacity: 0.74; }
+        50% { transform: scaleY(1.16); opacity: 1; }
+    }
+
+    .student-actions {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .student-action-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(15, 23, 42, 0.82);
+        color: #e2e8f0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .student-action-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    .student-action-btn.danger {
+        background: rgba(127, 29, 29, 0.86);
+        border-color: rgba(248, 113, 113, 0.45);
+        color: #fecaca;
+    }
+
+    .agora-video-slot {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .agora-video-slot.clickable {
+        cursor: zoom-in;
+    }
+    .queue-label {
+        font-size: 11px;
+        font-weight: 800;
+        margin-left: 6px;
+        letter-spacing: 0.04em;
+    }
+    .speaker-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(16, 185, 129, 0.9);
+        color: #042f2e;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+        z-index: 6;
+    }
+    .active-speaker {
+        border-color: rgba(16, 185, 129, 0.85) !important;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+    }
+
+    .agora-video-slot.fit-contain {
+        background: #000;
+    }
+    .agora-video-slot.fit-contain video {
+        object-fit: contain !important;
+    }
+
+    .student-card video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .student-label {
+        position: absolute;
+        left: 6px;
+        bottom: 6px;
+        z-index: 4;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(2, 6, 23, 0.7);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .avatar-host {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        gap: 12px;
+        text-align: center;
+    }
+    .avatar-badge {
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: #e2e8f0;
+        font-size: 22px;
+        font-weight: 900;
+    }
+
+    .bottom-bar {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: 14px;
+        z-index: 90;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: linear-gradient(180deg, rgba(10, 14, 24, 0.95), rgba(8, 11, 20, 0.98));
+        box-shadow: 0 20px 40px rgba(2, 6, 23, 0.55);
+        backdrop-filter: blur(14px);
+    }
+    .bottom-left, .bottom-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted-text);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+    }
+    .dock {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.6);
+        box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+    }
+
+    .ctrl-btn {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+        color: #e2e8f0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease, background .2s ease;
+        box-shadow: 0 10px 20px rgba(4, 7, 20, 0.45);
+        position: relative;
+        overflow: hidden;
+    }
+    .dock-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+    }
+    .dock-btn.primary {
+        background: linear-gradient(180deg, rgba(56, 189, 248, 0.98) 0%, rgba(37, 99, 235, 0.98) 100%);
+        border-color: rgba(56, 189, 248, 0.95);
+        color: #f8fafc;
+    }
+    .dock-btn.danger {
+        background: radial-gradient(circle at 35% 25%, rgba(239, 68, 68, 0.95) 0%, rgba(153, 27, 27, 0.98) 100%);
+        border-color: rgba(248, 113, 113, 0.85);
+        color: #fee2e2;
+    }
+    .vol-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .vol-slider {
+        width: 90px;
+        accent-color: var(--accent);
+    }
+
+    .ctrl-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(5, 7, 18, 0.5);
+        border-color: rgba(148, 163, 184, 0.75);
+        filter: brightness(1.08);
+    }
+
+    .ctrl-btn[data-state="off"] {
+        background: radial-gradient(circle at 35% 25%, rgba(239, 68, 68, 0.95) 0%, rgba(153, 27, 27, 0.98) 100%);
+        border-color: rgba(248, 113, 113, 0.85);
+        color: #fee2e2;
+        box-shadow: 0 12px 26px rgba(239, 68, 68, 0.35);
+    }
+
+    .ctrl-btn .material-symbols-outlined {
+        font-size: 21px;
+        font-variation-settings: "FILL" 1, "wght" 600, "GRAD" 0, "opsz" 24;
+    }
+    .ctrl-btn.active {
+        background: linear-gradient(180deg, rgba(56, 189, 248, 0.95) 0%, rgba(37, 99, 235, 0.95) 100%);
+        border-color: rgba(56, 189, 248, 0.95);
+        color: #f8fafc;
+    }
+    .ctrl-btn.active::after {
+        content: "";
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        right: -3px;
+        top: -3px;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    }
+
+    #end-live.ctrl-btn {
+        background: radial-gradient(circle at 35% 25%, #fb7185 0%, #be123c 100%);
+        border-color: rgba(251, 113, 133, 0.85);
+        color: #fff1f2;
+    }
+
+    #toggle-screen.ctrl-btn,
+    #enable-sound.ctrl-btn,
+    #toggle-fullscreen.ctrl-btn,
+    #cycle-right-mode.ctrl-btn {
+        background: radial-gradient(circle at 35% 25%, #38bdf8 0%, #2563eb 100%);
+        border-color: rgba(125, 211, 252, 0.8);
+        color: #ecfeff;
+    }
+
+    .mode-btn {
+        height: 34px;
+        padding: 0 11px;
+        border-radius: 11px;
+        border: 1px solid rgba(129, 140, 248, 0.45);
+        background: linear-gradient(180deg, #2a2d56 0%, #23264a 100%);
+        color: #dbe5ff;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        box-shadow: 0 8px 18px rgba(6, 10, 27, 0.42);
+    }
+
+    .mode-btn.active {
+        background: linear-gradient(180deg, #22d3ee 0%, #2563eb 100%);
+        border-color: rgba(103, 232, 249, 0.95);
+        color: #f8fafc;
+    }
+
+    .layout-panel {
+        margin-left: auto;
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: var(--layout-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 8px;
+    }
+
+    .layout-panel.open {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .layout-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted-text);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .layout-item input[type="range"] {
+        width: 88px;
+    }
+
+    .layout-item .value {
+        min-width: 26px;
+        text-align: right;
+        color: #f8fafc;
+    }
+
+    .room-fullscreen .room-top {
+        display: none;
+    }
+
+    @media (max-width: 1100px) {
+        html, body {
+            overflow-y: auto;
+        }
+
+        .presenter-room {
+            height: 100dvh;
+            max-height: 100dvh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .room-shell {
+            min-height: 0;
+        }
+    }
+
+    @media (max-width: 900px) {
+
+        .room-shell {
+            padding: 8px;
+            gap: 6px;
+            grid-template-columns: 1fr 8px 1fr;
+            grid-template-areas: "left resize right";
+            grid-template-rows: minmax(0, 1fr);
+            overflow-y: auto;
+        }
+
+        .pane {
+            border-radius: 10px;
+        }
+
+        .pane-title {
+            font-size: 10px;
+            padding: 3px 7px;
+        }
+
+        .controls-bar {
+            padding: 8px;
+            margin: 0 8px calc(10px + env(safe-area-inset-bottom, 0px));
+            gap: 6px;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            position: sticky;
+            bottom: 0;
+            z-index: 9;
+            backdrop-filter: blur(6px);
+        }
+
+        .ctrl-btn {
+            width: 40px;
+            height: 40px;
+            flex: 0 0 auto;
+        }
+
+        .mode-btn {
+            height: 30px;
+            padding: 0 8px;
+            flex: 0 0 auto;
+        }
+
+        .layout-panel {
+            min-width: max-content;
+        }
+    }
+    .presenter-room.force-landscape .room-shell {
+        overflow: hidden;
+    }
+
+    .presenter-room.room-fullscreen .room-shell {
+        grid-template-columns: minmax(0, calc(100% - var(--right-pane-width, 70%))) 10px minmax(0, var(--right-pane-width, 70%));
+        grid-template-areas: "left resize right";
+        grid-template-rows: minmax(0, 1fr);
+        overflow: hidden;
+    }
+
+    .presenter-room.swapped .room-shell {
+        grid-template-columns: minmax(0, var(--right-pane-width, 28%)) 10px minmax(0, calc(100% - var(--right-pane-width, 28%)));
+        grid-template-areas: "right resize left";
+    }
+
+    .presenter-room.swapped #pane-resizer {
+        cursor: col-resize;
+    }
+
+    .pane-resizer {
+        grid-area: resize;
+        align-self: stretch;
+        border-radius: 999px;
+        background: var(--resizer-bg);
+        border: 1px solid var(--resizer-border);
+        position: relative;
+        cursor: col-resize;
+        touch-action: none;
+    }
+    @media (max-width: 900px) {
+        .pane-resizer {
+            width: 12px;
+        }
+    }
+
+    .pane-resizer::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 4px;
+        height: 32px;
+        border-radius: 999px;
+        background: rgba(203, 213, 225, 0.45);
+    }
+
+    .pane-resizer.dragging {
+        background: linear-gradient(180deg, rgba(249, 115, 22, 0.45), rgba(249, 115, 22, 0.2));
+        border-color: rgba(249, 115, 22, 0.7);
+    }
+
+    .empty-students {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--empty-text);
+        font-size: 18px;
+        font-weight: 700;
+        padding: 20px;
+    }
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .presenter-room {
+        --bg-main: radial-gradient(1400px 600px at 8% 8%, rgba(15, 23, 42, 0.7), transparent 60%),
+            radial-gradient(1200px 600px at 92% 10%, rgba(2, 6, 23, 0.9), transparent 60%),
+            radial-gradient(900px 520px at 40% 90%, rgba(8, 47, 73, 0.55), transparent 55%),
+            #05070f;
+        --panel-bg: rgba(8, 12, 20, 0.82);
+        --panel-border: rgba(148, 163, 184, 0.22);
+        --panel-glow: rgba(30, 64, 175, 0.2);
+        --text-main: #e2e8f0;
+        --muted-text: #94a3b8;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --danger: #ef4444;
+        --warn: #f59e0b;
+        --hand: #fbbf24;
+        --muted: #64748b;
+    }
+
+    .room-top.live-header {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        background: linear-gradient(180deg, rgba(10, 14, 26, 0.95), rgba(8, 11, 21, 0.9));
+        padding: 8px 14px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr);
+        gap: 10px;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        backdrop-filter: blur(16px);
+        min-height: 60px;
+        max-height: 60px;
+    }
+
+    .header-left,
+    .header-center,
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+
+    .header-center {
+        justify-content: center;
+    }
+
+    .header-right {
+        justify-content: flex-end;
+    }
+
+    .session-title {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #f8fafc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .session-subtitle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+
+    .session-id,
+    .session-chip {
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.6);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-text);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .header-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 42, 0.55);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+        white-space: nowrap;
+    }
+
+    .live-pill {
+        border-color: rgba(248, 113, 113, 0.6);
+        color: #fecaca;
+    }
+
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #ef4444;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+        animation: livePulse 1.6s ease-out infinite;
+    }
+
+    @keyframes livePulse {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    .conn-pill.ok .conn-dot {
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .conn-pill.err .conn-dot {
+        background: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    }
+    .conn-pill.warn .conn-dot {
+        background: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    .security-pill {
+        border-color: rgba(56, 189, 248, 0.5);
+        color: #bae6fd;
+    }
+
+    .leave-btn {
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(239, 68, 68, 0.65);
+        background: rgba(239, 68, 68, 0.18);
+        color: #fee2e2;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+        white-space: nowrap;
+    }
+
+    .room-shell {
+        padding: 16px 16px 140px;
+        gap: 16px;
+    }
+
+    .pane {
+        border-radius: 22px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.94));
+        box-shadow: 0 28px 60px rgba(2, 6, 23, 0.5), inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+    }
+
+    .pane.live-glow {
+        border-color: rgba(248, 113, 113, 0.35);
+        box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.22), 0 28px 60px rgba(2, 6, 23, 0.5);
+    }
+
+    .pane-title {
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .video-host {
+        border-radius: 18px;
+        overflow: hidden;
+        position: relative;
+        background: #000;
+    }
+
+    .stage-meta {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        display: inline-flex;
+        gap: 8px;
+        z-index: 6;
+    }
+
+    .stage-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.7);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        backdrop-filter: blur(8px);
+    }
+
+    .stage-chip.live {
+        border-color: rgba(248, 113, 113, 0.5);
+        color: #fecaca;
+    }
+
+    .prof-overlay {
+        border-color: rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.7);
+        font-size: 10px;
+    }
+
+    .placeholder {
+        gap: 12px;
+        color: var(--muted-text);
+    }
+    .placeholder .icon {
+        background: rgba(2, 6, 23, 0.6);
+        border-color: rgba(56, 189, 248, 0.4);
+        color: #60a5fa;
+        box-shadow: 0 18px 30px rgba(2, 6, 23, 0.45);
+    }
+    .placeholder .title {
+        color: #e2e8f0;
+    }
+    .placeholder .desc {
+        color: var(--muted-text);
+    }
+
+    .control-dock {
+        position: fixed;
+        left: 50%;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: linear-gradient(180deg, rgba(10, 14, 24, 0.92), rgba(7, 10, 18, 0.95));
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.55);
+        backdrop-filter: blur(16px);
+    }
+
+    .dock-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.55);
+    }
+
+    .dock-group-session {
+        gap: 6px;
+    }
+
+    .ctrl-btn.dock-btn {
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: radial-gradient(circle at 30% 25%, rgba(30, 41, 59, 0.98) 0%, rgba(10, 16, 30, 0.98) 100%);
+        color: #e2e8f0;
+        box-shadow: 0 10px 20px rgba(4, 7, 20, 0.45);
+        transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+    }
+
+    .ctrl-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        filter: grayscale(0.2);
+        box-shadow: none;
+    }
+
+    .ctrl-btn.dock-btn:hover {
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 18px 30px rgba(5, 7, 18, 0.55);
+        border-color: rgba(56, 189, 248, 0.6);
+    }
+
+    .ctrl-btn.dock-btn[data-state="off"] {
+        background: radial-gradient(circle at 35% 25%, rgba(239, 68, 68, 0.95) 0%, rgba(127, 29, 29, 0.98) 100%);
+        border-color: rgba(248, 113, 113, 0.85);
+        color: #fee2e2;
+        box-shadow: 0 12px 26px rgba(239, 68, 68, 0.35);
+    }
+
+    .ctrl-btn.primary {
+        background: radial-gradient(circle at 35% 25%, rgba(251, 191, 36, 0.95) 0%, rgba(217, 119, 6, 0.98) 100%);
+        border-color: rgba(251, 191, 36, 0.85);
+        color: #1f1300;
+    }
+
+    .ctrl-btn.active {
+        background: radial-gradient(circle at 35% 25%, rgba(56, 189, 248, 0.98) 0%, rgba(37, 99, 235, 0.98) 100%);
+        border-color: rgba(125, 211, 252, 0.85);
+        color: #f8fafc;
+    }
+
+    .ctrl-btn.danger {
+        background: radial-gradient(circle at 35% 25%, rgba(239, 68, 68, 0.95) 0%, rgba(153, 27, 27, 0.98) 100%);
+        border-color: rgba(248, 113, 113, 0.85);
+        color: #fee2e2;
+    }
+
+    .ctrl-btn[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        opacity: 0;
+        pointer-events: none;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(2, 6, 23, 0.85);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transition: opacity .15s ease, transform .15s ease;
+        white-space: nowrap;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        z-index: 4;
+    }
+
+    .ctrl-btn[data-tooltip]:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .dock-volume {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.7);
+        color: #e2e8f0;
+        position: relative;
+    }
+
+    .dock-volume[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        opacity: 0;
+        pointer-events: none;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(2, 6, 23, 0.85);
+        color: #e2e8f0;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transition: opacity .15s ease, transform .15s ease;
+        white-space: nowrap;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        z-index: 4;
+    }
+
+    .dock-volume[data-tooltip]:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .vol-slider {
+        width: 90px;
+        accent-color: var(--accent);
+    }
+
+    .student-status {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: inline-flex;
+        gap: 4px;
+        z-index: 6;
+    }
+
+    .status-pill {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(2, 6, 23, 0.6);
+        color: #cbd5f5;
+        opacity: 0.35;
+        transition: opacity .2s ease, transform .2s ease, background .2s ease;
+    }
+
+    .status-pill.connected {
+        opacity: 1;
+        color: #86efac;
+        border-color: rgba(34, 197, 94, 0.45);
+        background: rgba(16, 185, 129, 0.2);
+    }
+
+    .student-card.hand-raised .status-pill.hand {
+        opacity: 1;
+        color: #fef3c7;
+        border-color: rgba(251, 191, 36, 0.75);
+        background: rgba(217, 119, 6, 0.3);
+        transform: scale(1.04);
+    }
+
+    .student-card.speaking .status-pill.speaking {
+        opacity: 1;
+        color: #bbf7d0;
+        border-color: rgba(34, 197, 94, 0.6);
+        background: rgba(16, 185, 129, 0.25);
+        transform: scale(1.04);
+    }
+
+    .student-card.muted .status-pill.muted {
+        opacity: 1;
+        color: #e2e8f0;
+        border-color: rgba(148, 163, 184, 0.6);
+        background: rgba(71, 85, 105, 0.5);
+    }
+
+    .hand-toast {
+        animation: toastIn .35s ease;
+    }
+
+    @keyframes toastIn {
+        from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 1100px) {
+        .room-top.live-header {
+            grid-template-columns: 1fr;
+            gap: 8px;
+            min-height: 60px;
+            max-height: 60px;
+            padding: 6px 10px;
+        }
+        .header-center {
+            justify-content: flex-start;
+        }
+        .control-dock {
+            left: 50%;
+            width: calc(100% - 20px);
+            justify-content: center;
+            flex-wrap: wrap;
+            border-radius: 24px;
+            position: sticky;
+            bottom: 0;
+            margin-top: 8px;
+        }
+        .dock-group {
+            flex-wrap: wrap;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="room-root" class="presenter-room">
+    <div class="room-top live-header">
+        <div class="header-left">
+            <div class="session-title">{% if CURRENT_LANGUAGE == 'ar' %}غرفة البث{% elif CURRENT_LANGUAGE == 'en' %}Live Classroom{% else %}Classe en direct{% endif %}</div>
+            <div class="session-subtitle">
+                <span class="session-id">ID: {{ session_id }}</span>
+                <span class="session-chip">
+                    <span class="material-symbols-outlined">school</span>
+                    {{ professor_name_hint|default:"Professor" }}
+                </span>
+            </div>
+        </div>
+        <div class="header-center">
+            <div class="header-pill live-pill">
+                <span class="live-dot"></span>
+                <span id="live-status-text">Live</span>
+                <span id="header-status-text" class="sr-only">Live</span>
+            </div>
+            <div class="header-pill">
+                <span class="material-symbols-outlined">schedule</span>
+                <span id="live-clock">--:--:--</span>
+            </div>
+            <div id="conn-pill" class="header-pill conn-pill warn">
+                <span class="conn-dot"></span>
+                <span id="conn-status-text">Connecting</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="header-pill security-pill">
+                <span class="material-symbols-outlined">verified</span>
+                Secure
+            </span>
+            <form method="post" action="{% url 'Prolean:external_live_leave' session_id %}">
+                {% csrf_token %}
+                <button type="submit" class="leave-btn">{% if CURRENT_LANGUAGE == 'ar' %}خروج{% elif CURRENT_LANGUAGE == 'en' %}Quit Session{% else %}Quitter{% endif %}</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="conn-error" class="hidden mx-3 mt-2 px-3 py-2 rounded border border-red-500/40 bg-red-500/10 text-red-300 text-xs font-semibold"></div>
+
+    <div id="hand-queue-panel" class="hand-queue-panel">
+        <div class="hand-queue-title">
+            <span class="material-symbols-outlined">front_hand</span>Raised hands
+            <button id="hand-queue-next" type="button" class="hand-queue-btn hand-queue-next">Next Up</button>
+        </div>
+        <div id="hand-queue-list" class="hand-queue-list"></div>
+    </div>
+    <div id="hand-toast-rail" class="hand-toast-rail"></div>
+    <div id="hand-self-indicator" class="hand-self-indicator">
+        <span class="material-symbols-outlined">waving_hand</span>
+        <span id="hand-self-text">Hand raised</span>
+    </div>
+
+    {% if live_role|lower == 'professor' %}
+    <div id="mod-drawer" class="mod-drawer">
+        <div class="mod-head">
+            <div class="mod-title"><span class="material-symbols-outlined">shield_person</span>Moderation</div>
+            <div class="mod-actions">
+                <button id="mute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic_off</span>Mute all</button>
+                <button id="unmute-all" class="mod-btn"><span class="material-symbols-outlined text-base">mic</span>Unmute all</button>
+                <button id="close-mod" class="mod-btn"><span class="material-symbols-outlined text-base">close</span>Close</button>
+            </div>
+        </div>
+        <div id="mod-body" class="mod-body"></div>
+    </div>
+    {% endif %}
+    <div id="kick-reason-modal" class="kick-modal">
+        <div class="kick-modal-card">
+            <div id="kick-modal-title" class="kick-modal-title"><span class="material-symbols-outlined">warning</span>Kick Student</div>
+            <textarea id="kick-reason-input" maxlength="200" placeholder="Reason (required)"></textarea>
+            <div class="kick-modal-actions">
+                <button id="kick-reason-cancel" type="button" class="kick-modal-btn">Cancel</button>
+                <button id="kick-reason-confirm" type="button" class="kick-modal-btn confirm">Kick out</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="room-shell">
+        <section id="left-pane" class="pane pane-main live-glow">
+            <div class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}كاميرا الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Camera{% else %}Caméra professeur{% endif %}</div>
+            <div id="left-host" class="video-host"></div>
+            <div class="prof-overlay">
+                <span class="dot"></span>
+                <span id="prof-date">--/--</span>
+                <span id="prof-time">--:--</span>
+                <span>Prolean</span>
+            </div>
+        </section>
+
+        <div id="pane-resizer" class="pane-resizer" title="{% if CURRENT_LANGUAGE == 'ar' %}اسحب لتعديل الحجم{% elif CURRENT_LANGUAGE == 'en' %}Drag to resize screens{% else %}Glisser pour redimensionner{% endif %}"></div>
+
+        <section id="right-pane" class="pane pane-side">
+            <div id="right-title" class="pane-title">{% if CURRENT_LANGUAGE == 'ar' %}عرض الأستاذ + الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Presentation + Students{% else %}Présentation + étudiants{% endif %}</div>
+            <div id="right-host" class="video-host"></div>
+        </section>
+    </div>
+
+    <div class="control-dock">
+        <div class="dock-group">
+            <button id="toggle-audio" class="ctrl-btn dock-btn" data-state="on" title="Microphone" data-tooltip="Microphone">
+                <span class="material-symbols-outlined">mic</span>
+            </button>
+            <button id="toggle-video" class="ctrl-btn dock-btn" data-state="on" title="Camera" data-tooltip="Camera">
+                <span class="material-symbols-outlined">videocam</span>
+            </button>
+        </div>
+        <div class="dock-group">
+            <button id="toggle-screen" class="ctrl-btn dock-btn" title="Screen Share" data-tooltip="Screen share">
+                <span class="material-symbols-outlined">present_to_all</span>
+            </button>
+            <button id="raise-hand" class="ctrl-btn dock-btn primary" title="Raise Hand" data-tooltip="Raise hand">
+                <span class="material-symbols-outlined">front_hand</span>
+            </button>
+        </div>
+        <div class="dock-group dock-group-session">
+            {% if live_role|lower == 'professor' %}
+            <button id="open-mod" class="ctrl-btn dock-btn" title="Moderation" data-tooltip="Moderation">
+                <span class="material-symbols-outlined">shield_person</span>
+            </button>
+            {% endif %}
+            {% if live_role|lower == 'professor' %}
+            <button id="end-live" class="ctrl-btn dock-btn danger" title="End Live" data-tooltip="End live" data-end-url="{% url 'Prolean:external_professor_live_end' session_id %}">
+                <span class="material-symbols-outlined">stop_circle</span>
+            </button>
+            {% endif %}
+            <button id="toggle-recording" class="ctrl-btn dock-btn" title="Recording" data-tooltip="Recording" disabled>
+                <span class="material-symbols-outlined">fiber_manual_record</span>
+            </button>
+            <button id="enable-sound" class="ctrl-btn dock-btn" title="Enable Sound" data-tooltip="Enable sound">
+                <span class="material-symbols-outlined">volume_up</span>
+            </button>
+            <button id="toggle-view" class="ctrl-btn dock-btn" title="Switch view" data-tooltip="Switch view">
+                <span class="material-symbols-outlined">switch_video</span>
+            </button>
+            <button id="toggle-fullscreen" class="ctrl-btn dock-btn" title="Fullscreen" data-tooltip="Fullscreen">
+                <span class="material-symbols-outlined">fullscreen</span>
+            </button>
+            <div class="dock-volume" data-tooltip="Volume">
+                <span class="material-symbols-outlined">volume_up</span>
+                <input type="range" min="0" max="100" value="80" class="vol-slider" />
+            </div>
+            <div id="audio-sink" class="hidden"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+<script>
+(() => {
+  const uiText = {
+    connecting: "{% if CURRENT_LANGUAGE == 'ar' %}جاري الاتصال{% elif CURRENT_LANGUAGE == 'en' %}Connecting{% else %}Connexion{% endif %}",
+    configMissing: "{% if CURRENT_LANGUAGE == 'ar' %}إعدادات Agora مفقودة.{% elif CURRENT_LANGUAGE == 'en' %}Agora config missing.{% else %}Configuration Agora manquante.{% endif %}",
+    noStudentsOnline: "{% if CURRENT_LANGUAGE == 'ar' %}لا يوجد طلاب متصلون{% elif CURRENT_LANGUAGE == 'en' %}No students online{% else %}Aucun étudiant en ligne{% endif %}",
+    noOneSpeaking: "{% if CURRENT_LANGUAGE == 'ar' %}لا أحد يتكلم الآن{% elif CURRENT_LANGUAGE == 'en' %}No one speaking now{% else %}Personne ne parle maintenant{% endif %}",
+    noRaisedHands: "{% if CURRENT_LANGUAGE == 'ar' %}لا توجد أيادي مرفوعة{% elif CURRENT_LANGUAGE == 'en' %}No raised hands{% else %}Aucune main levée{% endif %}",
+    waitingStudents: "{% if CURRENT_LANGUAGE == 'ar' %}في انتظار انضمام الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Waiting for students to join live{% else %}En attente des étudiants{% endif %}",
+    rightScreen: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Screen Share{% else %}Partage écran prof{% endif %}",
+    rightSplit: "{% if CURRENT_LANGUAGE == 'ar' %}العرض + الطلاب المتصلون{% elif CURRENT_LANGUAGE == 'en' %}Presentation + Connected Students{% else %}Présentation + étudiants connectés{% endif %}",
+    rightStudents: "{% if CURRENT_LANGUAGE == 'ar' %}شبكة الطلاب{% elif CURRENT_LANGUAGE == 'en' %}Students Grid{% else %}Grille étudiants{% endif %}",
+    noScreenShare: "{% if CURRENT_LANGUAGE == 'ar' %}لا توجد مشاركة شاشة{% elif CURRENT_LANGUAGE == 'en' %}No Screen Share{% else %}Aucun partage écran{% endif %}",
+    screenShareLabel: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة الشاشة{% elif CURRENT_LANGUAGE == 'en' %}Screen Share{% else %}Partage écran{% endif %}",
+    profScreenSharing: "{% if CURRENT_LANGUAGE == 'ar' %}مشاركة شاشة الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}The prof screen sharing{% else %}Partage écran du prof{% endif %}",
+  };
+
+  const agoraAppId = "{{ agora_app_id|escapejs }}";
+  const agoraChannel = "{{ agora_channel|escapejs }}";
+  const agoraToken = "{{ agora_token|escapejs }}";
+  const agoraScreenToken = "{{ agora_screen_token|default:''|escapejs }}";
+  const agoraUid = Number("{{ agora_uid|escapejs }}");
+  const professorUidHint = Number("{{ professor_uid_hint|default:'1'|escapejs }}") || 1;
+  const liveRole = String("{{ live_role|escapejs }}").toLowerCase();
+  const isProfessor = liveRole === "professor";
+  const selfName = "{{ user.get_full_name|default:user.username|escapejs }}";
+  const selfUserId = Number("{{ user.id|default:'0'|escapejs }}") || 0;
+  const selfCin = "{{ user.profile.cin_or_passport|default:''|escapejs }}";
+  const professorNameHint = "{{ professor_name_hint|default:'Professor'|escapejs }}";
+  const liveClock = document.getElementById("live-clock");
+  const liveStatusText = document.getElementById("live-status-text");
+  const headerStatusText = document.getElementById("header-status-text");
+  const connPill = document.getElementById("conn-pill");
+  const connStatusText = document.getElementById("conn-status-text");
+  const profDate = document.getElementById("prof-date");
+  const profTime = document.getElementById("prof-time");
+
+  const roomRoot = document.getElementById("room-root");
+  const leftPane = document.getElementById("left-pane");
+  const paneResizer = document.getElementById("pane-resizer");
+  const rightPane = document.getElementById("right-pane");
+  const leftHost = document.getElementById("left-host");
+  const rightHost = document.getElementById("right-host");
+  const rightTitle = document.getElementById("right-title");
+  const connError = document.getElementById("conn-error");
+  const presenceBoard = document.getElementById("presence-board");
+  const onlineList = document.getElementById("online-list");
+  const speakingList = document.getElementById("speaking-list");
+  const raisedList = document.getElementById("raised-list");
+  const onlineCount = document.getElementById("online-count");
+  const speakingCount = document.getElementById("speaking-count");
+  const raisedCount = document.getElementById("raised-count");
+  const btnAudio = document.getElementById("toggle-audio");
+  const btnVideo = document.getElementById("toggle-video");
+  const btnScreen = document.getElementById("toggle-screen");
+  const btnRaiseHand = document.getElementById("raise-hand");
+  const btnEndLive = document.getElementById("end-live");
+  const btnSound = document.getElementById("enable-sound");
+  const btnToggleView = document.getElementById("toggle-view");
+  const btnFullscreen = document.getElementById("toggle-fullscreen");
+  const btnCycleMode = null;
+  const btnModeScreen = null;
+  const btnModeSplit = null;
+  const btnModeStudents = null;
+  const btnToggleLayoutPanel = null;
+  const layoutPanel = null;
+  const btnOpenMod = document.getElementById("open-mod");
+  const modDrawer = document.getElementById("mod-drawer");
+  const modBody = document.getElementById("mod-body");
+  const btnCloseMod = document.getElementById("close-mod");
+  const btnMuteAll = document.getElementById("mute-all");
+  const btnUnmuteAll = document.getElementById("unmute-all");
+  const handQueuePanel = document.getElementById("hand-queue-panel");
+  const handQueueList = document.getElementById("hand-queue-list");
+  const handQueueNext = document.getElementById("hand-queue-next");
+  const handToastRail = document.getElementById("hand-toast-rail");
+  const handSelfIndicator = document.getElementById("hand-self-indicator");
+  const handSelfText = document.getElementById("hand-self-text");
+  const kickReasonModal = document.getElementById("kick-reason-modal");
+  const kickReasonInput = document.getElementById("kick-reason-input");
+  const kickReasonConfirm = document.getElementById("kick-reason-confirm");
+  const kickReasonCancel = document.getElementById("kick-reason-cancel");
+  const kickModalTitle = document.getElementById("kick-modal-title");
+  const swapPanesInput = null;
+  const rightWidthInput = null;
+  const gridColsInput = null;
+  const tileSizeInput = null;
+  const rightWidthValue = null;
+  const gridColsValue = null;
+  const tileSizeValue = null;
+  const btnResetLayout = null;
+
+  let themeObserver = null;
+  let isResizing = false;
+  const fixedThreePaneLayout = false;
+  let rightMode = 1;
+  let screenFocusActive = false;
+  let screenFocusPrev = null;
+  let activeSpeakerUid = null;
+  let speakingHeartbeatTimer = null;
+  let lastNetworkQuality = 0;
+  let warnedPoorNetwork = false;
+  const SCREEN_UID_OFFSET = 1000;
+
+  const participantLabels = new Map();
+  const participantCins = new Map();
+  const videoTracks = new Map();
+  const audioTracks = new Map();
+  const speakingIds = new Set();
+  const speakingLevels = new Map();
+  const raisedHands = new Set();
+  const remotelyMutedIds = new Set();
+  const statsByUid = new Map();
+  let previousSpeaking = new Set();
+  let professorIdentity = String(professorUidHint);
+  let localMicTrack = null;
+  let localCamTrack = null;
+  let localScreenTrack = null;
+  let screenClient = null;
+  let dataStreamId = null;
+  let hasJoined = false;
+  let exiting = false;
+  let warnedNoDataStream = false;
+  let mobileImmersiveRetryArmed = false;
+
+  const mainClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+  const isMobileViewport = () => window.matchMedia("(max-width: 1100px)").matches;
+  rightMode = isMobileViewport() ? 0 : 1;
+
+  const layoutStorageKey = "prolean_live_layout_v1";
+  const defaultLayoutPrefs = { swapped: false, rightWidth: 70, gridCols: 2, tileMinHeight: 120 };
+  let layoutPrefs = { ...defaultLayoutPrefs };
+
+  const normalizeSource = (source) => String(source || "camera");
+  const isScreenShare = (source) => normalizeSource(source).startsWith("screen_share");
+  const initials = (label) => (String(label || "U").trim()[0] || "U").toUpperCase();
+  const normalizeCin = (value) => String(value || "").trim().toUpperCase();
+  const firstSecondName = (value) => String(value || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ");
+  const cinLabel = (identity) => {
+    const label = participantLabels.get(String(identity)) || "";
+    const shortName = firstSecondName(label);
+    return shortName || "Student";
+  };
+
+  const handStateUrl = "{% url 'Prolean:external_live_hand_state' session_id %}";
+  const raiseHandUrl = "{% url 'Prolean:api_raise_hand' %}";
+  const raiseHandQueueUrl = "{% url 'Prolean:api_raise_hand_queue' %}";
+  const approveHandUrl = "{% url 'Prolean:api_approve_hand' %}";
+  const removeSpeakerUrl = "{% url 'Prolean:api_remove_speaker' %}";
+  const speakerHeartbeatUrl = "{% url 'Prolean:api_speaker_heartbeat' session_id %}";
+  const liveAuditUrl = "{% url 'Prolean:api_live_audit_event' %}";
+  const setStatus = (txt, kind = "warn") => {
+    if (connStatusText) connStatusText.textContent = String(txt || "");
+    if (connPill) {
+      connPill.classList.remove("ok", "warn", "err");
+      connPill.classList.add(kind);
+    }
+  };
+  const showError = (message) => {
+    if (!connError) return;
+    connError.textContent = message;
+    connError.classList.remove("hidden");
+  };
+  let handChimeCtx = null;
+  const ensureHandChimeCtx = () => {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!handChimeCtx) handChimeCtx = new AudioCtx();
+    if (handChimeCtx.state === "suspended") {
+      handChimeCtx.resume().catch(() => {});
+    }
+    return handChimeCtx;
+  };
+  document.addEventListener("pointerdown", () => { ensureHandChimeCtx(); }, { once: true });
+  const playHandChime = () => {
+    try {
+      const ctx = ensureHandChimeCtx();
+      if (!ctx) return;
+      const master = ctx.createGain();
+      master.gain.value = 0.22;
+      master.connect(ctx.destination);
+      const now = ctx.currentTime;
+      const tone = (freq, start, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.22, start + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(start);
+        osc.stop(start + dur + 0.08);
+      };
+      tone(494.0, now, 0.22);
+      tone(659.25, now + 0.16, 0.26);
+    } catch (_) {}
+  };
+  const showHandToast = (name) => {
+    if (!handToastRail) return;
+    const toast = document.createElement("div");
+    toast.className = "hand-toast";
+    toast.textContent = `✋ ${String(name || "Student")} raised hand`;
+    handToastRail.appendChild(toast);
+    playHandChime();
+    setTimeout(() => { toast.remove(); }, 5000);
+  };
+  const setSelfHandIndicator = (raised) => {
+    if (!handSelfIndicator || !handSelfText) return;
+    if (raised) {
+      const label = selfName || "You";
+      handSelfText.textContent = `Hand raised: ${label}`;
+      handSelfIndicator.classList.add("open");
+    } else {
+      handSelfIndicator.classList.remove("open");
+    }
+  };
+  const forceMobileImmersive = async () => {
+    if (!isMobileViewport()) return;
+    const applyLandscapeFallback = () => {
+      const portrait = window.innerHeight > window.innerWidth;
+      if (portrait) roomRoot.classList.add("force-landscape");
+      else roomRoot.classList.remove("force-landscape");
+    };
+    applyLandscapeFallback();
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        await screen.orientation.lock("landscape");
+      }
+    } catch (_) {}
+    try {
+      if (!document.fullscreenElement && roomRoot?.requestFullscreen) {
+        await roomRoot.requestFullscreen();
+      }
+    } catch (_) {
+      if (!mobileImmersiveRetryArmed) {
+        mobileImmersiveRetryArmed = true;
+        window.addEventListener("pointerdown", async () => {
+          mobileImmersiveRetryArmed = false;
+          try {
+            if (screen.orientation && typeof screen.orientation.lock === "function") {
+              await screen.orientation.lock("landscape");
+            }
+          } catch (_) {}
+          try {
+            if (!document.fullscreenElement && roomRoot?.requestFullscreen) {
+              await roomRoot.requestFullscreen();
+            }
+          } catch (_) {}
+          applyLandscapeFallback();
+        }, { once: true });
+      }
+    }
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        await screen.orientation.lock("landscape");
+      }
+    } catch (_) {}
+    applyLandscapeFallback();
+    window.addEventListener("resize", applyLandscapeFallback);
+    document.addEventListener("fullscreenchange", applyLandscapeFallback);
+  };
+
+  const detectUiTheme = () => {
+    const body = document.body;
+    const root = document.documentElement;
+    const bodyTheme = String(body?.dataset?.theme || body?.getAttribute("data-bs-theme") || "").toLowerCase();
+    const rootTheme = String(root?.dataset?.theme || root?.getAttribute("data-bs-theme") || "").toLowerCase();
+    const classDark = body?.classList?.contains("dark") || root?.classList?.contains("dark");
+    if (bodyTheme === "light" || rootTheme === "light") return "light";
+    if (bodyTheme === "dark" || rootTheme === "dark" || classDark) return "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  };
+  const applyUiTheme = () => { roomRoot.dataset.uiTheme = detectUiTheme(); };
+  const bindThemeSync = () => {
+    applyUiTheme();
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    if (typeof media.addEventListener === "function") media.addEventListener("change", applyUiTheme);
+    themeObserver = new MutationObserver(applyUiTheme);
+    if (document.body) themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme"] });
+  };
+
+  const applyLayoutPrefs = () => {
+    roomRoot.classList.toggle("swapped", !!layoutPrefs.swapped);
+    roomRoot.style.setProperty("--right-pane-width", `${layoutPrefs.rightWidth}%`);
+    roomRoot.style.setProperty("--student-grid-cols", String(layoutPrefs.gridCols));
+    roomRoot.style.setProperty("--student-tile-min-h", `${layoutPrefs.tileMinHeight}px`);
+    if (rightWidthValue) rightWidthValue.textContent = `${layoutPrefs.rightWidth}%`;
+    if (gridColsValue) gridColsValue.textContent = String(layoutPrefs.gridCols);
+    if (tileSizeValue) tileSizeValue.textContent = String(layoutPrefs.tileMinHeight);
+    if (swapPanesInput) swapPanesInput.checked = !!layoutPrefs.swapped;
+    if (rightWidthInput) rightWidthInput.value = String(layoutPrefs.rightWidth);
+    if (gridColsInput) gridColsInput.value = String(layoutPrefs.gridCols);
+    if (tileSizeInput) tileSizeInput.value = String(layoutPrefs.tileMinHeight);
+  };
+  const persistLayoutPrefs = () => { try { localStorage.setItem(layoutStorageKey, JSON.stringify(layoutPrefs)); } catch (_) {} };
+  const loadLayoutPrefs = () => {
+    try {
+      const raw = localStorage.getItem(layoutStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      layoutPrefs = {
+        swapped: !!parsed.swapped,
+        rightWidth: Math.min(100, Math.max(0, Number(parsed.rightWidth || 70))),
+        gridCols: Math.min(4, Math.max(1, Number(parsed.gridCols || 2))),
+        tileMinHeight: Math.min(220, Math.max(100, Number(parsed.tileMinHeight || 120))),
+      };
+    } catch (_) {}
+  };
+  const toggleScreenFocus = () => {
+    if (!screenFocusActive) {
+      screenFocusPrev = {
+        rightMode,
+        rightWidth: layoutPrefs.rightWidth,
+        swapped: layoutPrefs.swapped,
+      };
+      rightMode = 0;
+      layoutPrefs.rightWidth = 100;
+      layoutPrefs.swapped = false;
+      screenFocusActive = true;
+      applyLayoutPrefs();
+      rerender();
+      return;
+    }
+    if (screenFocusPrev) {
+      rightMode = screenFocusPrev.rightMode;
+      layoutPrefs.rightWidth = screenFocusPrev.rightWidth;
+      layoutPrefs.swapped = screenFocusPrev.swapped;
+    }
+    screenFocusActive = false;
+    applyLayoutPrefs();
+    rerender();
+  };
+
+  const syncControlStates = () => {
+    const micOn = !!localMicTrack && !localMicTrack.muted;
+    const camOn = !!localCamTrack && !localCamTrack.muted;
+    btnAudio.dataset.state = micOn ? "on" : "off";
+    btnVideo.dataset.state = camOn ? "on" : "off";
+    btnAudio.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
+    btnVideo.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
+  };
+  const setRaiseHandLabel = (position = null) => {
+    if (!btnRaiseHand) return;
+    if (position && Number(position) > 0) {
+      btnRaiseHand.innerHTML = `<span class="material-symbols-outlined">front_hand</span><span class="queue-label">#${Number(position)}</span>`;
+      btnRaiseHand.title = `Position in queue: #${Number(position)}`;
+    } else {
+      btnRaiseHand.innerHTML = '<span class="material-symbols-outlined">front_hand</span>';
+      btnRaiseHand.title = "Raise Hand";
+    }
+  };
+  const startSpeakingHeartbeat = (studentId) => {
+    if (speakingHeartbeatTimer) return;
+    speakingHeartbeatTimer = setInterval(async () => {
+      try {
+        await fetch(speakerHeartbeatUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+          body: JSON.stringify({
+            student_id: Number(studentId || 0),
+            network_quality: Number(lastNetworkQuality || 0),
+          }),
+          credentials: "same-origin",
+        });
+      } catch (_) {}
+    }, 5000);
+  };
+  const stopSpeakingHeartbeat = () => {
+    if (!speakingHeartbeatTimer) return;
+    clearInterval(speakingHeartbeatTimer);
+    speakingHeartbeatTimer = null;
+  };
+  const logAudit = async (eventType, payload = {}) => {
+    try {
+      await fetch(liveAuditUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+        body: JSON.stringify({
+          session_id: "{{ session_id }}",
+          event_type: String(eventType || ""),
+          payload: payload || {},
+        }),
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
+
+  const addVideoTrack = (identity, track, source, isLocal = false) => {
+    const key = `${identity}:${source}`;
+    videoTracks.set(key, { track, identity: String(identity), source: normalizeSource(source), isLocal });
+  };
+  const removeVideoTracksByIdentity = (identity) => {
+    for (const [key, item] of videoTracks.entries()) {
+      if (String(item.identity) === String(identity)) {
+        try { item.track.stop(); } catch (_) {}
+        videoTracks.delete(key);
+      }
+    }
+  };
+  const pickTrack = (identity, wantScreen = false) => {
+    const id = String(identity);
+    const entries = Array.from(videoTracks.values()).filter((v) => String(v.identity) === id && (wantScreen ? isScreenShare(v.source) : !isScreenShare(v.source)));
+    return entries.length ? entries[entries.length - 1] : null;
+  };
+
+  const resolveProfessorScreenIdentity = () => String(Number(professorUidHint) + SCREEN_UID_OFFSET);
+  const resolveProfessorIdentity = () => {
+    if (isProfessor) return String(agoraUid);
+    if (participantLabels.has(String(professorUidHint))) return String(professorUidHint);
+    if (participantLabels.has("1")) return "1";
+    return String(professorUidHint);
+  };
+  const isProfessorLike = (identity) => {
+    const id = String(identity);
+    if (id === String(resolveProfessorIdentity())) return true;
+    if (id === resolveProfessorScreenIdentity()) return true;
+    if (id === String(Number(resolveProfessorIdentity()) + SCREEN_UID_OFFSET)) return true;
+    return false;
+  };
+
+  const renderAvatar = (host, label) => {
+    host.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "avatar-host";
+    const badge = document.createElement("div");
+    badge.className = "avatar-badge";
+    badge.textContent = initials(label);
+    wrap.appendChild(badge);
+    const footer = document.createElement("div");
+    footer.className = "student-label";
+    footer.textContent = label;
+    wrap.appendChild(footer);
+    host.appendChild(wrap);
+  };
+  const renderTrack = (host, data, label) => {
+    host.innerHTML = "";
+    const media = document.createElement("div");
+    media.className = "agora-video-slot";
+    const fit = isScreenShare(data?.source) ? "contain" : "cover";
+    if (fit === "contain") media.classList.add("fit-contain");
+    if (isScreenShare(data?.source)) {
+      media.classList.add("clickable");
+      media.addEventListener("click", () => {
+        if (screenFocusActive) toggleScreenFocus();
+        rightMode = (rightMode + 1) % 3;
+        rerender();
+      });
+    }
+    if (activeSpeakerUid && String(data?.identity || "") === String(activeSpeakerUid)) {
+      media.classList.add("active-speaker");
+      const badge = document.createElement("div");
+      badge.className = "speaker-badge";
+      badge.textContent = "Speaking";
+      media.appendChild(badge);
+    }
+    host.appendChild(media);
+    data.track.play(media, { fit });
+    const wm = document.createElement("div");
+    wm.className = "watermark";
+    wm.innerHTML = `
+      <div class="wm-chip wm-float-left">
+        <div>${String(label || "").slice(0, 80)}</div>
+        <div class="small">${cinLabel(data?.identity || "")}</div>
+      </div>
+      <div class="wm-chip right wm-float-right">
+        <div class="wm-ts">--:--:--</div>
+        <div class="small">prolean</div>
+      </div>
+    `;
+    media.appendChild(wm);
+    const footer = document.createElement("div");
+    footer.className = "student-label";
+    footer.textContent = label;
+    host.appendChild(footer);
+  };
+
+  const markPaneBorders = () => {
+    leftPane.classList.remove("speaker-border", "raised-border");
+    rightPane.classList.remove("speaker-border", "raised-border");
+    const prof = resolveProfessorIdentity();
+    if (speakingIds.has(prof)) leftPane.classList.add("speaker-border");
+    if (raisedHands.has(prof)) leftPane.classList.add("raised-border");
+    const studentIds = Array.from(participantLabels.keys()).filter((id) => !isProfessorLike(id));
+    if (studentIds.some((id) => speakingIds.has(id))) rightPane.classList.add("speaker-border");
+    if (studentIds.some((id) => raisedHands.has(id))) rightPane.classList.add("raised-border");
+  };
+  const identityLabel = (id) => participantLabels.get(String(id)) || `Student ${id}`;
+  const paintPresenceList = (host, ids, type, emptyText) => {
+    host.innerHTML = "";
+    if (!ids.length) {
+      const empty = document.createElement("span");
+      empty.className = "presence-empty";
+      empty.textContent = emptyText;
+      host.appendChild(empty);
+      return;
+    }
+    ids.forEach((id) => {
+      const chip = document.createElement("span");
+      chip.className = `presence-chip ${type}`;
+      chip.textContent = identityLabel(id);
+      host.appendChild(chip);
+    });
+  };
+  const refreshPresenceBoard = () => {
+    if (!presenceBoard || !isProfessor) return;
+    const studentIds = getStudentEntries().map((s) => s.id);
+    const speakingStudentIds = studentIds.filter((id) => speakingIds.has(id));
+    const raisedStudentIds = studentIds.filter((id) => raisedHands.has(id));
+    onlineCount.textContent = String(studentIds.length);
+    speakingCount.textContent = String(speakingStudentIds.length);
+    raisedCount.textContent = String(raisedStudentIds.length);
+    paintPresenceList(onlineList, studentIds, "online", uiText.noStudentsOnline);
+    paintPresenceList(speakingList, speakingStudentIds, "speaking", uiText.noOneSpeaking);
+    paintPresenceList(raisedList, raisedStudentIds, "hand", uiText.noRaisedHands);
+  };
+
+  const getOrInitStat = (uid) => {
+    const id = String(uid);
+    let item = statsByUid.get(id);
+    if (!item) {
+      item = {
+        uid: id,
+        name: identityLabel(id),
+        online: false,
+        joinedAt: null,
+        watchMs: 0,
+        speaks: 0,
+        hands: 0,
+        speakingMs: 0,
+        speakingStartedAt: null,
+        handRaisedMs: 0,
+        handRaisedStartedAt: null,
+      };
+      statsByUid.set(id, item);
+    }
+    const label = participantLabels.get(id);
+    if (label) item.name = label;
+    return item;
+  };
+  const estimateWatchMs = (item) => {
+    const base = Number(item.watchMs || 0);
+    if (item.online && item.joinedAt) return base + (Date.now() - Number(item.joinedAt));
+    return base;
+  };
+  const estimateSpeakingMs = (item) => {
+    const base = Number(item.speakingMs || 0);
+    if (item.speakingStartedAt) return base + (Date.now() - Number(item.speakingStartedAt));
+    return base;
+  };
+  const estimateHandRaisedMs = (item) => {
+    const base = Number(item.handRaisedMs || 0);
+    if (item.handRaisedStartedAt) return base + (Date.now() - Number(item.handRaisedStartedAt));
+    return base;
+  };
+  const computeEngagement = (item) => {
+    const mins = estimateWatchMs(item) / 60000;
+    const speaks = Number(item.speaks || 0);
+    const hands = Number(item.hands || 0);
+    const speakMins = estimateSpeakingMs(item) / 60000;
+    const handMins = estimateHandRaisedMs(item) / 60000;
+    return Math.max(0, Math.round(mins * 1 + speakMins * 2 + handMins * 1.5 + speaks * 0.2 + hands * 0.2));
+  };
+  const renderLeftPane = () => {
+    professorIdentity = resolveProfessorIdentity();
+    const label = participantLabels.get(professorIdentity) || professorNameHint || "Professor";
+    const profCam = pickTrack(professorIdentity, false);
+    if (profCam) renderTrack(leftHost, profCam, label);
+    else renderAvatar(leftHost, label);
+  };
+  const getStudentEntries = () => {
+    const rows = [];
+    for (const [id, name] of participantLabels.entries()) {
+      if (isProfessorLike(id)) continue;
+      rows.push({ id, name });
+    }
+    return rows;
+  };
+  const voiceBoost = (identity) => {
+    const level = Number(speakingLevels.get(String(identity)) || 0);
+    const normalized = Math.min(12, Math.max(0, level)) / 12;
+    return Number((0.6 + normalized * 1.1).toFixed(2));
+  };
+  const applyStudentActivityVisuals = (card, identity) => {
+    const id = String(identity || "");
+    if (!id || !card) return;
+    card.classList.remove("speaker-border", "raised-border", "hand-raised", "speaking", "muted");
+    if (raisedHands.has(id)) card.classList.add("raised-border", "hand-raised");
+    if (speakingIds.has(id)) card.classList.add("speaker-border", "speaking");
+    if (remotelyMutedIds.has(id)) card.classList.add("muted");
+    if (activeSpeakerUid && String(activeSpeakerUid) === id) {
+      card.classList.add("active-speaker");
+    } else {
+      card.classList.remove("active-speaker");
+    }
+    const wave = card.querySelector(".student-talk-wave");
+    if (wave) wave.style.setProperty("--wave-boost", String(voiceBoost(id)));
+  };
+  const renderPlaceholder = (host, icon, title, desc) => {
+    host.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "placeholder";
+    const badge = document.createElement("div");
+    badge.className = "icon";
+    badge.innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+    const h = document.createElement("div");
+    h.className = "title";
+    h.textContent = title;
+    const p = document.createElement("div");
+    p.className = "desc";
+    p.textContent = desc;
+    wrap.appendChild(badge);
+    wrap.appendChild(h);
+    wrap.appendChild(p);
+    host.appendChild(wrap);
+  };
+  const renderStudentsInto = (host, compact = false) => {
+    host.innerHTML = "";
+    const students = getStudentEntries();
+    if (!students.length) {
+      renderPlaceholder(host, "groups", uiText.waitingStudents, "Students will appear here once they join.");
+      return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "student-grid";
+    if (compact) grid.classList.add("compact");
+    const total = students.length;
+    const cols = compact ? Math.min(2, Math.ceil(Math.sqrt(total))) : Math.ceil(Math.sqrt(total));
+    const rows = Math.ceil(total / Math.max(cols, 1));
+    grid.style.gridTemplateColumns = `repeat(${Math.max(cols, 1)}, minmax(0, 1fr))`;
+    grid.style.gridTemplateRows = `repeat(${Math.max(rows, 1)}, minmax(0, 1fr))`;
+    grid.style.gridAutoRows = "minmax(0, 1fr)";
+    for (const student of students) {
+      const card = document.createElement("div");
+      card.className = "student-card";
+      card.classList.add("fade-in");
+      card.dataset.identity = String(student.id);
+      card.style.minHeight = "0";
+      applyStudentActivityVisuals(card, student.id);
+      const cam = pickTrack(student.id, false);
+      if (cam) {
+        const media = document.createElement("div");
+        media.className = "agora-video-slot";
+        card.appendChild(media);
+        cam.track.play(media, { fit: "cover" });
+        const wm = document.createElement("div");
+        wm.className = "watermark";
+        wm.innerHTML = `
+          <div class="wm-chip wm-float-left">
+            <div>${String(student.name || "").slice(0, 80)}</div>
+            <div class="small">${cinLabel(student.id || "")}</div>
+          </div>
+          <div class="wm-chip right wm-float-right">
+            <div class="wm-ts">--:--:--</div>
+            <div class="small">prolean</div>
+          </div>
+        `;
+        media.appendChild(wm);
+      } else {
+        const av = document.createElement("div");
+        av.className = "avatar-host";
+        const badge = document.createElement("div");
+        badge.className = "avatar-badge";
+        badge.textContent = initials(student.name);
+        av.appendChild(badge);
+        card.appendChild(av);
+      }
+      if (isProfessor) {
+        const actions = document.createElement("div");
+        actions.className = "student-actions";
+
+        const muteBtn = document.createElement("button");
+        muteBtn.type = "button";
+        muteBtn.className = "student-action-btn";
+        const isMuted = remotelyMutedIds.has(String(student.id));
+        muteBtn.title = isMuted ? "Unmute student mic" : "Mute student mic";
+        muteBtn.innerHTML = `<span class="material-symbols-outlined">${isMuted ? "mic" : "mic_off"}</span>`;
+        muteBtn.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await toggleParticipantMute(String(student.id));
+        });
+
+        const kickBtn = document.createElement("button");
+        kickBtn.type = "button";
+        kickBtn.className = "student-action-btn danger";
+        kickBtn.title = "Kick out student";
+        kickBtn.innerHTML = '<span class="material-symbols-outlined">person_remove</span>';
+        kickBtn.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          const reason = await askKickReason(student.name || `Student ${student.id}`);
+          if (!reason) return;
+          await kickParticipant(String(student.id), reason);
+        });
+
+        actions.appendChild(muteBtn);
+        actions.appendChild(kickBtn);
+        card.appendChild(actions);
+      }
+      const status = document.createElement("div");
+      status.className = "student-status";
+      status.innerHTML = `
+        <span class="status-pill connected" title="Connected"><span class="material-symbols-outlined">wifi_tethering</span></span>
+        <span class="status-pill hand" title="Raised hand"><span class="material-symbols-outlined">front_hand</span></span>
+        <span class="status-pill speaking" title="Speaking"><span class="material-symbols-outlined">graphic_eq</span></span>
+        <span class="status-pill muted" title="Muted"><span class="material-symbols-outlined">mic_off</span></span>
+      `;
+      card.appendChild(status);
+      const footer = document.createElement("div");
+      footer.className = "student-label";
+      footer.textContent = student.name;
+      card.appendChild(footer);
+      const wave = document.createElement("div");
+      wave.className = "student-talk-wave";
+      wave.innerHTML = "<span></span><span></span><span></span>";
+      wave.style.setProperty("--wave-boost", String(voiceBoost(student.id)));
+      card.appendChild(wave);
+      grid.appendChild(card);
+    }
+    host.appendChild(grid);
+  };
+
+  const syncStudentCardBorders = () => {
+    const cards = rightHost.querySelectorAll(".student-card[data-identity]");
+    cards.forEach((card) => {
+      const id = String(card.dataset.identity || "");
+      if (!id) return;
+      applyStudentActivityVisuals(card, id);
+    });
+  };
+  const renderRightPane = () => {
+    if (fixedThreePaneLayout) {
+      rightMode = isMobileViewport() ? 0 : 1;
+    }
+    if (rightMode === 0) {
+      rightTitle.textContent = uiText.rightScreen;
+      const screen = pickTrack(resolveProfessorScreenIdentity(), true);
+      if (screen) renderTrack(rightHost, screen, uiText.screenShareLabel);
+      else renderPlaceholder(rightHost, "present_to_all", uiText.noScreenShare, "The professor screen will appear here when shared.");
+    } else if (rightMode === 1) {
+      rightTitle.textContent = uiText.rightSplit;
+      rightHost.innerHTML = "";
+      const split = document.createElement("div");
+      split.className = "right-split";
+      const top = document.createElement("div");
+      top.className = "right-split-top";
+      const bottom = document.createElement("div");
+      bottom.className = "right-split-bottom";
+      const screen = pickTrack(resolveProfessorScreenIdentity(), true);
+      if (screen) renderTrack(top, screen, uiText.profScreenSharing);
+      else renderPlaceholder(top, "present_to_all", uiText.noScreenShare, "Waiting for screen share.");
+      renderStudentsInto(bottom, true);
+      split.appendChild(top);
+      split.appendChild(bottom);
+      rightHost.appendChild(split);
+    } else {
+      rightTitle.textContent = uiText.rightStudents;
+      renderStudentsInto(rightHost, false);
+    }
+    markPaneBorders();
+    syncStudentCardBorders();
+  };
+  const rerender = () => { renderLeftPane(); renderRightPane(); refreshPresenceBoard(); };
+
+  const refreshWatermarkTimestamps = () => {
+    const now = new Date();
+    const ts = now.toLocaleString();
+    document.querySelectorAll(".wm-ts").forEach((el) => { el.textContent = ts; });
+  };
+
+  const openModeration = () => {
+    if (!isProfessor || !modDrawer) return;
+    modDrawer.classList.add("open");
+    renderModerationDrawer();
+  };
+  const closeModeration = () => {
+    if (!modDrawer) return;
+    modDrawer.classList.remove("open");
+  };
+
+  const setModBtnLoading = (btn, label) => {
+    if (!btn) return;
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent.trim();
+    btn.classList.add("loading");
+    btn.disabled = true;
+    btn.textContent = label;
+  };
+  const clearModBtnLoading = (btn) => {
+    if (!btn) return;
+    btn.classList.remove("loading");
+    btn.disabled = false;
+    btn.textContent = btn.dataset.label || btn.textContent;
+  };
+
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.async = true;
+    el.onload = () => resolve(true);
+    el.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(el);
+  });
+
+  const startPhoneDetection = async () => {
+    if (isProfessor) return;
+    if (!localCamTrack || typeof localCamTrack.getMediaStreamTrack !== "function") return;
+    const track = localCamTrack.getMediaStreamTrack();
+    if (!track) return;
+
+    let model = null;
+    try {
+      if (!window.tf) {
+        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js");
+      }
+      if (!window.cocoSsd) {
+        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js");
+      }
+      model = await window.cocoSsd.load();
+    } catch (e) {
+      await logEvent("phone_detection_unavailable", { error: String(e?.message || e || "") });
+      return;
+    }
+
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.style.position = "fixed";
+    video.style.left = "-9999px";
+    video.style.top = "-9999px";
+    video.width = 320;
+    video.height = 240;
+    video.srcObject = new MediaStream([track]);
+    document.body.appendChild(video);
+    try { await video.play(); } catch (_) {}
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    let streak = 0;
+    const tick = async () => {
+      if (exiting || !hasJoined) return;
+      if (!ctx || video.readyState < 2) return;
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const preds = await model.detect(canvas);
+        const found = (preds || []).some((p) => String(p.class || "").toLowerCase() === "cell phone" && Number(p.score || 0) >= 0.55);
+        streak = found ? Math.min(6, streak + 1) : Math.max(0, streak - 1);
+        if (streak >= 3) {
+          streak = 0;
+          showError("Security warning: phone-like object detected in your camera. Recording is prohibited.");
+          await logEvent("phone_detected", { confidence: ">=0.55" });
+          await sendRoomSignal({ t: "sec", kind: "phone_detected", uid: String(agoraUid) });
+        }
+      } catch (_) {}
+    };
+
+    setInterval(tick, 5000);
+  };
+
+  const getCsrfToken = () => {
+    try {
+      const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
+    } catch (_) {
+      return "";
+    }
+  };
+
+  const decodeStreamMessage = (message) => {
+    if (typeof message === "string") return message;
+    try {
+      if (message instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(message));
+      if (ArrayBuffer.isView(message)) return new TextDecoder().decode(message);
+    } catch (_) {}
+    try {
+      return new TextDecoder().decode(message);
+    } catch (_) {}
+    return "";
+  };
+
+  const forceExit = async (reason) => {
+    if (exiting) return;
+    exiting = true;
+    try { await stopScreenShare(); } catch (_) {}
+    try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
+    try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
+    try { await mainClient.leave(); } catch (_) {}
+    const dest = isProfessor
+      ? `${location.origin}{% url 'Prolean:professor_dashboard' %}?session_id={{ session_id }}`
+      : `{% url 'Prolean:dashboard' %}`;
+    if (reason) {
+      try { sessionStorage.setItem("prolean_live_exit_reason", String(reason)); } catch (_) {}
+    }
+    window.location.href = dest;
+  };
+
+  const ensureDataStream = async () => {
+    if (!mainClient || !hasJoined) return null;
+    if (dataStreamId !== null) return dataStreamId;
+    try {
+      dataStreamId = await mainClient.createDataStream({ reliable: true, ordered: true });
+    } catch (_) {
+      dataStreamId = null;
+    }
+    return dataStreamId;
+  };
+
+  const sendRoomSignal = async (payload) => {
+    if (!mainClient || !hasJoined) return;
+    await ensureDataStream();
+    if (dataStreamId === null) {
+      if (!warnedNoDataStream) {
+        warnedNoDataStream = true;
+      }
+      return;
+    }
+    try {
+      const raw = JSON.stringify(payload || {});
+      if (typeof mainClient.sendStreamMessage === "function") {
+        await mainClient.sendStreamMessage(dataStreamId, raw);
+      }
+    } catch (_) {}
+  };
+  const sendHelloSignal = async () => {
+    const helloName = selfName || (isProfessor ? (professorNameHint || "Professor") : "You");
+    const helloCin = normalizeCin(selfCin);
+    await sendRoomSignal({ t: "hello", uid: String(agoraUid), name: helloName, cin: helloCin });
+  };
+
+  const eventUrl = "{% url 'Prolean:external_live_event_log' session_id %}";
+  const logEvent = async (eventType, payload = {}, targetUserId = null) => {
+    try {
+      await fetch(eventUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({ event_type: String(eventType || ""), payload: payload || {}, target_user_id: targetUserId }),
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
+
+  const uidToUserId = (uid) => {
+    const n = Number(uid);
+    if (!Number.isFinite(n)) return null;
+    if (n >= 10000) return Math.max(0, Math.floor(n - 10000));
+    if (n > 0) return Math.floor(n);
+    return null;
+  };
+  const userIdToUid = (userId) => {
+    const n = Number(userId);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return String(n + 10000);
+  };
+  const resolveUidForUserId = (userId) => {
+    const n = Number(userId);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const uidPlus = String(n + 10000);
+    const uidBase = String(n);
+    if (participantLabels.has(uidPlus) || audioTracks.has(uidPlus) || videoTracks.has(`${uidPlus}:camera`)) return uidPlus;
+    if (participantLabels.has(uidBase) || audioTracks.has(uidBase) || videoTracks.has(`${uidBase}:camera`)) return uidBase;
+    return uidPlus;
+  };
+
+  const applyMutePersistence = async (userId, muted) => {
+    if (!userId) return;
+    const url = muted
+      ? "{% url 'Prolean:external_live_mute_user' session_id %}"
+      : "{% url 'Prolean:external_live_unmute_user' session_id %}";
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: `user_id=${encodeURIComponent(String(userId))}`,
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
+  const persistHandState = async (raised) => {
+    try {
+      await fetch(handStateUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({
+          raised: !!raised,
+          uid: String(agoraUid || ""),
+          name: String(selfName || ""),
+        }),
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+  };
+
+  const askKickReason = (studentLabel) => new Promise((resolve) => {
+    if (!kickReasonModal || !kickReasonInput || !kickReasonConfirm || !kickReasonCancel || !kickModalTitle) {
+      resolve("");
+      return;
+    }
+    kickModalTitle.innerHTML = `<span class="material-symbols-outlined">warning</span>Kick ${String(studentLabel || "student")}`;
+    kickReasonInput.value = "";
+    kickReasonModal.classList.add("open");
+    kickReasonInput.focus();
+    const close = (result = null) => {
+      kickReasonModal.classList.remove("open");
+      kickReasonConfirm.removeEventListener("click", onConfirm);
+      kickReasonCancel.removeEventListener("click", onCancel);
+      kickReasonModal.removeEventListener("click", onBackdrop);
+      kickReasonInput.removeEventListener("keydown", onKeydown);
+      resolve(result);
+    };
+    const onConfirm = () => {
+      const reason = String(kickReasonInput.value || "").trim().slice(0, 200);
+      if (!reason) {
+        kickReasonInput.focus();
+        return;
+      }
+      close(reason);
+    };
+    const onCancel = () => close(null);
+    const onBackdrop = (event) => { if (event.target === kickReasonModal) close(null); };
+    const onKeydown = (event) => {
+      if (event.key === "Escape") close(null);
+      if ((event.key === "Enter" && (event.ctrlKey || event.metaKey))) {
+        event.preventDefault();
+        onConfirm();
+      }
+    };
+    kickReasonConfirm.addEventListener("click", onConfirm);
+    kickReasonCancel.addEventListener("click", onCancel);
+    kickReasonModal.addEventListener("click", onBackdrop);
+    kickReasonInput.addEventListener("keydown", onKeydown);
+  });
+
+  const kickParticipant = async (uid, reason = "") => {
+    const targetUserId = uidToUserId(uid);
+    if (!targetUserId) {
+      showError("Cannot kick this participant (missing local user mapping).");
+      return false;
+    }
+    const banUrl = "{% url 'Prolean:external_live_ban_user' session_id %}";
+    try {
+      await fetch(banUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: `user_id=${encodeURIComponent(String(targetUserId))}&reason=${encodeURIComponent(String(reason || "").slice(0, 200))}`,
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+    await sendRoomSignal({ t: "ban", uid: String(uid), reason: String(reason || "").slice(0, 200) });
+    await logEvent("moderate_ban", { target_uid: String(uid), reason: String(reason || "").slice(0, 200) }, targetUserId);
+    return true;
+  };
+
+  const toggleParticipantMute = async (uid, forceMuted = null) => {
+    const key = String(uid || "");
+    if (!key) return false;
+    const targetUserId = uidToUserId(key);
+    const nextMuted = (forceMuted === null || typeof forceMuted === "undefined")
+      ? !remotelyMutedIds.has(key)
+      : !!forceMuted;
+    await sendRoomSignal({ t: "force_mute", uid: key, muted: nextMuted, locked: nextMuted });
+    await logEvent(nextMuted ? "moderate_mute_user" : "moderate_unmute_user", { target_uid: key }, targetUserId);
+    await applyMutePersistence(targetUserId, nextMuted);
+    if (nextMuted) remotelyMutedIds.add(key);
+    else remotelyMutedIds.delete(key);
+    if (isProfessor && !nextMuted) {
+      const remoteAudio = audioTracks.get(key);
+      if (remoteAudio) {
+        try { remoteAudio.play(); } catch (_) {}
+      }
+      currentSpeakerId = key;
+      await muteAllExcept(key);
+    }
+    rerender();
+    renderModerationDrawer();
+    return true;
+  };
+
+  let micLocked = false;
+  const setMicLocked = (locked) => { micLocked = !!locked; };
+  const isMicLocked = () => micLocked;
+
+  const subscribeUser = async (user, mediaType) => {
+    await mainClient.subscribe(user, mediaType);
+    const uid = String(user.uid);
+    if (!participantLabels.has(uid)) participantLabels.set(uid, `Student ${uid}`);
+    if (mediaType === "video" && user.videoTrack) {
+      const source = Number(user.uid) === (Number(professorUidHint) + SCREEN_UID_OFFSET) ? "screen_share" : "camera";
+      addVideoTrack(uid, user.videoTrack, source, false);
+      rerender();
+    }
+    if (mediaType === "audio" && user.audioTrack) {
+      audioTracks.set(uid, user.audioTrack);
+      try { user.audioTrack.play(); } catch (_) {}
+    }
+  };
+
+  const renderModerationDrawer = () => {
+    if (!isProfessor || !modDrawer || !modBody) return;
+    const students = getStudentEntries();
+    modBody.innerHTML = "";
+    if (!students.length) {
+      const empty = document.createElement("div");
+      empty.className = "text-xs font-black opacity-70";
+      empty.textContent = "No students connected.";
+      modBody.appendChild(empty);
+      return;
+    }
+    students.forEach((s) => {
+      const row = document.createElement("div");
+      row.className = "mod-row";
+      const left = document.createElement("div");
+      left.className = "min-w-0";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = s.name || `Student ${s.id}`;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = cinLabel(s.id);
+      left.appendChild(name);
+      left.appendChild(meta);
+
+      const btns = document.createElement("div");
+      btns.className = "btns";
+
+      const muteBtn = document.createElement("button");
+      muteBtn.type = "button";
+      muteBtn.className = "mod-mini";
+      muteBtn.title = "Mute mic";
+      muteBtn.innerHTML = '<span class="material-symbols-outlined">mic_off</span>';
+      muteBtn.addEventListener("click", async () => {
+        await toggleParticipantMute(String(s.id), true);
+      });
+
+      const unmuteBtn = document.createElement("button");
+      unmuteBtn.type = "button";
+      unmuteBtn.className = "mod-mini";
+      unmuteBtn.title = "Unmute mic";
+      unmuteBtn.innerHTML = '<span class="material-symbols-outlined">mic</span>';
+      unmuteBtn.addEventListener("click", async () => {
+        await toggleParticipantMute(String(s.id), false);
+      });
+
+      const banBtn = document.createElement("button");
+      banBtn.type = "button";
+      banBtn.className = "mod-mini danger";
+      banBtn.title = "Ban (kick)";
+      banBtn.innerHTML = '<span class="material-symbols-outlined">person_remove</span>';
+      banBtn.addEventListener("click", async () => {
+        const reason = await askKickReason(s.name || `Student ${s.id}`);
+        if (!reason) return;
+        await kickParticipant(String(s.id), reason);
+      });
+
+      btns.appendChild(muteBtn);
+      btns.appendChild(unmuteBtn);
+      btns.appendChild(banBtn);
+
+      row.appendChild(left);
+      row.appendChild(btns);
+      modBody.appendChild(row);
+    });
+  };
+
+  const connectAgora = async () => {
+    if (!agoraAppId || !agoraChannel || !agoraToken) {
+      setStatus("Config Error", "err");
+      showError(uiText.configMissing);
+      return;
+    }
+    setStatus(uiText.connecting, "warn");
+    try {
+      participantLabels.set(String(agoraUid), selfName || (isProfessor ? "Professor" : "You"));
+      const ownCin = normalizeCin(selfCin);
+      if (ownCin) participantCins.set(String(agoraUid), ownCin);
+      await mainClient.join(agoraAppId, agoraChannel, agoraToken, agoraUid);
+      hasJoined = true;
+      try {
+        dataStreamId = await mainClient.createDataStream({ reliable: true, ordered: true });
+      } catch (_) {
+        dataStreamId = null;
+      }
+      mainClient.enableAudioVolumeIndicator();
+      const tracksToPublish = [];
+      let mediaWarning = "";
+      try {
+        localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        tracksToPublish.push(localMicTrack);
+        if (!isProfessor) {
+          try { await localMicTrack.setMuted(true); } catch (_) {}
+          setMicLocked(true);
+        }
+      } catch (micErr) {
+        localMicTrack = null;
+        mediaWarning = "Microphone is unavailable. You joined without mic.";
+      }
+      try {
+        localCamTrack = await AgoraRTC.createCameraVideoTrack();
+        tracksToPublish.push(localCamTrack);
+        addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
+      } catch (camErr) {
+        localCamTrack = null;
+        const camText = String(camErr?.message || camErr || "").toLowerCase();
+        if (camText.includes("notreadable")) {
+          mediaWarning = "Camera is busy or blocked by another app. You joined without camera.";
+        } else {
+          mediaWarning = "Camera is unavailable. You joined without camera.";
+        }
+      }
+      if (!tracksToPublish.length) {
+        throw new Error("Unable to access microphone and camera on this device.");
+      }
+      if (isProfessor) {
+        try {
+          await sendRoomSignal({ t: "force_mute_all", muted: true, locked: true });
+        } catch (_) {}
+        const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
+        try {
+          fetch(muteAllUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+              "X-CSRFToken": getCsrfToken(),
+              "Accept": "application/json",
+            },
+            body: "",
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+      }
+      await mainClient.publish(tracksToPublish);
+      logAudit("join_live", { uid: String(agoraUid || ""), role: liveRole || "" });
+      setStatus("Connected", "ok");
+      if (mediaWarning) {
+        showError(mediaWarning);
+      }
+      syncControlStates();
+      rerender();
+      forceMobileImmersive().catch(() => {});
+      try {
+        await sendHelloSignal();
+      } catch (_) {}
+      try {
+        document.addEventListener("contextmenu", (e) => { e.preventDefault(); }, { capture: true });
+        document.addEventListener("keydown", (e) => {
+          const key = String(e.key || "").toLowerCase();
+          if (key === "printscreen") logEvent("screenshot_key", {});
+        });
+      } catch (_) {}
+      startPhoneDetection();
+      try { pollStatus(); } catch (_) {}
+
+      if (!isProfessor) {
+        btnScreen.disabled = true;
+        btnScreen.classList.add("opacity-50", "cursor-not-allowed");
+      } else if (btnToggleLayoutPanel) {
+        btnToggleLayoutPanel.classList.add("hidden");
+      }
+    } catch (err) {
+      setStatus("Connection Failed", "err");
+      showError(`Agora connection failed: ${err?.message || err}`);
+    }
+  };
+
+  const seenHandIds = new Set();
+  let currentSpeakerId = null;
+  const muteAllExcept = async (targetUid) => {
+    const studentIds = getStudentEntries().map((entry) => String(entry.id));
+    for (const id of studentIds) {
+      if (!id || id === targetUid) continue;
+      if (!remotelyMutedIds.has(id)) {
+        await toggleParticipantMute(id, true);
+      }
+    }
+  };
+  const setActiveSpeaker = async (speakerId) => {
+    if (!isProfessor) return;
+    const target = resolveUidForUserId(speakerId) || String(speakerId || "");
+    if (!target) return;
+    await toggleParticipantMute(target, false);
+    await muteAllExcept(target);
+    currentSpeakerId = target;
+  };
+  const renderHandQueue = (requests) => {
+    if (!handQueuePanel || !handQueueList || !isProfessor) return;
+    handQueueList.innerHTML = "";
+    const rows = Array.isArray(requests) ? requests : [];
+    if (handQueueNext) {
+      handQueueNext.disabled = !rows.length;
+      handQueueNext.onclick = async () => {
+        if (!rows.length) return;
+        const next = rows[0];
+        try {
+          await fetch(approveHandUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: next.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+        await setActiveSpeaker(String(next.student_id || ""));
+      };
+    }
+    if (!rows.length) {
+      handQueuePanel.classList.remove("open");
+      return;
+    }
+    handQueuePanel.classList.add("open");
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "hand-queue-item";
+      const name = document.createElement("div");
+      const baseName = String(row.name || `Student ${row.student_id}`);
+      name.textContent = baseName;
+      const actions = document.createElement("div");
+      actions.className = "hand-queue-actions";
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "hand-queue-btn";
+      approve.textContent = "Approve";
+      approve.addEventListener("click", async () => {
+        try {
+          await fetch(approveHandUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+        await setActiveSpeaker(String(row.student_id || ""));
+      });
+      const decline = document.createElement("button");
+      decline.type = "button";
+      decline.className = "hand-queue-btn danger";
+      decline.textContent = "Decline";
+      decline.addEventListener("click", async () => {
+        try {
+          await fetch(removeSpeakerUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+            body: JSON.stringify({ session_id: "{{ session_id }}", student_id: row.student_id }),
+            credentials: "same-origin",
+          });
+        } catch (_) {}
+      });
+      actions.appendChild(approve);
+      actions.appendChild(decline);
+      item.appendChild(name);
+      item.appendChild(actions);
+      handQueueList.appendChild(item);
+      if (!seenHandIds.has(String(row.id))) {
+        seenHandIds.add(String(row.id));
+        showHandToast(row.name || `Student ${row.student_id}`);
+      }
+    });
+  };
+
+  mainClient.on("stream-message", async (uid, _streamId, message) => {
+    let payload = null;
+    try {
+      const txt = decodeStreamMessage(message);
+      payload = JSON.parse(txt);
+    } catch (_) {
+      payload = null;
+    }
+    if (!payload || typeof payload !== "object") return;
+    const type = String(payload.t || payload.type || "");
+    if (type === "hello") {
+      const who = String(payload.uid || uid || "");
+      const name = String(payload.name || "").trim();
+      const cin = normalizeCin(payload.cin || "");
+      if (who && name) participantLabels.set(who, name.slice(0, 80));
+      if (who && cin) participantCins.set(who, cin.slice(0, 50));
+      if (isProfessor && who && !isProfessorLike(who)) {
+        const stat = getOrInitStat(who);
+        if (name) stat.name = name.slice(0, 80);
+      }
+      rerender();
+      return;
+    }
+    if (type === "hand") {
+      const who = String(payload.uid || uid || "");
+      const raised = !!payload.raised;
+      const wasRaised = raisedHands.has(who);
+      if (raised) raisedHands.add(who);
+      else raisedHands.delete(who);
+      if (raised) playHandChime();
+      if (isProfessor && raised && pollHandQueueNow) {
+        try { pollHandQueueNow(); } catch (_) {}
+      }
+      if (isProfessor && raised && !wasRaised && who && !isProfessorLike(who)) {
+        const stat = getOrInitStat(who);
+        stat.hands = Number(stat.hands || 0) + 1;
+        if (!stat.handRaisedStartedAt) stat.handRaisedStartedAt = Date.now();
+      }
+      if (isProfessor && !raised && wasRaised && who && !isProfessorLike(who)) {
+        const stat = getOrInitStat(who);
+        if (stat.handRaisedStartedAt) {
+          stat.handRaisedMs = Number(stat.handRaisedMs || 0) + (Date.now() - Number(stat.handRaisedStartedAt));
+          stat.handRaisedStartedAt = null;
+        }
+      }
+      markPaneBorders();
+      syncStudentCardBorders();
+      refreshPresenceBoard();
+      return;
+    }
+    if (type === "force_mute") {
+      const targetUid = String(payload.uid || payload.target_uid || "");
+      const locked = typeof payload.locked === "boolean" ? payload.locked : !!payload.muted;
+      if (targetUid) {
+        if (locked) remotelyMutedIds.add(targetUid);
+        else remotelyMutedIds.delete(targetUid);
+      }
+      if (targetUid && targetUid === String(agoraUid)) {
+        if (locked) {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(true); } catch (_) {}
+          }
+          setMicLocked(true);
+        } else {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(false); } catch (_) {}
+          }
+          setMicLocked(false);
+        }
+        syncControlStates();
+        showError(locked ? "Your microphone was muted by the professor." : "Your microphone was unmuted by the professor.");
+        logEvent(locked ? "forced_mute" : "forced_unmute", { muted: !!locked });
+      }
+      if (isProfessor) {
+        if (!locked && targetUid) {
+          const remoteAudio = audioTracks.get(targetUid);
+          if (remoteAudio) {
+            try { remoteAudio.play(); } catch (_) {}
+          }
+        }
+        rerender();
+        renderModerationDrawer();
+      }
+      return;
+    }
+    if (type === "force_mute_all") {
+      if (isProfessor) {
+        const students = getStudentEntries();
+        students.forEach((entry) => {
+          const uidKey = String(entry.id || "");
+          if (!uidKey) return;
+          if (payload.muted === false || payload.locked === false) remotelyMutedIds.delete(uidKey);
+          else remotelyMutedIds.add(uidKey);
+        });
+        rerender();
+        renderModerationDrawer();
+      }
+      if (!isProfessor) {
+        const locked = typeof payload.locked === "boolean" ? payload.locked : !!payload.muted;
+        if (locked) {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(true); } catch (_) {}
+          }
+          setMicLocked(true);
+        } else {
+          if (localMicTrack) {
+            try { await localMicTrack.setMuted(false); } catch (_) {}
+          }
+          setMicLocked(false);
+        }
+        syncControlStates();
+        showError(locked ? "All microphones were muted by the professor." : "All microphones were unmuted by the professor.");
+        logEvent(locked ? "forced_mute_all" : "forced_unmute_all", {});
+      }
+      return;
+    }
+    if (type === "ban") {
+      const targetUid = String(payload.uid || payload.target_uid || "");
+      if (targetUid && targetUid === String(agoraUid) && !isProfessor) {
+        const reason = String(payload.reason || "").trim();
+        showError(reason ? `You were removed from this live session. Reason: ${reason}` : "You were removed from this live session.");
+        logEvent("banned_client_signal", {});
+        forceExit("banned");
+      }
+      return;
+    }
+    if (type === "sec") {
+      if (isProfessor) {
+        const who = String(payload.uid || uid || "");
+        const kind = String(payload.kind || "security");
+        const label = who ? (participantLabels.get(who) || `Student ${who}`) : "Student";
+        showError(`Security alert: ${label} (${kind})`);
+        await logEvent("security_alert", { kind, uid: who }, uidToUserId(who));
+      }
+      return;
+    }
+    if (type === "live_end") {
+      forceExit("live_end_signal");
+    }
+  });
+
+  mainClient.on("user-published", async (user, mediaType) => {
+    await subscribeUser(user, mediaType);
+  });
+  mainClient.on("user-joined", (user) => {
+    const uid = String(user.uid);
+    if (!participantLabels.has(uid)) participantLabels.set(uid, `Student ${uid}`);
+    sendHelloSignal().catch(() => {});
+    if (isProfessor && !isProfessorLike(uid)) {
+      const stat = getOrInitStat(uid);
+      stat.online = true;
+      if (!stat.joinedAt) stat.joinedAt = Date.now();
+    }
+    rerender();
+    renderModerationDrawer();
+  });
+  mainClient.on("user-unpublished", (user, mediaType) => {
+    const uid = String(user.uid);
+    if (mediaType === "video") {
+      removeVideoTracksByIdentity(uid);
+    }
+    if (mediaType === "audio") audioTracks.delete(uid);
+    rerender();
+  });
+  mainClient.on("user-left", (user) => {
+    const uid = String(user.uid);
+    if (isProfessor && !isProfessorLike(uid)) {
+      const stat = getOrInitStat(uid);
+      stat.online = false;
+      if (stat.joinedAt) {
+        stat.watchMs = Number(stat.watchMs || 0) + (Date.now() - Number(stat.joinedAt));
+        stat.joinedAt = null;
+      }
+      if (stat.speakingStartedAt) {
+        stat.speakingMs = Number(stat.speakingMs || 0) + (Date.now() - Number(stat.speakingStartedAt));
+        stat.speakingStartedAt = null;
+      }
+      if (stat.handRaisedStartedAt) {
+        stat.handRaisedMs = Number(stat.handRaisedMs || 0) + (Date.now() - Number(stat.handRaisedStartedAt));
+        stat.handRaisedStartedAt = null;
+      }
+    }
+    removeVideoTracksByIdentity(uid);
+    audioTracks.delete(uid);
+    participantLabels.delete(uid);
+    participantCins.delete(uid);
+    speakingIds.delete(uid);
+    speakingLevels.delete(uid);
+    raisedHands.delete(uid);
+    rerender();
+    renderModerationDrawer();
+    if (!isProfessor && uid === String(professorUidHint)) {
+      forceExit("professor_left");
+    }
+  });
+  mainClient.on("volume-indicator", (volumes) => {
+    speakingLevels.clear();
+    const nextSpeaking = new Set();
+    volumes.forEach((v) => {
+      const id = String(v.uid || "");
+      const level = Number(v.level || 0);
+      if (id) speakingLevels.set(id, level);
+      if (level > 5) nextSpeaking.add(id);
+    });
+    if (isProfessor) {
+      nextSpeaking.forEach((id) => {
+        if (!previousSpeaking.has(id) && id && !isProfessorLike(id)) {
+          const stat = getOrInitStat(id);
+          stat.speaks = Number(stat.speaks || 0) + 1;
+          if (!stat.speakingStartedAt) stat.speakingStartedAt = Date.now();
+        }
+      });
+      previousSpeaking.forEach((id) => {
+        if (!nextSpeaking.has(id) && id && !isProfessorLike(id)) {
+          const stat = getOrInitStat(id);
+          if (stat.speakingStartedAt) {
+            stat.speakingMs = Number(stat.speakingMs || 0) + (Date.now() - Number(stat.speakingStartedAt));
+            stat.speakingStartedAt = null;
+          }
+        }
+      });
+      previousSpeaking = nextSpeaking;
+    }
+    speakingIds.clear();
+    nextSpeaking.forEach((id) => speakingIds.add(id));
+    markPaneBorders();
+    syncStudentCardBorders();
+    refreshPresenceBoard();
+  });
+
+  const startScreenShare = async () => {
+    if (!isProfessor || localScreenTrack) return;
+    try {
+      const screenUid = Number(professorUidHint) + SCREEN_UID_OFFSET;
+      screenClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      await screenClient.join(agoraAppId, agoraChannel, (agoraScreenToken || agoraToken), screenUid);
+      const st = await AgoraRTC.createScreenVideoTrack();
+      localScreenTrack = Array.isArray(st) ? st[0] : st;
+      await screenClient.publish([localScreenTrack]);
+      addVideoTrack(String(screenUid), localScreenTrack, "screen_share", true);
+      localScreenTrack.on("track-ended", stopScreenShare);
+      btnScreen.innerHTML = '<span class="material-symbols-outlined">stop_screen_share</span>';
+      rerender();
+    } catch (e) {
+      const msg = String(e?.message || e || "");
+      if (/not supported|permission|denied|mobile|ios|android/i.test(msg)) {
+        showError("Screen share is not supported on this browser/device. Use desktop Chrome/Edge for screen sharing.");
+      } else {
+        showError(`Screen share failed: ${msg}`);
+      }
+      stopScreenShare();
+    }
+  };
+  const stopScreenShare = async () => {
+    try {
+      if (localScreenTrack) {
+        localScreenTrack.stop();
+        localScreenTrack.close();
+      }
+      if (screenClient) await screenClient.leave();
+    } catch (_) {}
+    localScreenTrack = null;
+    screenClient = null;
+    removeVideoTracksByIdentity(resolveProfessorScreenIdentity());
+    if (localCamTrack) addVideoTrack(String(agoraUid), localCamTrack, "camera", true);
+    btnScreen.innerHTML = '<span class="material-symbols-outlined">present_to_all</span>';
+    rerender();
+  };
+
+  if (!fixedThreePaneLayout) {
+    rightPane.addEventListener("click", () => {
+      if (screenFocusActive) toggleScreenFocus();
+      rightMode = (rightMode + 1) % 3;
+      rerender();
+    });
+  }
+
+  leftPane.addEventListener("click", () => {
+    if (screenFocusActive) toggleScreenFocus();
+    rightMode = 1;
+    rerender();
+  });
+
+  const clampRightPaneWidth = (next) => Math.min(100, Math.max(0, Number(next || 28)));
+  const setRightPaneWidthFromPointer = (clientX) => {
+    const shellRect = roomRoot.querySelector(".room-shell").getBoundingClientRect();
+    if (!shellRect.width) return;
+    const relativeX = clientX - shellRect.left;
+    const rightPercent = ((shellRect.width - relativeX) / shellRect.width) * 100;
+    layoutPrefs.rightWidth = clampRightPaneWidth(rightPercent);
+    applyLayoutPrefs();
+  };
+  paneResizer.addEventListener("pointerdown", (event) => {
+    isResizing = true;
+    paneResizer.classList.add("dragging");
+    paneResizer.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  mainClient.on("network-quality", (stats) => {
+    if (isProfessor) return;
+    const quality = Number(stats?.uplinkNetworkQuality || stats?.downlinkNetworkQuality || 0);
+    if (Number.isFinite(quality)) {
+      lastNetworkQuality = quality;
+      if (quality >= 5 && !warnedPoorNetwork) {
+        warnedPoorNetwork = true;
+        showError("Your connection is unstable. You may lose your spot in the queue.");
+        setTimeout(() => { warnedPoorNetwork = false; }, 10000);
+      }
+    }
+  });
+  paneResizer.addEventListener("pointermove", (event) => { if (isResizing) setRightPaneWidthFromPointer(event.clientX); });
+  const stopResizing = () => { if (isResizing) { isResizing = false; paneResizer.classList.remove("dragging"); persistLayoutPrefs(); } };
+  paneResizer.addEventListener("pointerup", stopResizing);
+  paneResizer.addEventListener("pointercancel", stopResizing);
+
+  btnAudio.addEventListener("click", async () => {
+    if (!localMicTrack) return;
+    if (!isProfessor && isMicLocked()) {
+      showError("Your microphone is locked by the professor.");
+      return;
+    }
+    await localMicTrack.setMuted(!localMicTrack.muted);
+    syncControlStates();
+  });
+  btnVideo.addEventListener("click", async () => {
+    if (!localCamTrack) return;
+    await localCamTrack.setMuted(!localCamTrack.muted);
+    syncControlStates();
+    rerender();
+  });
+  btnScreen.addEventListener("click", async () => {
+    if (!isProfessor) return;
+    if (localScreenTrack) await stopScreenShare();
+    else await startScreenShare();
+  });
+  btnRaiseHand.addEventListener("click", async () => {
+    const id = String(agoraUid);
+    try {
+      const res = await fetch(raiseHandUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+        body: JSON.stringify({ session_id: "{{ session_id }}" }),
+        credentials: "same-origin",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        showError(data?.error || "Unable to raise hand.");
+        return;
+      }
+    } catch (_) {
+      showError("Unable to raise hand.");
+      return;
+    }
+    raisedHands.add(id);
+    btnRaiseHand.classList.toggle("active", raisedHands.has(id));
+    btnRaiseHand.innerHTML = raisedHands.has(id)
+      ? '<span class="material-symbols-outlined">waving_hand</span>'
+      : '<span class="material-symbols-outlined">front_hand</span>';
+    setSelfHandIndicator(true);
+    markPaneBorders();
+    syncStudentCardBorders();
+    refreshPresenceBoard();
+    await sendRoomSignal({ t: "hand", uid: id, raised: raisedHands.has(id) });
+    await persistHandState(raisedHands.has(id));
+    forceMobileImmersive().catch(() => {});
+  });
+
+  if (btnOpenMod) btnOpenMod.addEventListener("click", openModeration);
+  if (btnCloseMod) btnCloseMod.addEventListener("click", closeModeration);
+  if (btnMuteAll) btnMuteAll.addEventListener("click", async () => {
+    setModBtnLoading(btnMuteAll, "Muting...");
+    getStudentEntries().forEach((entry) => remotelyMutedIds.add(String(entry.id)));
+    rerender();
+    renderModerationDrawer();
+    try {
+      await sendRoomSignal({ t: "force_mute_all", muted: true, locked: true });
+      await logEvent("moderate_mute_all", {});
+    } catch (_) {}
+    const muteAllUrl = "{% url 'Prolean:external_live_mute_all' session_id %}";
+    try {
+      await fetch(muteAllUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: "",
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+    clearModBtnLoading(btnMuteAll);
+  });
+  if (btnUnmuteAll) btnUnmuteAll.addEventListener("click", async () => {
+    setModBtnLoading(btnUnmuteAll, "Unmuting...");
+    getStudentEntries().forEach((entry) => remotelyMutedIds.delete(String(entry.id)));
+    rerender();
+    renderModerationDrawer();
+    try {
+      await sendRoomSignal({ t: "force_mute_all", muted: false, locked: false });
+      await logEvent("moderate_unmute_all", {});
+    } catch (_) {}
+    const unmuteAllUrl = "{% url 'Prolean:external_live_unmute_all' session_id %}";
+    try {
+      await fetch(unmuteAllUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-CSRFToken": getCsrfToken(),
+          "Accept": "application/json",
+        },
+        body: "",
+        credentials: "same-origin",
+      });
+    } catch (_) {}
+    clearModBtnLoading(btnUnmuteAll);
+  });
+  if (btnEndLive) {
+    btnEndLive.addEventListener("click", async () => {
+      if (!isProfessor) return;
+      const endUrl = String(btnEndLive.dataset.endUrl || "");
+      if (!endUrl) return;
+      btnEndLive.disabled = true;
+      btnEndLive.classList.add("opacity-50", "cursor-not-allowed");
+      try {
+        await sendRoomSignal({ t: "live_end", uid: String(agoraUid) });
+      } catch (_) {}
+      try {
+        const res = await fetch(endUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          body: "",
+          credentials: "same-origin",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (e) {
+        showError(`End live failed: ${e?.message || e}`);
+      }
+      const dest = `${location.origin}{% url 'Prolean:professor_dashboard' %}?session_id={{ session_id }}`;
+      window.location.href = dest;
+    });
+  }
+  btnSound.addEventListener("click", () => {
+    ensureHandChimeCtx();
+    audioTracks.forEach((track) => { try { track.play(); } catch (_) {} });
+    setStatus("Connected", "ok");
+  });
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      roomRoot.classList.add("room-fullscreen");
+      await roomRoot.requestFullscreen().catch(() => {});
+      try {
+        if (screen.orientation && typeof screen.orientation.lock === "function") {
+          await screen.orientation.lock("landscape");
+        }
+      } catch (_) {}
+      btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen_exit</span>';
+    } else {
+      await document.exitFullscreen().catch(() => {});
+      roomRoot.classList.remove("room-fullscreen");
+      btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+    }
+  };
+  btnFullscreen.addEventListener("click", toggleFullscreen);
+  if (btnToggleView) {
+    btnToggleView.addEventListener("click", () => {
+      if (screenFocusActive) toggleScreenFocus();
+      rightMode = (rightMode + 1) % 3;
+      rerender();
+    });
+  }
+  document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement) {
+      roomRoot.classList.remove("room-fullscreen");
+      btnFullscreen.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+    }
+  });
+
+  window.addEventListener("beforeunload", async () => {
+    if (themeObserver) themeObserver.disconnect();
+    logAudit("leave_live", { uid: String(agoraUid || ""), role: liveRole || "" });
+    try { if (localMicTrack) localMicTrack.close(); } catch (_) {}
+    try { if (localCamTrack) localCamTrack.close(); } catch (_) {}
+    try { await stopScreenShare(); } catch (_) {}
+    try { await mainClient.leave(); } catch (_) {}
+  });
+
+  bindThemeSync();
+  loadLayoutPrefs();
+  applyLayoutPrefs();
+  if (fixedThreePaneLayout) {
+    rightMode = isMobileViewport() ? 0 : 1;
+  }
+  const updateClock = () => {
+    if (!liveClock) return;
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    liveClock.textContent = `${hh}:${mm}:${ss}`;
+    if (profTime) profTime.textContent = `${hh}:${mm}`;
+    if (profDate) {
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mo = String(now.getMonth() + 1).padStart(2, "0");
+      profDate.textContent = `${dd}/${mo}/${now.getFullYear()}`;
+    }
+  };
+  updateClock();
+  setInterval(updateClock, 1000);
+  if (!isProfessor && presenceBoard) presenceBoard.classList.add("hidden");
+  window.addEventListener("resize", rerender);
+  connectAgora();
+  refreshWatermarkTimestamps();
+  setInterval(refreshWatermarkTimestamps, 1000);
+
+  const statusUrl = "{% url 'Prolean:external_live_status' session_id %}";
+  const pollStatus = async () => {
+    if (exiting || !hasJoined) return;
+    try {
+      const res = await fetch(statusUrl, { credentials: "same-origin" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.banned) {
+        const reason = data.ban_reason ? ` (${data.ban_reason})` : "";
+        showError(`You are banned from this live session${reason}.`);
+        forceExit("banned_status");
+        return;
+      }
+      if (!isProfessor && localMicTrack) {
+        const activeUid = String(data?.active_speaker_uid || "");
+        const myUid = String(agoraUid);
+        if (activeUid && activeUid === myUid) {
+          try { await localMicTrack.setMuted(false); } catch (_) {}
+          startSpeakingHeartbeat(selfUserId);
+        } else {
+          try { await localMicTrack.setMuted(true); } catch (_) {}
+          stopSpeakingHeartbeat();
+        }
+        syncControlStates();
+      }
+      if (!isProfessor && data && data.queue_position) {
+        setRaiseHandLabel(data.queue_position);
+      } else if (!isProfessor) {
+        setRaiseHandLabel(null);
+      }
+      if (data && typeof data.active_speaker_uid !== "undefined") {
+        const nextActive = String(data.active_speaker_uid || "");
+        const changed = String(activeSpeakerUid || "") !== nextActive;
+        activeSpeakerUid = nextActive || null;
+        if (changed) rerender();
+      }
+      if (!isProfessor && data && typeof data.hand_raised === "boolean") {
+        const id = String(agoraUid);
+        const serverRaised = !!data.hand_raised;
+        const localRaised = raisedHands.has(id);
+        if (serverRaised !== localRaised) {
+          if (serverRaised) raisedHands.add(id);
+          else raisedHands.delete(id);
+          btnRaiseHand.classList.toggle("active", raisedHands.has(id));
+          btnRaiseHand.innerHTML = raisedHands.has(id)
+            ? '<span class="material-symbols-outlined">waving_hand</span>'
+            : '<span class="material-symbols-outlined">front_hand</span>';
+          setSelfHandIndicator(raisedHands.has(id));
+        }
+      }
+      if (isProfessor && Array.isArray(data?.raised_hands)) {
+        const nextRaised = new Set((data.raised_hands || []).map((v) => String(v || "")).filter(Boolean));
+        Array.from(raisedHands).forEach((uid) => {
+          if (!nextRaised.has(uid) && !isProfessorLike(uid)) raisedHands.delete(uid);
+        });
+        nextRaised.forEach((uid) => {
+          if (!isProfessorLike(uid)) raisedHands.add(uid);
+        });
+        markPaneBorders();
+        syncStudentCardBorders();
+        refreshPresenceBoard();
+      }
+      if (data && data.ended) {
+        forceExit("live_ended_status");
+      }
+      const lbl = (data?.status || "").toString().toUpperCase() || "LIVE";
+      if (liveStatusText) liveStatusText.textContent = lbl;
+      if (headerStatusText) headerStatusText.textContent = lbl;
+    } catch (_) {}
+  };
+  setInterval(pollStatus, 1200);
+
+  let pollHandQueueNow = null;
+  if (isProfessor) {
+    const statsPushUrl = "{% url 'Prolean:external_live_stats_push' session_id %}";
+    const pollHandQueue = async () => {
+      try {
+        const res = await fetch(`${raiseHandQueueUrl}?session_id={{ session_id }}`, { credentials: "same-origin" });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) {
+          renderHandQueue(data.requests || []);
+        }
+      } catch (_) {}
+    };
+    pollHandQueueNow = pollHandQueue;
+
+    const tickTracking = () => {
+      if (exiting) return;
+      const students = getStudentEntries();
+      students.forEach((s) => {
+        const stat = getOrInitStat(s.id);
+        if (stat.online && !stat.joinedAt) stat.joinedAt = Date.now();
+      });
+    };
+
+    const pushTracking = async () => {
+      if (exiting || !hasJoined) return;
+      const students = Array.from(statsByUid.values())
+        .filter((r) => r && r.uid && !isProfessorLike(r.uid))
+        .map((r) => ({
+          uid: String(r.uid),
+          name: String(r.name || identityLabel(r.uid) || `Student ${r.uid}`),
+          watch_ms: Math.round(estimateWatchMs(r)),
+          speaking_ms: Math.round(estimateSpeakingMs(r)),
+          hand_raised_ms: Math.round(estimateHandRaisedMs(r)),
+          speaks: Number(r.speaks || 0),
+          hands: Number(r.hands || 0),
+          engagement: computeEngagement(r),
+        }));
+      try {
+        await fetch(statsPushUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          body: JSON.stringify({ students }),
+          credentials: "same-origin",
+        });
+      } catch (_) {}
+    };
+
+    setInterval(tickTracking, 1000);
+    setInterval(pushTracking, 5000);
+    pollHandQueue();
+    setInterval(pollHandQueue, 1000);
+  }
+})();
+</script>
+{% endblock %}
+

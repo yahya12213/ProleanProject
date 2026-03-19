@@ -1,0 +1,620 @@
+{% extends 'Prolean/professor/base_professor.html' %}
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
+
+{% block header_title %}{% if CURRENT_LANGUAGE == 'ar' %}استوديو الأستاذ{% elif CURRENT_LANGUAGE == 'en' %}Professor Studio{% else %}Studio Professeur{% endif %}{% endblock %}
+{% block header_subtitle %}{% if CURRENT_LANGUAGE == 'ar' %}مركز قيادة مباشر للجلسات والبث والطلاب.{% elif CURRENT_LANGUAGE == 'en' %}Live command center for sessions, stream control, and student awareness.{% else %}Centre de commandement live des sessions, du stream et des étudiants.{% endif %}{% endblock %}
+
+{% block professor_content %}
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap");
+
+  .prof-layout {
+    --dash-ink: #0f172a;
+    --dash-muted: #64748b;
+    --dash-edge: #e2e8f0;
+    --dash-card: rgba(255, 255, 255, 0.92);
+    --dash-card-2: rgba(248, 250, 252, 0.94);
+    --dash-accent: #2563eb;
+    --dash-accent-2: #16a34a;
+    --dash-warn: #f59e0b;
+    --dash-danger: #dc2626;
+    --dash-hero-bg:
+      radial-gradient(900px 300px at 6% -20%, rgba(37, 99, 235, 0.18), transparent 60%),
+      radial-gradient(900px 300px at 110% -30%, rgba(16, 185, 129, 0.14), transparent 55%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(240, 244, 248, 0.96));
+    --dash-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  }
+
+  .dark .prof-layout {
+    --dash-ink: #e2e8f0;
+    --dash-muted: #94a3b8;
+    --dash-edge: rgba(148, 163, 184, 0.22);
+    --dash-card: rgba(12, 17, 30, 0.88);
+    --dash-card-2: rgba(8, 12, 24, 0.86);
+    --dash-accent: #38bdf8;
+    --dash-accent-2: #22c55e;
+    --dash-warn: #f59e0b;
+    --dash-danger: #ef4444;
+    --dash-hero-bg:
+      radial-gradient(900px 300px at 6% -20%, rgba(56, 189, 248, 0.18), transparent 60%),
+      radial-gradient(900px 300px at 110% -30%, rgba(34, 197, 94, 0.16), transparent 55%),
+      linear-gradient(135deg, rgba(8, 12, 22, 0.98), rgba(4, 7, 15, 0.96));
+    --dash-shadow: 0 30px 70px rgba(2, 6, 23, 0.45);
+  }
+
+  .prof-dashboard {
+    display: grid;
+    gap: 18px;
+    font-family: "Manrope", "Segoe UI", sans-serif;
+  }
+
+  .prof-hero {
+    border: 1px solid var(--dash-edge);
+    border-radius: 28px;
+    padding: 20px;
+    background: var(--dash-hero-bg);
+    color: var(--dash-ink);
+    box-shadow: var(--dash-shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .hero-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .hero-sub {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dash-muted);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .hero-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 999px;
+    padding: 7px 11px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: var(--dash-ink);
+    background: rgba(255, 255, 255, 0.6);
+  }
+  .pill.live { border-color: rgba(239, 68, 68, 0.55); color: #fecaca; background: rgba(239, 68, 68, 0.18); }
+  .pill.paused { border-color: rgba(245, 158, 11, 0.55); color: #fde68a; background: rgba(245, 158, 11, 0.18); }
+  .pill.offline { border-color: rgba(148, 163, 184, 0.35); color: var(--dash-ink); background: rgba(148, 163, 184, 0.12); }
+
+  .hero-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  .hero-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  .kpi {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 12px;
+  }
+  .kpi .k {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #93c5fd;
+  }
+  .kpi .v {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--dash-ink);
+    margin-top: 4px;
+  }
+
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .dash-rail {
+    display: grid;
+    gap: 12px;
+  }
+
+  .dash-main {
+    display: grid;
+    gap: 14px;
+  }
+
+  .card {
+    border: 1px solid var(--dash-edge);
+    border-radius: 22px;
+    background: linear-gradient(160deg, var(--dash-card), var(--dash-card-2));
+    padding: 14px;
+    box-shadow: var(--dash-shadow);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .card-head h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--dash-ink);
+    letter-spacing: 0.04em;
+  }
+  .card-head span {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+  }
+
+  .session-list {
+    display: grid;
+    gap: 10px;
+    max-height: 72vh;
+    overflow: auto;
+    padding-right: 2px;
+  }
+  .session-item {
+    border: 1px solid var(--dash-edge);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    transition: transform .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .session-item:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 189, 248, 0.5);
+  }
+  .session-item.active {
+    border-color: rgba(56, 189, 248, 0.6);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(99, 102, 241, 0.12));
+  }
+  .session-ico {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.45), rgba(99, 102, 241, 0.4));
+    color: #0f172a;
+  }
+  .session-item b {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--dash-ink);
+  }
+  .session-item p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--dash-muted);
+  }
+
+  .btnx {
+    border-radius: 14px;
+    padding: 11px 12px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+  }
+  .btnx:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+    box-shadow: 0 12px 24px rgba(2, 6, 23, 0.35);
+  }
+  .btnx[disabled], .btnx.disabled { opacity: .55; pointer-events: none; }
+  .btnx.start { background: linear-gradient(135deg, #ef4444, #fb7185); color: #fff; }
+  .btnx.pause { background: linear-gradient(135deg, #f59e0b, #fb7185); color: #111827; }
+  .btnx.end { background: linear-gradient(135deg, #111827, #1f2937); color: #fff; }
+  .btnx.studio { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
+  .btnx.ghost { background: rgba(255, 255, 255, 0.7); border-color: var(--dash-edge); color: var(--dash-ink); }
+
+  .actions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .students-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+  .stu {
+    border: 1px solid var(--dash-edge);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.75);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .stu .av {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #0f172a;
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  }
+  .stu b { display: block; font-size: 12px; font-weight: 800; color: var(--dash-ink); }
+  .stu p { margin: 3px 0 0; font-size: 11px; font-weight: 600; color: var(--dash-muted); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    margin-top: 8px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 800;
+    border: 1px solid transparent;
+  }
+  .badge.on { background: rgba(34, 197, 94, 0.16); border-color: rgba(34, 197, 94, 0.3); color: #16a34a; }
+  .badge.off { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.28); color: var(--dash-muted); }
+
+  .tracking-wrap { max-height: 350px; overflow: auto; padding-right: 2px; }
+  .tracking-table { width: 100%; border-collapse: collapse; }
+  .tracking-table th {
+    position: sticky;
+    top: 0;
+    background: rgba(255, 255, 255, 0.9);
+    border-bottom: 1px solid var(--dash-edge);
+    padding: 10px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+    text-align: left;
+  }
+  .tracking-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--dash-edge);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dash-ink);
+  }
+  .score-pill {
+    border-radius: 999px;
+    border: 1px solid rgba(14, 165, 233, 0.35);
+    padding: 3px 8px;
+    background: rgba(14, 165, 233, 0.12);
+    display: inline-flex;
+    min-width: 44px;
+    justify-content: center;
+  }
+  .score-pill.hot { border-color: rgba(249, 115, 22, 0.45); background: rgba(249, 115, 22, 0.15); }
+
+  .broadcast-grid { display: grid; gap: 10px; }
+  .inp, .sel, .txt {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid var(--dash-edge);
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--dash-ink);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 11px;
+    outline: none;
+  }
+  .txt { min-height: 110px; resize: vertical; }
+
+  .warn {
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: 20px;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(239, 68, 68, 0.12));
+    color: #fde68a;
+    font-weight: 700;
+  }
+
+  .dark .prof-layout .pill {
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .dark .prof-layout .session-item {
+    background: rgba(12, 16, 30, 0.7);
+  }
+  .dark .prof-layout .btnx.ghost {
+    background: rgba(15, 23, 42, 0.6);
+  }
+  .dark .prof-layout .stu {
+    background: rgba(10, 14, 24, 0.75);
+  }
+  .dark .prof-layout .session-ico,
+  .dark .prof-layout .stu .av {
+    color: #fff;
+  }
+  .dark .prof-layout .badge.on {
+    color: #86efac;
+  }
+  .dark .prof-layout .tracking-table th {
+    background: rgba(10, 14, 24, 0.95);
+  }
+  .dark .prof-layout .inp,
+  .dark .prof-layout .sel,
+  .dark .prof-layout .txt {
+    background: rgba(10, 14, 24, 0.85);
+  }
+
+  @media (max-width: 1260px) {
+    .dash-grid { grid-template-columns: 1fr; }
+    .hero-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 980px) {
+    .actions-grid { grid-template-columns: 1fr; }
+    .students-grid { grid-template-columns: 1fr; }
+    .hero-title { font-size: 24px; }
+  }
+</style>
+
+{% if external_professor_mode %}
+<div class="prof-dashboard">
+  {% if external_error %}
+  <div class="warn">
+    External authority unavailable right now: {{ external_error }}.
+    <div class="flex gap-2 mt-2">
+      <a class="btnx start" href="{% url 'Prolean:login' %}"><span class="material-symbols-outlined text-base">login</span>Re-login</a>
+      <a class="btnx ghost" href="{% url 'Prolean:professor_dashboard' %}"><span class="material-symbols-outlined text-base">refresh</span>Retry</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="prof-hero">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-status mb-3">
+          {% if external_live_state and external_live_state.status == 'live' %}
+          <span class="pill live"><span class="material-symbols-outlined text-sm">live_tv</span>On Air</span>
+          {% elif external_live_state and external_live_state.status == 'paused' %}
+          <span class="pill paused"><span class="material-symbols-outlined text-sm">pause_circle</span>Paused</span>
+          {% else %}
+          <span class="pill offline"><span class="material-symbols-outlined text-sm">power</span>Offline</span>
+          {% endif %}
+          <span class="pill"><span class="material-symbols-outlined text-sm">public</span>Barka</span>
+        </div>
+        <div class="hero-title">{{ external_selected_session.titre|default:"No Session Selected" }}</div>
+        <div class="hero-sub">{{ external_selected_session.ville_name|default:"-" }} • {{ external_selected_session.session_type|default:"-" }} • {{ external_selected_session.statut|default:"-" }}</div>
+      </div>
+      <div class="hero-actions">
+        {% if external_selected_session and external_selected_session.id %}
+        <a class="btnx studio" href="{% url 'Prolean:external_live_room' external_selected_session.id %}"><span class="material-symbols-outlined text-base">videocam</span>Open Studio</a>
+        {% else %}
+        <span class="btnx ghost disabled"><span class="material-symbols-outlined text-base">videocam_off</span>Open Studio</span>
+        {% endif %}
+        <a class="btnx ghost" href="{% url 'Prolean:professor_dashboard' %}"><span class="material-symbols-outlined text-base">refresh</span>Refresh</a>
+      </div>
+    </div>
+    <div class="hero-kpis">
+      <div class="kpi"><div class="k">Sessions</div><div class="v">{{ external_sessions|length }}</div></div>
+      <div class="kpi"><div class="k">Students</div><div class="v">{{ students_count }}</div></div>
+      <div class="kpi"><div class="k">Online Web</div><div class="v">{{ online_students_count|default:0 }}</div></div>
+      <div class="kpi"><div class="k">Live State</div><div class="v">{% if external_live_state and external_live_state.status == 'live' %}ON{% elif external_live_state and external_live_state.status == 'paused' %}PAUSED{% else %}OFF{% endif %}</div></div>
+    </div>
+  </section>
+
+  <section class="dash-grid">
+    <aside class="dash-rail">
+      <div class="card">
+        <div class="card-head"><h3>Session Queue</h3><span>{{ external_sessions|length }} total</span></div>
+      <div class="session-list">
+        {% for sess in external_sessions %}
+        <a href="?session_id={{ sess.id }}" class="session-item {% if external_selected_session and sess.id == external_selected_session.id %}active{% endif %}">
+          <div class="session-ico"><span class="material-symbols-outlined">school</span></div>
+          <div>
+            <b class="truncate">{{ sess.titre|default:"Session" }}</b>
+            <p class="truncate">{{ sess.ville_name|default:"-" }} • {{ sess.date_debut|default:"-" }}</p>
+            <p class="truncate">{{ sess.statut|default:"-" }}</p>
+          </div>
+        </a>
+        {% empty %}
+        <div class="session-item"><div class="session-ico"><span class="material-symbols-outlined">event_busy</span></div><div><b>No assigned sessions</b><p>Check assignments in Barka.</p></div></div>
+        {% endfor %}
+      </div>
+      </div>
+    </aside>
+
+    <div class="dash-main">
+      <div class="card">
+        <div class="card-head">
+          <h3>Live Controls</h3>
+          <span>{% if external_selected_session and external_selected_session.id %}Session #{{ external_selected_session.id }}{% else %}Pick Session{% endif %}</span>
+        </div>
+        {% if external_selected_session and external_selected_session.id %}
+        <div class="actions-grid">
+          <form method="post" action="{% url 'Prolean:external_professor_live_start' external_selected_session.id %}">{% csrf_token %}
+            <button class="btnx start w-full {% if external_live_state and external_live_state.status == 'live' %}disabled{% endif %}" {% if external_live_state and external_live_state.status == 'live' %}disabled{% endif %}><span class="material-symbols-outlined text-base">radio_button_checked</span>Start & Join</button>
+          </form>
+          <form method="post" action="{% url 'Prolean:external_professor_live_pause' external_selected_session.id %}">{% csrf_token %}
+            <button class="btnx pause w-full {% if not external_live_state or external_live_state.status != 'live' %}disabled{% endif %}" {% if not external_live_state or external_live_state.status != 'live' %}disabled{% endif %}><span class="material-symbols-outlined text-base">pause_circle</span>Pause</button>
+          </form>
+          <form method="post" action="{% url 'Prolean:external_professor_live_end' external_selected_session.id %}">{% csrf_token %}
+            <button class="btnx end w-full {% if not external_live_state or external_live_state.status == 'ended' %}disabled{% endif %}" {% if not external_live_state or external_live_state.status == 'ended' %}disabled{% endif %}><span class="material-symbols-outlined text-base">stop_circle</span>End</button>
+          </form>
+        </div>
+        <div class="mt-2">
+          <a class="btnx studio w-full" href="{% url 'Prolean:external_live_room' external_selected_session.id %}"><span class="material-symbols-outlined text-base">videocam</span>Open Studio</a>
+        </div>
+        {% else %}
+        <div class="text-sm font-bold" style="color: var(--prof-text-muted);">Select a session to unlock controls.</div>
+        {% endif %}
+      </div>
+
+
+      <div class="card" id="live-tracking-card"
+           {% if external_selected_session and external_selected_session.id %}
+           data-stats-url="{% url 'Prolean:external_live_stats_get' external_selected_session.id %}"
+           data-status-url="{% url 'Prolean:external_live_status' external_selected_session.id %}"
+           {% endif %}>
+        <div class="card-head"><h3>Live Tracking</h3><span id="live-tracking-updated">--</span></div>
+        <div class="tracking-wrap">
+          <table class="tracking-table">
+            <thead><tr><th>Student</th><th>Watch</th><th>Speaks</th><th>Hands</th><th>Score</th></tr></thead>
+            <tbody id="live-tracking-body"><tr><td colspan="5" style="color:var(--prof-text-muted);font-weight:900;">Open Studio to start tracking.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Banned Students</h3><span>{{ external_bans|length }} banned</span></div>
+        <div class="grid gap-2">
+          {% for ban in external_bans %}
+          <div class="session-item">
+            <div class="session-ico"><span class="material-symbols-outlined">person_off</span></div>
+            <div class="min-w-0">
+              <b class="truncate">{{ ban.user.get_full_name|default:ban.user.username }}</b>
+              <p class="truncate">{% if ban.reason %}{{ ban.reason }}{% else %}No reason{% endif %}</p>
+              <form method="post" action="{% url 'Prolean:external_live_unban_user' external_selected_session.id %}" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ ban.user.id }}">
+                <button class="btnx ghost" type="submit"><span class="material-symbols-outlined text-base">undo</span>Unban</button>
+              </form>
+            </div>
+          </div>
+          {% empty %}
+          <div class="text-sm font-bold" style="color: var(--prof-text-muted);">No bans for this session.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Broadcast</h3><span>Notify</span></div>
+        {% if external_selected_session and external_selected_session.id %}
+        <form class="broadcast-grid" method="post" action="{% url 'Prolean:external_send_session_notification' external_selected_session.id %}">
+          {% csrf_token %}
+          <input class="inp" name="title" required placeholder="{% if CURRENT_LANGUAGE == 'ar' %}العنوان{% elif CURRENT_LANGUAGE == 'en' %}Title{% else %}Titre{% endif %}">
+          <select class="sel" name="type">
+            <option value="info">{% if CURRENT_LANGUAGE == 'ar' %}معلومة{% elif CURRENT_LANGUAGE == 'en' %}Info{% else %}Info{% endif %}</option>
+            <option value="success">{% if CURRENT_LANGUAGE == 'ar' %}نجاح{% elif CURRENT_LANGUAGE == 'en' %}Success{% else %}Succès{% endif %}</option>
+            <option value="warning">{% if CURRENT_LANGUAGE == 'ar' %}تنبيه{% elif CURRENT_LANGUAGE == 'en' %}Warning{% else %}Alerte{% endif %}</option>
+            <option value="error">{% if CURRENT_LANGUAGE == 'ar' %}خطأ{% elif CURRENT_LANGUAGE == 'en' %}Error{% else %}Erreur{% endif %}</option>
+          </select>
+          <textarea class="txt" name="message" required placeholder="{% if CURRENT_LANGUAGE == 'ar' %}اكتب رسالتك...{% elif CURRENT_LANGUAGE == 'en' %}Write your message...{% else %}Votre message...{% endif %}"></textarea>
+          <button class="btnx studio w-full" type="submit"><span class="material-symbols-outlined text-base">send</span>{% if CURRENT_LANGUAGE == 'ar' %}إرسال{% elif CURRENT_LANGUAGE == 'en' %}Send{% else %}Envoyer{% endif %}</button>
+        </form>
+        {% else %}
+        <div class="text-sm font-bold" style="color: var(--prof-text-muted);">Select a session to broadcast.</div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</div>
+
+{% else %}
+<div class="prof-dashboard">
+  <div class="card">
+    <h3 class="m-0 text-lg font-black" style="color: var(--prof-text-main);">Local mode dashboard</h3>
+    <p class="mt-2 text-sm font-bold" style="color: var(--prof-text-muted);">The new 2028-style command center is fully enabled in external (Barka) mode.</p>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(() => {
+  const card = document.getElementById("live-tracking-card");
+  const body = document.getElementById("live-tracking-body");
+  const updated = document.getElementById("live-tracking-updated");
+  if (!card || !body || !updated) return;
+
+  const statsUrl = String(card.dataset.statsUrl || "");
+  const statusUrl = String(card.dataset.statusUrl || "");
+  if (!statsUrl || !statusUrl) return;
+
+  const fmt = (ms) => {
+    const mins = Math.max(0, Math.floor((Number(ms || 0)) / 60000));
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+  };
+  const renderEmpty = (text) => {
+    body.innerHTML = `<tr><td colspan="5" style="color: var(--prof-text-muted); font-weight: 900; padding: 12px 8px;">${text}</td></tr>`;
+  };
+  const renderRows = (rows) => {
+    if (!rows.length) {
+      renderEmpty("No tracking data yet. Open Studio and wait for students to join.");
+      return;
+    }
+    const safe = rows.slice(0, 60);
+    body.innerHTML = safe.map((row) => {
+      const score = Number(row.engagement || 0);
+      const cls = score >= 20 ? "score-pill hot" : "score-pill";
+      const name = String(row.name || `Student ${row.uid || ""}`);
+      return `<tr><td>${name}</td><td>${fmt(row.watch_ms)}</td><td>${Number(row.speaks || 0)}</td><td>${Number(row.hands || 0)}</td><td><span class="${cls}">${Math.round(score)}</span></td></tr>`;
+    }).join("");
+  };
+  const poll = async () => {
+    try {
+      const statusRes = await fetch(statusUrl, { credentials: "same-origin" });
+      if (statusRes.ok) {
+        const status = await statusRes.json();
+        if (status && status.ended) {
+          updated.textContent = "Ended";
+          renderEmpty("Live ended. Tracking snapshot stays here.");
+          return;
+        }
+      }
+      const statsRes = await fetch(statsUrl, { credentials: "same-origin" });
+      if (!statsRes.ok) return;
+      const data = await statsRes.json();
+      const students = Array.isArray(data?.students) ? data.students : [];
+      students.sort((a, b) => Number(b.engagement || 0) - Number(a.engagement || 0));
+      updated.textContent = data?.updated_at ? new Date(data.updated_at).toLocaleTimeString() : "—";
+      renderRows(students);
+    } catch (_) {}
+  };
+  poll();
+  setInterval(poll, 3000);
+})();
+</script>
+{% endblock %}

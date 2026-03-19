@@ -1,0 +1,368 @@
+{% extends 'Prolean/base.html' %}
+{% load static %}
+
+{% block title %}LIVE - {% for t in session.formations.all %}{{ t.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endblock %}
+{% block main_class %}w-full max-w-none{% endblock %}
+{% block extra_css %}
+<style>
+    #contact { display: none !important; }
+
+    .ag-live {
+        --ag-bg: radial-gradient(circle at 12% 12%, rgba(255, 107, 0, 0.18), transparent 40%),
+                 radial-gradient(circle at 88% 10%, rgba(14, 165, 233, 0.16), transparent 34%),
+                 linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+        --ag-panel: rgba(255, 255, 255, 0.78);
+        --ag-panel-border: rgba(148, 163, 184, 0.3);
+        --ag-text: #0f172a;
+        --ag-muted: #475569;
+        --ag-stage: #020617;
+        --ag-chip: rgba(226, 232, 240, 0.85);
+        min-height: calc(100vh - var(--site-header-height, 80px));
+        background: var(--ag-bg);
+        color: var(--ag-text);
+    }
+
+    .dark .ag-live {
+        --ag-bg: radial-gradient(circle at 12% 12%, rgba(255, 107, 0, 0.24), transparent 40%),
+                 radial-gradient(circle at 88% 10%, rgba(14, 165, 233, 0.2), transparent 34%),
+                 linear-gradient(180deg, #020617 0%, #0f172a 100%);
+        --ag-panel: rgba(15, 23, 42, 0.76);
+        --ag-panel-border: rgba(71, 85, 105, 0.5);
+        --ag-text: #e2e8f0;
+        --ag-muted: #94a3b8;
+        --ag-stage: #000000;
+        --ag-chip: rgba(30, 41, 59, 0.85);
+    }
+
+    .ag-panel {
+        background: var(--ag-panel);
+        border: 1px solid var(--ag-panel-border);
+        backdrop-filter: blur(10px);
+    }
+
+    .ag-control {
+        border: 1px solid var(--ag-panel-border);
+        background: var(--ag-chip);
+        color: var(--ag-text);
+        transition: transform 0.18s ease, border-color 0.18s ease;
+    }
+
+    .ag-control:hover {
+        transform: translateY(-1px);
+    }
+
+    .ag-control[data-state="off"] {
+        background: rgba(239, 68, 68, 0.18);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #ef4444;
+    }
+
+    .dark .ag-control[data-state="off"] {
+        color: #fca5a5;
+        background: rgba(248, 113, 113, 0.16);
+    }
+
+    .ag-stage {
+        background: var(--ag-stage);
+        min-height: 60vh;
+    }
+
+    .ag-live-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        background: #ef4444;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+        animation: agPulse 1.8s ease-out infinite;
+    }
+
+    @keyframes agPulse {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+        80% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ag-live w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-5">
+    <div class="max-w-[1700px] mx-auto space-y-4">
+        {% if is_currently_live %}
+        <header class="ag-panel rounded-3xl px-4 sm:px-6 py-4">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.22em] font-black text-orange-500">Agora Live Room</p>
+                    <h1 class="text-2xl sm:text-3xl font-black tracking-tight">
+                        {% for t in session.formations.all %}
+                            {{ t.title }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </h1>
+                    <p class="text-sm mt-1" style="color: var(--ag-muted);">{{ session.city }} - mic and camera auto enabled on join.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider" style="background: var(--ag-chip); border: 1px solid var(--ag-panel-border);">
+                        <span class="inline-flex items-center gap-2"><span class="ag-live-dot"></span>Live</span>
+                    </span>
+                    <span class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider" style="background: var(--ag-chip); border: 1px solid var(--ag-panel-border);">
+                        Participants: <span id="participant-count">0</span>
+                    </span>
+                    <a href="{% if user.profile.role == 'PROFESSOR' %}{% url 'Prolean:professor_dashboard' %}{% else %}{% url 'Prolean:dashboard' %}{% endif %}"
+                       class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white text-white font-black text-xs uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors">
+                        <span class="material-symbols-outlined text-sm">arrow_back</span>
+                        Back
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
+            <section class="ag-panel rounded-3xl p-3 sm:p-4">
+                <div id="remote-player-host" class="ag-stage relative w-full rounded-2xl overflow-hidden border border-slate-700/50">
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                        <span class="material-symbols-outlined text-6xl animate-pulse mb-3">wifi_tethering</span>
+                        <p class="text-xs font-black uppercase tracking-[0.2em]">Connecting stream...</p>
+                    </div>
+                </div>
+                <div id="local-player" class="hidden mt-3 h-36 sm:h-40 rounded-2xl overflow-hidden border border-slate-700/50 bg-black relative">
+                    <div class="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 text-white text-[11px] font-bold">You</div>
+                </div>
+            </section>
+
+            <aside class="ag-panel rounded-3xl p-4">
+                <h2 class="text-sm font-black uppercase tracking-[0.16em] mb-3">Controls</h2>
+                <div class="grid grid-cols-4 gap-2 sm:gap-3">
+                    <button id="mic-btn" class="ag-control aspect-square rounded-xl flex items-center justify-center" title="Microphone" data-state="on">
+                        <span class="material-symbols-outlined">mic</span>
+                    </button>
+                    <button id="camera-btn" class="ag-control aspect-square rounded-xl flex items-center justify-center" title="Camera" data-state="on">
+                        <span class="material-symbols-outlined">videocam</span>
+                    </button>
+                    <button id="screen-share-btn" class="ag-control aspect-square rounded-xl flex items-center justify-center" title="Share Screen">
+                        <span class="material-symbols-outlined">present_to_all</span>
+                    </button>
+                    <button id="fullscreen-btn" class="ag-control aspect-square rounded-xl flex items-center justify-center" title="Fullscreen">
+                        <span class="material-symbols-outlined">fullscreen</span>
+                    </button>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button id="leave-btn" class="flex-1 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">call_end</span>
+                        Leave
+                    </button>
+                    {% if user_is_host %}
+                    <a href="{% url 'Prolean:end_live_stream' stream.id %}" class="flex-1 px-3 py-2 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white text-white font-black text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">stop_circle</span>
+                        End Live
+                    </a>
+                    {% endif %}
+                </div>
+            </aside>
+        </div>
+        {% else %}
+        <section class="ag-panel rounded-3xl p-8 sm:p-12 text-center">
+            <div class="max-w-2xl mx-auto">
+                <div class="size-24 rounded-full mx-auto mb-6 flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-5xl">schedule</span>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">Session Offline</h2>
+                <p class="text-base sm:text-lg mb-8" style="color: var(--ag-muted);">
+                    The live stream is not active right now. Please wait for the instructor to start the session.
+                </p>
+                <a href="{% if user.profile.role == 'PROFESSOR' %}{% url 'Prolean:professor_dashboard' %}{% else %}{% url 'Prolean:dashboard' %}{% endif %}"
+                   class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white text-white font-black text-xs uppercase tracking-wider transition-colors">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span>
+                    Return
+                </a>
+            </div>
+        </section>
+        {% endif %}
+    </div>
+</div>
+
+{% if is_currently_live %}
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
+<script>
+(() => {
+    const APP_ID = "{{ agora_app_id }}";
+    const CHANNEL = "{{ agora_channel }}";
+    const TOKEN = "{{ agora_token }}";
+    const UID = {{ user.id }};
+    const USER_IS_HOST = {{ user_is_host|yesno:"true,false" }};
+    const STREAM_ID = {{ stream.id }};
+    const STATUS_URL = "{% url 'Prolean:live_stream_status' stream.id %}";
+    const EXIT_URL = USER_IS_HOST ? "{% url 'Prolean:professor_dashboard' %}" : "{% url 'Prolean:dashboard' %}";
+
+    const micBtn = document.getElementById("mic-btn");
+    const cameraBtn = document.getElementById("camera-btn");
+    const screenBtn = document.getElementById("screen-share-btn");
+    const fullscreenBtn = document.getElementById("fullscreen-btn");
+    const leaveBtn = document.getElementById("leave-btn");
+    const participantCountEl = document.getElementById("participant-count");
+    const remoteHostEl = document.getElementById("remote-player-host");
+    const localPlayerEl = document.getElementById("local-player");
+
+    const rtc = {
+        client: null,
+        localAudioTrack: null,
+        localVideoTrack: null,
+    };
+
+    const playedRemoteAudio = new Set();
+    let shouldPollStatus = true;
+
+    const pollLiveStatus = async () => {
+        if (!shouldPollStatus) return;
+        try {
+            const res = await fetch(STATUS_URL, { credentials: "same-origin", headers: { "Accept": "application/json" } });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.ok && data.is_active === false) {
+                window.location.href = EXIT_URL;
+            }
+        } catch (_) {}
+    };
+    setInterval(pollLiveStatus, 2000);
+    pollLiveStatus();
+
+    const syncControlState = () => {
+        const micOn = !!rtc.localAudioTrack && !rtc.localAudioTrack.muted;
+        const camOn = !!rtc.localVideoTrack && !rtc.localVideoTrack.muted;
+        micBtn.dataset.state = micOn ? "on" : "off";
+        cameraBtn.dataset.state = camOn ? "on" : "off";
+        micBtn.innerHTML = `<span class="material-symbols-outlined">${micOn ? "mic" : "mic_off"}</span>`;
+        cameraBtn.innerHTML = `<span class="material-symbols-outlined">${camOn ? "videocam" : "videocam_off"}</span>`;
+    };
+
+    const updateParticipantCount = () => {
+        const count = rtc.client ? rtc.client.remoteUsers.length + 1 : 0;
+        participantCountEl.textContent = String(count);
+    };
+
+    const showRemoteOffline = () => {
+        remoteHostEl.innerHTML = `
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                <span class="material-symbols-outlined text-6xl mb-3">videocam_off</span>
+                <p class="text-xs font-black uppercase tracking-[0.2em]">Stream interrupted</p>
+            </div>`;
+    };
+
+    const ensureLocalPublished = async () => {
+        if (!rtc.localAudioTrack) rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        if (!rtc.localVideoTrack) rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+
+        if (!localPlayerEl.classList.contains("hidden")) {
+            localPlayerEl.innerHTML = '<div class="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 text-white text-[11px] font-bold">You</div>';
+        } else {
+            localPlayerEl.classList.remove("hidden");
+        }
+        rtc.localVideoTrack.play("local-player", { fit: "cover" });
+
+        await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+        syncControlState();
+    };
+
+    const startLiveSession = async () => {
+        rtc.client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        await rtc.client.setClientRole("host");
+
+        rtc.client.on("user-published", async (user, mediaType) => {
+            await rtc.client.subscribe(user, mediaType);
+
+            if (mediaType === "video" && user.videoTrack) {
+                remoteHostEl.innerHTML = "";
+                user.videoTrack.play("remote-player-host", { fit: "cover" });
+            }
+
+            if (mediaType === "audio" && user.audioTrack) {
+                const audioKey = String(user.uid);
+                if (!playedRemoteAudio.has(audioKey)) {
+                    user.audioTrack.play();
+                    playedRemoteAudio.add(audioKey);
+                }
+            }
+            updateParticipantCount();
+        });
+
+        rtc.client.on("user-unpublished", (user, mediaType) => {
+            if (mediaType === "audio") playedRemoteAudio.delete(String(user.uid));
+            if (mediaType === "video") showRemoteOffline();
+            updateParticipantCount();
+        });
+
+        rtc.client.on("user-left", (user) => {
+            playedRemoteAudio.delete(String(user.uid));
+            updateParticipantCount();
+        });
+
+        await rtc.client.join(APP_ID, CHANNEL, TOKEN, UID);
+        await ensureLocalPublished();
+        updateParticipantCount();
+    };
+
+    const startAttendanceHeartbeat = () => {
+        if (USER_IS_HOST) return;
+        setInterval(() => {
+            fetch(`/api/attendance/heartbeat/${STREAM_ID}/`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json"
+                }
+            });
+        }, 60000);
+    };
+
+    const leaveSession = async () => {
+        shouldPollStatus = false;
+        if (rtc.localAudioTrack) rtc.localAudioTrack.close();
+        if (rtc.localVideoTrack) rtc.localVideoTrack.close();
+        if (rtc.client) await rtc.client.leave();
+        window.location.href = USER_IS_HOST ? "{% url 'Prolean:professor_dashboard' %}" : "{% url 'Prolean:dashboard' %}";
+    };
+
+    micBtn.addEventListener("click", async () => {
+        if (!rtc.localAudioTrack) return;
+        await rtc.localAudioTrack.setMuted(!rtc.localAudioTrack.muted);
+        syncControlState();
+    });
+
+    cameraBtn.addEventListener("click", async () => {
+        if (!rtc.localVideoTrack) return;
+        await rtc.localVideoTrack.setMuted(!rtc.localVideoTrack.muted);
+        syncControlState();
+    });
+
+    if (!USER_IS_HOST) {
+        screenBtn.disabled = true;
+        screenBtn.classList.add("opacity-50", "cursor-not-allowed");
+    } else {
+        screenBtn.addEventListener("click", () => {
+            alert("Screen share is not enabled in this Agora room yet.");
+        });
+    }
+
+    fullscreenBtn.addEventListener("click", async () => {
+        if (!document.fullscreenElement) {
+            await remoteHostEl.requestFullscreen().catch(() => {});
+            fullscreenBtn.innerHTML = '<span class="material-symbols-outlined">fullscreen_exit</span>';
+        } else {
+            await document.exitFullscreen().catch(() => {});
+            fullscreenBtn.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+        }
+    });
+
+    leaveBtn.addEventListener("click", leaveSession);
+
+    window.addEventListener("beforeunload", async () => {
+        shouldPollStatus = false;
+        if (rtc.client) await rtc.client.leave().catch(() => {});
+    });
+
+    startLiveSession().catch(() => {
+        showRemoteOffline();
+    });
+    startAttendanceHeartbeat();
+})();
+</script>
+{% endif %}
+{% endblock %}

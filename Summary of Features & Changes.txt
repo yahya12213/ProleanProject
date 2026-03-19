@@ -1,0 +1,786 @@
+Summary of Features & Changes
+=================================
+
+Purpose
+- Persistent project log of implemented features, fixes, and key decisions.
+- This file must be updated whenever a new feature is added or an error fix is applied.
+
+Update Rule
+- For every new change, append a new entry with:
+  - Date (UTC)
+  - Area (Barka / Prolean / Infra)
+  - Type (Feature / Fix / Config / Refactor)
+  - What changed
+  - Why it changed
+  - Validation done
+
+Project Baseline (Current Working Direction)
+- Barka is source of truth for identity, roles/permissions, sessions, formations, cities, and assignments.
+- Prolean consumes Barka via API contract and adapts payloads to UI.
+- Login supports CIN and username depending on user type.
+- Registration creates student in Barka and redirects to student dashboard.
+- Student dashboard renders external assignments and pending-assignment states.
+- Professor dashboard renders assigned external sessions/students.
+- Live streaming integrated through LiveKit with Barka-controlled access.
+
+Recent Entries
+--------------
+
+[2026-02-27 UTC] Area: Prolean | Type: Fix/Live Moderation + Layout + One-Click Policy
+- Live moderation terminology/behavior updated to mute/unmute (no persistent mic lock in client controls).
+- External live room layout fixed to 3-zone focus: professor camera, presentation, and connected students.
+- One-click join links kept single-use with professor-visible usage tracking (used/revoked/expired) and preview-bot protection.
+
+[2026-02-27 UTC] Area: Prolean | Type: Fix/Mobile Live Default + Faster Mute/Unmute
+- Mobile default live view now prioritizes professor camera + presentation screen.
+- Professor mute/unmute actions now dispatch realtime signal first (DB/cache call in background) to reduce moderation latency.
+- Added fast fallback sync from live status polling (1.2s) so mute/unmute converges quickly even when data-stream delivery is delayed.
+
+[2026-02-26 UTC] Area: Prolean | Type: Refactor/One-Click Join Link Reliability
+- Removed the previous one-time invite consumption flow and database dependency for join links.
+- Implemented stateless signed one-click links with expiry (`EXTERNAL_LIVE_ONE_CLICK_TTL_SECONDS`).
+- Student join now validates signed token, provisions local student account by CIN, checks external live access, then redirects.
+- Simplified professor students page by removing invite history/status table and keeping direct Generate & Copy action.
+- Validation:
+  - Updated Django tests to cover signed link generation/reuse and invalid-token throttling.
+
+[2026-02-26 UTC] Area: Barka + Prolean | Type: Fix/Join Link Access Check
+- Added missing Barka endpoint `POST /api/sessions-formation/:id/live/access` to validate enrollment by CIN for service-mode joins.
+- Prolean join-link page now shows correct reasons (not enrolled vs live not started vs upstream down) instead of generic access denied.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/One-Time Join Links + Professor Tracking
+- Restored one-time join link behavior (single-use token) for external lives.
+- Link generation now stores invite records and revokes previous active link for the same student/session.
+- Link consumption now marks `used_at` and captures usage metadata (IP, device, browser/OS, location).
+- Professor students page now shows per-student join-link status (unused/used/expired/revoked) and usage details.
+- Student dashboard live CTA visibility hardened by normalizing CIN matching and more tolerant external session-id extraction.
+
+[2026-02-26 UTC] Area: Prolean | Type: Feature/Security
+- Added secure one-click join links for external live sessions (Barka):
+  - Professor can generate a one-time, time-limited link per student (by CIN) from `/professor/students/`.
+  - Raw tokens are never stored (only HMAC-SHA256 hash persisted).
+  - Single-use enforced (atomic mark used + reuse blocked).
+  - Brute-force protected via per-IP rate limiting + attempt logging.
+  - Captures usage metadata: device info, IP, and rough location (best-effort).
+  - Service-mode fallback allows low-tech users to join without Barka login (uses server-to-server token + Barka live access check).
+- Added maintenance command: `python manage.py cleanup_external_live_join_invites`.
+- Why:
+  - Reduce friction for low-tech users (click → join) while keeping production security guarantees.
+- Validation:
+  - `python -m compileall` and Django tests for invite generation/consumption/rate limiting.
+
+[2026-02-16 UTC] Area: Barka | Type: Feature
+- Added session live lifecycle contract endpoints:
+  - get live state
+  - start live
+  - pause live
+  - end live (with optional recording URL)
+  - join live
+  - leave live
+- Added live/session participant persistence with idempotent initialization.
+- Why:
+  - Enforce session-scoped live authorization under Barka authority.
+- Validation:
+  - Route syntax check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Feature
+- Added external live integration client methods and routes/views.
+- Added external live room page for LiveKit join experience.
+- Added professor controls (start/pause/end/join) in external dashboard.
+- Added student live status/CTA binding based on Barka live state.
+- Why:
+  - Enable end-to-end live flow with Barka as authority.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/UI
+- Fixed silent live action behavior:
+  - Start-live now redirects professor directly to live room after success.
+  - Added visible flash alerts (success/error/warning/info) in professor and student base layouts.
+- Improved student UX:
+  - Added clear "Live Available" panel with direct Join buttons for active session lives.
+- Why:
+  - Users reported clicking start/join with no visible outcome and unclear student join entry points.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/Config Guard
+- Added early validation of LiveKit env config in session live endpoints:
+  - start live now checks LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET before creating a live.
+  - join live now checks the same vars before generating token.
+- Why:
+  - Prevented confusing runtime failure where live starts but join fails with missing credentials.
+- Validation:
+  - Route syntax check passed.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/Error Handling
+- Changed missing LiveKit config response from 503 to 500 on live start/join.
+- Why:
+  - Prolean retries 503 as transient upstream downtime; this masked the real configuration error.
+- Validation:
+  - Route syntax check passed and commit pushed to Barka remotes.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/Config Robustness
+- Normalized LiveKit env values (trim + quote stripping) before token generation and URL response.
+- Why:
+  - Prevent failures caused by copied env values containing whitespace/quotes.
+- Validation:
+  - Route syntax check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/UI Diagnostics
+- Enhanced external live room to display detailed LiveKit connection error text on page.
+- Why:
+  - Replace ambiguous "Connection Failed" with actionable reason for debugging.
+- Validation:
+  - Django system check passed and pushed.
+
+[2026-02-16 UTC] Area: Barka | Type: Fix/URL Normalization
+- Added normalization for LiveKit websocket URL in join payload:
+  - trims spaces/quotes
+  - enforces ws scheme by prefixing with `wss://` if missing
+- Why:
+  - Prevent invalid URL errors in browser connect flow.
+- Validation:
+  - Route syntax check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Client Validation
+- Added client-side LiveKit URL normalization and explicit URL validation in live room page.
+- Added raw/normalized URL error output for fast diagnosis.
+- Why:
+  - Expose exact malformed URL problems instead of generic connection failure.
+- Validation:
+  - Django system check passed and pushed.
+
+[2026-02-16 UTC] Area: Barka | Type: Feature/Live Permissions
+- Updated LiveKit token grants:
+  - professor can publish camera + microphone (+ data)
+  - student can publish microphone only (+ data), no camera source permission
+- Why:
+  - Requirement: students can talk/raise hand but must not share camera.
+- Validation:
+  - Route syntax check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live UX+Media
+- Live room now:
+  - shows professor self-preview ("You") by rendering local video track
+  - separates audio tracks from video grid (prevents duplicate/black tiles)
+  - avoids duplicate track attachments
+  - keeps student camera disabled in UI
+  - adds "Raise Hand" data signal and "Enable Sound" control
+- Why:
+  - Fix dark frame/self-preview missing, duplicate stream appearance, and muted audio UX issues.
+- Validation:
+  - Django system check passed and pushed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Refactor/Live Stage + Responsive UI
+- Rebuilt external live room page for a stage-based layout:
+  - main stream fills stage area properly
+  - participant thumbnails in strip
+  - explicit live activity banner (speaking + raised hands)
+  - improved mobile responsiveness and control ergonomics
+- Fixed false global "Connection Failed" by handling post-connect mic/camera errors separately from socket connection status.
+- Added stronger audio recovery flow (`Enable Sound`) and speaking state rendering.
+- Updated student/professor base layouts with improved responsive spacing and visual hierarchy.
+- Why:
+  - Resolve stream sizing/usability issues on mobile and improve overall UX consistency.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live Rendering + UX
+- Fixed main-stage black preview issue by using real attached track elements in stage view (no clone-without-stream).
+- Updated professor external live control panel with improved responsive design and clearer CTA:
+  - `Start & Join Live`
+  - `Pause Live`
+  - `End Live`
+  - persistent `Back to Live Room` when live is active
+- Why:
+  - Ensure professor camera fills full stage and improve live action clarity.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Barka | Type: Feature/Live Permissions Update
+- Updated student LiveKit publish sources to allow camera + microphone (instead of mic-only).
+- Kept professor screen-share capability.
+- Why:
+  - New requirement allows students to open camera while staying in the same live room model.
+- Validation:
+  - Route syntax check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Refactor/Live UX
+- Reworked live room controls to icon-first interaction (mic/camera/screen share/raise hand/sound/fullscreen/layout).
+- Added professor screen-share toggle.
+- Added local avatar fallback tile (first letter) when camera is off.
+- Improved tile-to-stage switching behavior and fullscreen support for easier low-tech use.
+- Wired floating buttons to switch from WhatsApp to "Join Live" when live stream updates are detected, including external live data dispatch from student dashboard.
+- Updated professor dashboard live actions with icon-assisted buttons and clearer semantics.
+- Why:
+  - Improve usability for non-technical users and match requested UX behavior.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live Fullscreen UX
+- Live room now opens in full-width page mode and hides site footer during live.
+- Stage defaults to large viewport-focused dimensions to match event-room style.
+- Fixed duplicate self-video perception by hiding whichever tile is currently focused in main stage.
+- End-live control in professor dashboard is now shown only when a live is active/paused.
+- Why:
+  - Match requested design behavior and reduce confusion for non-technical users.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: UI/Presentation Mode
+- Removed top session banner from live room and kept a presentation-first canvas.
+- Moved connection state + leave action into compact control panel block.
+- Increased default stage footprint for a stronger "presentation mode" feel.
+- Why:
+  - Requirement to follow reference style and avoid header clutter.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Feature/Floating Live Shortcut
+- Extended global polling endpoint to include external/Barka live sessions.
+- Floating button now receives live updates from all authenticated pages (not only student dashboard context) and switches from WhatsApp to live shortcut when active.
+- Why:
+  - Make live room access persistent across the entire website.
+- Validation:
+  - Django system check passed.
+
+[2026-02-16 UTC] Area: Prolean | Type: Fix/Live Local Camera
+- Fixed student self-preview when turning camera on during live room:
+  - local track publication now explicitly attaches video/audio for local participant
+  - camera toggle now triggers a delayed local-track attach to handle async publication timing
+- Why:
+  - Students were not seeing themselves after enabling camera.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Refactor/Fix Live Rooms
+- Rebuilt both live-room templates (`external_live_room.html` + `live_session.html`) with full responsive redesign and dark/light theme support.
+- Enabled auto camera + microphone on join for both student and professor.
+- Added control-state sync and improved room fullscreen behavior.
+- Why:
+  - Requirement to modernize live UX and make media behavior automatic and consistent.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Live Audio + Presence
+- Fixed self-echo and duplicated voice playback paths:
+  - local participant audio is never attached to sink
+  - remote audio is deduped per participant
+  - screen-share audio source is ignored to prevent duplicate paths
+- Added robust avatar fallback when participant camera is disabled.
+- Why:
+  - Users reported repeated voice and missing identity fallback when camera is off.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Screen Share + Stage Selection
+- Prevented professor camera from being lost/black when enabling screen share by forcing camera enabled on share start.
+- Updated student main-stage promotion logic:
+  - remove brittle `prof_` identity dependency
+  - promote any remote camera over avatar/stale main state
+- Why:
+  - Students were not consistently seeing professor camera stream on the main stage.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Upstream Resilience
+- Added retry/backoff in `external_live_room` join flow for transient upstream failures (`502/503/504`, bad gateway patterns).
+- Why:
+  - Start-live join sometimes failed immediately due to short upstream readiness lag.
+- Validation:
+  - Django system check passed.
+
+[2026-02-17 UTC] Area: Prolean | Type: Feature/Live Layout Customization
+- Added student-focused "Layout Studio" controls in external live room:
+  - swap left/right panes
+  - adjust right pane width
+  - adjust students grid columns
+  - adjust student tile size
+  - reset layout to defaults
+- Added explicit mode buttons (`Screen`, `Split`, `Students`) with active state.
+- Saved layout preferences in browser local storage for persistence.
+- Updated right pane behavior to keep student space reserved for students only with empty-state message when no student is connected.
+- Why:
+  - Make live room easier to use and adjustable for non-technical users while preserving clear student/professor spaces.
+- Validation:
+  - Django system check passed.
+[2026-02-17 UTC] Area: Prolean | Type: Fix/Layout Stability + Drag Resize
+- Fixed split-mode student section so its height stays fixed when students join; student media now fits inside the reserved area with internal overflow handling.
+- Added a real draggable divider bar between left and right panes for direct screen-size adjustment.
+- Kept width preference persistence in local storage after drag.
+- Why:
+  - Student panel was growing unexpectedly and resizing had to be more direct/visual.
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Feature/Fix Dashboard UX + Live Camera Reliability
+- Rebuilt the external professor dashboard UI with a new operations-center layout:
+  - new hero status strip, session rail, control deck, and refreshed student cards
+  - kept all existing actions (`Start & Join`, `Pause`, `End`, `Open Live Room`) wired to current endpoints
+- Improved live stream camera reliability for students:
+  - forced rendered video elements to stay muted (audio remains handled via dedicated audio tracks) to avoid mobile autoplay black-screen behavior
+  - enriched professor identity hints by also deriving from session detail payload when join payload does not include presenter info
+- Why:
+  - Deliver a complete dashboard visual upgrade and fix the recurring issue where professor camera could fail to render for students while screen share still appeared.
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Migration/Live Provider Switch to Agora
+- Switched `external_live_room` transport from LiveKit client to Agora Web SDK while preserving the custom presenter UI layout and controls.
+- Added server-side Agora token generation using app-level credentials from environment variables:
+  - `AGORA_APP_ID`
+  - `AGORA_APP_CERTIFICATE`
+  - `AGORA_TOKEN_EXPIRY_SECONDS`
+- Implemented deterministic UID strategy for reliable professor stream mapping:
+  - professor camera UID = `1`
+  - professor screen share UID = `1001`
+  - students receive stable generated UIDs
+- Added dependency `agora-token-builder==1.0.0` for token creation.
+- Why:
+  - User requested migration to Agora while keeping the same UI and live-room behavior.
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Agora Screen Share + Mobile Live Layout
+- Fixed Agora screen sharing join flow by issuing and using a dedicated screen-share token (`UID 1001`) for professor screen publish.
+- Updated external live room mobile layout for better usability:
+  - stabilized pane heights for phone screens
+  - sticky bottom controls bar with clearer compact controls
+  - improved small-screen readability for pane labels
+- Added clearer screen-share failure message on unsupported browsers/devices.
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Live Room Divider Range + Student Grid Equalization
+- Extended live-room horizontal divider range to full extremes (`0%` to `100%`) for left/right pane allocation.
+- Updated right pane width persistence/loading and drag clamping to the new full range.
+- Updated multi-student rendering so student tiles divide space equally:
+  - dynamic equal rows/columns based on participant count
+  - each student camera fits the assigned tile frame
+  - removed card minimum-height pressure during equalized rendering
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Agora Frame Fill in Live Room
+- Fixed live video fit-to-frame behavior in presenter room:
+  - Agora video containers now use absolute full-frame slots (`inset: 0`) inside each video host/card
+  - compact student grid removed extra top padding so stream uses full assigned tile space
+- Why:
+  - Some streams were rendering with visible unused gaps instead of occupying the full allocated frame.
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: Fix/Resizable Panel Video Reflow + Aspect Ratio
+- Removed fixed-height pressure from main/side panes so containers can flex vertically with layout changes.
+- Updated Agora playback fit mode from `cover` to `contain` to preserve stream aspect ratio and prevent clipping.
+- Added re-render triggers on right-pane width drag/slider updates and window resize so live video recalculates to the new frame dimensions.
+- Improved video slot container behavior to center and fully adapt inside resized frames.
+- Validation:
+  - Django system check passed.
+[2026-02-18 UTC] Area: Prolean | Type: UX/Fit Mode Update
+- Updated live stream fit mode from `contain` to `cover` in presenter room to avoid blank/letterboxed space inside video frames.
+- Kept responsive panel reflow behavior from previous fix.
+- Validation:
+  - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Feature/UI Live Presence + Professor Dashboard Refresh
+- Enhanced external live room with a professor-only presence board showing:
+  - online students currently connected in the live room
+  - speaking-now students (real-time volume indicator)
+  - raised-hand students
+- Wired presence board refresh into live lifecycle updates:
+  - join/leave/re-render
+  - speaking updates
+  - raise-hand toggles
+- Kept speaking and raised-hand visual emphasis in pane borders while adding named chips for faster moderation.
+- Refreshed external professor dashboard presentation:
+  - new control-center hero shell
+  - clearer live status pills and action grouping
+  - improved student list cards with stronger visual hierarchy
+- Why:
+  - Give professors immediate awareness of student activity and make the dashboard/studio easier to read and operate.
+- Validation:
+  - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Restore/Feature Messages + Presence + i18n + GeoIP Accuracy
+- Restored professor-to-students message diffusion with external session support:
+  - Added new endpoint `external_send_session_notification` for Barka sessions.
+  - Broadcast now maps external students to local student accounts using multiple identifiers (email, username, phone, name, CIN).
+  - Local session notification flow now redirects back to professor dashboard context.
+- Implemented online presence tracking:
+  - Added cache-based presence service (`Prolean/presence.py`) with heartbeat TTL logic.
+  - Added `api/presence/heartbeat/` endpoint and front-end periodic heartbeat from authenticated pages.
+  - Professor dashboard now shows online-on-website student count and online/offline state on external student cards.
+- Implemented multilingual auto-detection (FR/EN/AR):
+  - Enabled Django `LocaleMiddleware` and custom `AutoLanguageMiddleware`.
+  - Added `LANGUAGES` + `LOCALE_PATHS` + dynamic HTML `lang`/`dir` in base template.
+  - Activated real language switcher in header/mobile menus via Django `set_language` endpoint.
+- Improved city auto-detection precision:
+  - Reworked IP extraction for public/global address preference.
+  - Added multi-provider GeoIP fallback chain (`ipwho.is` -> `ipapi.co` -> `ip-api.com`).
+  - Added geo caching + richer location payload (`exact_city`, `region`, `timezone`, coordinates, source).
+- Validation:
+  - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Language Switcher Visible Localization
+- Implemented immediate visible multilingual output tied to switcher state (FR/EN/AR) on key user surfaces without waiting for full gettext catalog rollout.
+- Localized main header/nav labels and mobile menu labels according to selected language.
+- Localized live studio labels and runtime UI text (presence states, panel titles, status/error strings) using language-aware template-driven JS strings.
+- Localized professor dashboard title/subtitle for selected language.
+- Why:
+  - The switcher changed language state but many templates were still hardcoded in one language, making it appear non-functional.
+- Validation:
+  - Django system check passed.
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Redesign Language Switcher + Full Dashboard Visual Overhaul
+- Fixed language switcher reliability by replacing JS-dependent language links with direct Django `set_language` POST forms (desktop + mobile).
+- Removed obsolete language-switch JS hooks from header to avoid silent failures.
+- Completely redesigned professor dashboard (`Prolean/templates/Prolean/professor/dashboard.html`):
+  - new command-center hero
+  - stronger KPI blocks
+  - rebuilt external/live control workspace
+  - cleaner student presence cards
+  - redesigned local-mode live + broadcast layout
+- Completely redesigned student dashboard (`Prolean/templates/Prolean/dashboard/dashboard.html`):
+  - new learning cockpit hero
+  - KPI strip and session/live modules
+  - rewritten announcements panel
+  - new training card grid for both external assignments and local formations
+- Preserved existing backend actions/routes and data bindings for live controls, notifications, and training links.
+- Validation:
+  - Django system check passed.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/i18n Feedback + Dashboard Redesign (Student/Professor)
+- What changed:
+  - Added explicit Prolean language switch endpoint (`/i18n/set/`) that sets session+cookie language and shows a success message.
+  - Updated header language switcher (desktop + mobile) to post to this endpoint for visible user feedback.
+  - Fully reworked student dashboard UI with a more colorful, icon-driven layout (KPIs, quick actions, live panel, announcements, trainings grid).
+  - Fully reworked professor dashboard UI (external mode + local mode) with a more colorful, icon-driven layout (hero, session list, live controls, students roster, broadcast).
+- Why:
+  - Users reported that switching language “did nothing” (no visible confirmation).
+  - Requirement: dashboards should be significantly more visual (icons + color) and easier to scan.
+- Validation:
+  - Django system check recommended (run locally/CI).
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/i18n Language Switcher Actually Persists
+- What changed:
+  - Fixed `AutoLanguageMiddleware` overriding the language cookie after `/i18n/set/` (middleware now respects the final language activated by the view).
+  - Stopped writing language preference into DB-backed sessions (cookie-only persistence).
+  - Switched Django messages to cookie storage so the “language updated” confirmation does not depend on DB sessions.
+- Why:
+  - Language appeared to “not work” because the response cookie was being overwritten back to `fr`.
+- Validation:
+  - Django test client: POST `/i18n/set/` sets `django_language=ar` and subsequent GET renders `lang="ar"` + `dir="rtl"`.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Professor Dashboard External Students Rendering
+- What changed:
+  - Fixed template crash when an external student dict doesn't include `full_name` by precomputing safe `display_*` fields in `_enrich_external_students_with_presence`.
+  - Updated professor dashboard to render `display_name/display_email/display_phone` instead of chaining missing keys in template filters.
+- Why:
+  - Production error: "Failed lookup for key [full_name]" for external students payloads that only include `student_name`.
+- Validation:
+  - Django system check passed.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/UI Header Height Stability
+- What changed:
+  - Locked global header to exactly `h-20` and set inner container to `h-full` to prevent subtle height drift across pages.
+- Why:
+  - Reported slight header height change after recent UI updates.
+- Validation:
+  - Visual verification recommended.
+
+[2026-02-19 UTC] Area: Prolean | Type: Fix/Expired Barka Token UX + Warning Card UI
+- What changed:
+  - Detects `TOKEN_EXPIRED` from Barka contract calls and forces a clean re-login (clears `barka_token`/permissions and redirects to login with a warning).
+  - Improved professor dashboard external warning card (slightly larger + new warm gradient + clearer CTA).
+- Why:
+  - Users were stuck seeing repeated 401 "Token expired" warnings instead of being guided to re-login.
+- Validation:
+  - Django system check passed.
+
+[2026-02-20 UTC] Area: Prolean | Type: Feature+Fix/External Live (Barka) Tracking + End Enforcement
+- What changed:
+  - Added external live status + tracking endpoints:
+    - `external/live/<session_id>/status/` returns `{ended, ended_at}`.
+    - `external/live/<session_id>/stats/` returns cached live stats for professor dashboard.
+    - `external/live/<session_id>/stats/push/` stores live stats pushed from the room (professor-only).
+  - When an external live is ended (from dashboard or inside the room), the system now sets a server-side `ended_at` flag and students auto-exit the room within ~3.5s via polling.
+  - External live room improvements:
+    - Raised-hand signaling is more reliable (lazy data-stream init + safer message decoding).
+    - Added “Student Tracking” panel in the room (professor view) tracking minutes watched, speaking starts, hand raises, and engagement score.
+    - Students/professor announce their display name to the room (`hello` signal) so tracking shows real names.
+  - Professor dashboard (external mode):
+    - Added a “Live Tracking” card that polls cached stats and renders the live leaderboard table.
+- Why:
+  - Professors needed per-student engagement tracking.
+  - Bug: when professor ends the live, students could continue chatting—now enforced by server status + room exit.
+- Validation:
+  - Django system check passed (`python manage.py check`).
+
+[2026-02-20 UTC] Area: Prolean | Type: UI/External Live Studio
+- What changed:
+  - Removed the “Student Tracking” panel from the external live studio room UI (`Prolean/templates/Prolean/live/external_live_room.html`).
+  - Kept tracking collection + professor dashboard live tracking intact (no UI clutter inside the studio).
+
+[2026-02-20 UTC] Area: Prolean | Type: Feature/External Live Tracking Persistence + Professor Students View
+- What changed:
+  - Added DB model + migration to store external live tracking per student: `ExternalLiveStudentStat` (`Prolean/models.py`, `Prolean/migrations/0002_externallivestudentstat.py`).
+  - `external/live/<session_id>/stats/push/` now persists tracking rows into the database (and still caches for live dashboard).
+  - `/professor/students/` (external/Barka mode) now displays watched time, speaks, raised hands, and engagement for each student in the selected session.
+- Why:
+  - Requirement: tracking must be stored per student (not only in cache) and visible from the professor students page.
+- Validation:
+  - Django system check recommended + apply migration in production.
+
+[2026-02-20 UTC] Area: Prolean | Type: Fix/External Live Auto-Ending (Stale End Flag)
+- What changed:
+  - Prevents the external live room from auto-exiting due to a stale cached `ended_at` flag by:
+    - Clearing the flag on successful join.
+    - Having the status endpoint confirm live state with Barka when possible and auto-clear stale flags.
+
+[2026-02-21 UTC] Area: Prolean | Type: Feature/External Live Moderation + Security (Studio Controls)
+- What changed:
+  - Added professor moderation controls inside the external live studio:
+    - Force mute per student (locks their mic button).
+    - Mute all.
+    - Ban/kick a student from the session (stored in DB; can be unbanned from professor dashboard).
+  - Added server-side enforcement for bans:
+    - Banned students cannot join the external live.
+    - In-room polling auto-exits if a ban is applied.
+  - Added video watermark overlay on tiles (name + id + timestamp) to deter screenshots/recording.
+  - Added security logging endpoints + DB audit log for moderation actions and security alerts.
+  - Implemented best-effort phone detection on student webcam using in-browser ML (COCO-SSD via TensorFlow.js); logs and alerts professor when a phone-like object is detected.
+
+[2026-02-21 UTC] Area: Prolean | Type: Fix/External Live Moderation + Tracking Durations
+- What changed:
+  - Moderation mute now has server-side enforcement via status polling (works even if Agora data stream messaging fails).
+  - Tracking now stores speaking duration and raised-hand duration per student (in minutes) in DB and displays it in `/professor/students/`.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Idempotent Migration for One-Click Join Tables
+- What changed:
+  - Updated migration `Prolean/migrations/0005_external_live_join_invites.py` to be safe when the tables already exist (e.g., earlier deploy attempts/manual schema changes).
+  - Moved the indexes into the `CreateModel` `options` and adds indexes best-effort when the table already exists.
+- Why:
+  - Railway deploys could fail with: `relation "Prolean_externallivejoininvite" already exists`.
+- Validation:
+  - Local test run (forcing SQLite): `DATABASE_PUBLIC_URL=unset DATABASE_URL=unset python manage.py test Prolean`.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Production Schema Guard for Join Invites
+- What changed:
+  - Added a best-effort schema recovery migration `Prolean/migrations/0006_external_live_join_invites_schema_guard.py` to add missing columns/indexes when the join-invite tables existed with an older schema.
+  - Hardened the guard to target the real table name even if it was created as lowercase vs mixed-case, and set migrations to run non-atomically to avoid aborted-transaction deploy failures.
+  - Added backend logging to show the real exception when invite creation fails.
+- Why:
+  - Prevents runtime `Unable to create invite.` errors caused by schema drift in production.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Add Missing Core Columns for Join Invites (Production Recovery)
+- What changed:
+  - Added migration `Prolean/migrations/0007_external_live_join_invites_add_core_columns.py` to add missing core columns (`session_id`, `student_cin`) on the invite table when production schema was incomplete.
+- Why:
+  - Fixes production error: `column "student_cin" of relation "Prolean_externallivejoininvite" does not exist`.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Broad Recovery for Duplicate-Case Join Tables
+- What changed:
+  - Added migration `Prolean/migrations/0008_external_live_join_invites_patch_all_tables.py` to patch *all* candidate join-invite/join-attempt tables across schemas (mixed-case and lowercase) and add the core columns used at runtime.
+- Why:
+  - Some production DBs ended up with both quoted and unquoted versions of the table name; patching only one could leave the table Django uses still missing columns.
+
+[2026-02-26 UTC] Area: Prolean | Type: Fix/Do Not Burn Join Links On Access Denied
+- What changed:
+  - Improved CIN normalization to reject placeholders like `-` and only keep alphanumeric characters.
+  - Join token consumption is now two-phase: the system checks external access (when configured) before marking the invite as used, so failed joins don't invalidate the link.
+- Why:
+  - Links were being marked as `used` even when the student couldn't actually join the live, causing unnecessary regeneration.
+
+[2026-02-27 UTC] Area: Prolean | Type: Feature/Professor Student Command Actions + Attendance Timeline
+- What changed:
+  - Added an auto attendance timeline on `/professor/students/` (external mode) aggregating recent live activity:
+    - moderation/security actions,
+    - one-click link generation/usage,
+    - latest attendance sync snapshots per student.
+  - Added WhatsApp broadcast queue controls on `/professor/students/`:
+    - one-by-one `Send via WhatsApp` per student card,
+    - `Send All on WhatsApp` queue for bulk sending.
+  - WhatsApp message is auto-filled in Arabic caution format and includes each student’s unique one-click join link.
+  - Added in-studio per-student top-left quick controls on each student tile:
+    - `Kick out`,
+    - `Mute/Unmute` toggle with immediate visual state updates.
+  - Refactored moderation action calls in the studio to use shared JS helpers for consistency and faster response.
+- Why:
+  - Professors needed a faster workflow to distribute links and monitor whether link/live actions are actually happening.
+  - Per-tile controls reduce moderation delay versus relying only on the side moderation drawer.
+
+[2026-02-27 UTC] Area: Prolean | Type: UI/Full Modern Redesign (Professor Dashboard + Students Command Center)
+- What changed:
+  - Rebuilt `professor/dashboard` visual system with a modern neo-glass control-room layout:
+    - redesigned hero/state area,
+    - reworked sessions rail,
+    - refreshed live controls/broadcast/tracking cards,
+    - denser responsive student panels with improved readability.
+  - Rebuilt `professor/students` (external mode) into a modern command-center:
+    - large mission-control header with KPI tiles,
+    - redesigned session selector pills,
+    - new high-contrast student action tiles,
+    - integrated WhatsApp queue panel and timeline sidebar in a two-column command layout.
+  - Kept all backend flows and routes intact (no API contract changes), but replaced page structure/styles for a complete visual upgrade.
+- Why:
+  - The previous layout looked too close to the old dashboard and did not meet the required “complete modern dashboard” expectation.
+
+[2026-02-27 UTC] Area: Prolean | Type: Fix/One-Click Link + WhatsApp Delivery Reliability
+- What changed:
+  - Adjusted one-click live-join reliability for shared links by relaxing overly strict preview detection logic that could misclassify real in-app opens.
+  - Updated WhatsApp send behavior and join link formatting handling to reduce invalid/expired parsing issues caused by client-side URL extraction edge cases.
+  - Restored and stabilized the production line to commit `bddc4e0` when requested, then continued fixes on top.
+- Why:
+  - Users still received invalid/expired errors after sending links via WhatsApp and needed a stable known-good baseline first.
+
+[2026-02-27 UTC] Area: Prolean | Type: Feature/Location UX (Browser GPS + OSM + Header Integration)
+- What changed:
+  - Renamed header nav label from `Migration` to `Imigration` (desktop + mobile navigation).
+  - Added browser geolocation capture endpoint: `api/location/browser/`.
+  - Implemented OSM reverse-geocoding (Nominatim) server flow and session storage for browser-resolved city/country.
+  - Added automatic geolocation sync from base layout script and switched runtime location reads to prefer browser GPS session data over IP-derived fallback in key tracking/join flows.
+  - Added location indicator next to `MAD` in the currency control (desktop + mobile) and iterated UI behavior:
+    - auto-refresh on load + periodic refresh,
+    - removed extra isolated location badges,
+    - replaced guessed city display with loading state (`Locating...`) until GPS resolves,
+    - show `Location off` when unavailable.
+  - Removed custom retry modal and switched to native browser geolocation permission flow only.
+- Why:
+  - Requirement: avoid inaccurate IP-based city display and prioritize exact browser GPS location with cleaner header UX.
+
+[2026-02-27 UTC] Area: Prolean | Type: UI/Cleanup (Hero + Branding)
+- What changed:
+  - Removed location badge from home hero section.
+  - Removed text block next to logo (`Prolean` / `Centre de Formation`) in header brand area, keeping logo-only presentation.
+- Why:
+  - Requested cleaner, minimal top navigation and hero presentation.
+
+[2026-02-27 UTC] Area: Prolean | Type: Fix/Production Hero Video Delivery
+- What changed:
+  - Enabled production static file serving with WhiteNoise:
+    - added `whitenoise` dependency,
+    - inserted `WhiteNoiseMiddleware`,
+    - enabled compressed manifest static storage.
+  - Hardened hero background video with safer loading behavior:
+    - `preload="metadata"`,
+    - poster image fallback,
+    - runtime fallback to image when video fails/stalls.
+- Why:
+  - Hero background video failed on production due to static asset delivery/runtime playback issues.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Discord-Style + Moderation UX)
+- What changed:
+  - Restyled external live studio to a Discord-like dark call layout (theme variables, controls polish, pane visuals).
+  - Removed the live header connection state badge from the stream header.
+  - Kept professor moderation controls (mute/unmute + kick) and added required kick-reason modal in studio.
+  - Kick reason is now sent with the ban request and stored in DB through existing `external_live_ban_user` reason handling.
+  - Raised-hand behavior now renders a WhatsApp-like hand emoji badge (`🖐️`) directly on the student tile.
+  - Speaking state now renders animated talking waveform + pulsing green border on active speaker tiles, with intensity tied to Agora volume indicator level.
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Header Cleanup + Border Refresh)
+- What changed:
+  - Removed the top live stats header strip (`online/speaking/raised`) from the stream layout to keep focus on video panes.
+  - Enhanced visual borders for panes and student tiles with stronger neon/call-style contrast.
+  - Updated active-state styling:
+    - speaking = brighter green animated glow,
+    - raised hand = warm amber attention border.
+  - Kept previous moderation and activity behavior unchanged (mute/unmute, kick with reason, hand emoji, talking waveform).
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Bottom Controls Restyle)
+- What changed:
+  - Restyled bottom action buttons to a modern call-bar style:
+    - circular glossy control buttons,
+    - stronger hover elevation/glow,
+    - clearer danger/off red gradient states,
+    - blue accent utility controls (screen/sound/fullscreen/switch).
+  - Restyled mode buttons to rounded-pill chips with stronger active-state highlight.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Bottom Button Margin)
+- What changed:
+  - Added bottom margin to the live control bar to create visible space between the buttons and page bottom.
+  - Kept sticky bottom behavior on smaller screens while adding safe-area-aware bottom spacing.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: Fix/UI+Behavior (Live Studio Reliability + Mobile Layout)
+- What changed:
+  - Redesigned kick reason popup (improved visual style, warning icon, cleaner action buttons).
+  - Refined bottom control bar/button styling to a tighter modern call-control look.
+  - Removed speaking/raised border coloring while keeping speaking waveform animation on active student tiles.
+  - Improved mute/unmute reliability by sending explicit `locked` state and forcing remote audio replay on unmute (professor side).
+  - Added raise-hand backend fallback endpoint (`external/live/<session_id>/hand/`) using cache so hand state works even when data-stream messages are unreliable.
+  - Extended status polling to sync raise-hand state from backend for professor/student clients.
+  - Mobile defaults adjusted:
+    - default right pane mode is `Screen` on mobile (professor camera + shared screen layout),
+    - mobile split set to `50vh / 50vh`.
+  - Added mobile immersive attempt on join (fullscreen + landscape orientation lock when browser allows).
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
+[2026-03-09 UTC] Area: Prolean | Type: Hotfix/Live Startup Script
+- What changed:
+  - Fixed a JavaScript startup regression in external live room where `rightMode` was initialized before `isMobileViewport` existed.
+  - This prevented live room script bootstrapping and caused live not to start.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Mobile Fullscreen Orientation + Horizontal Split
+- What changed:
+  - Updated mobile/fullscreen live layout to horizontal split (professor and right pane side-by-side) instead of vertical stacking.
+  - Added fullscreen horizontal behavior improvements:
+    - attempts `landscape` lock when entering fullscreen,
+    - retries immersive fullscreen on first user tap when browser blocks autoplay fullscreen on load.
+  - Keeps default mobile mode focused on professor + shared screen while using horizontal pane arrangement.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: Hotfix/Mobile Auto-Landscape On Join
+- What changed:
+  - Strengthened mobile auto-landscape behavior at live join:
+    - tries `screen.orientation.lock("landscape")` immediately,
+    - retries on first user tap if browser blocks it,
+    - adds JS fallback class to force horizontal layout when still in portrait.
+  - Keeps auto-trigger flow on join without requiring manual fullscreen button press.
+- Validation:
+  - `python manage.py check` passed.
+
+[2026-03-09 UTC] Area: Prolean | Type: Fix/Live Raise-Hand Visibility + Landscape Stability
+- What changed:
+  - Raise-hand now shows a clear active state on the student button (highlight + badge) so students see it immediately.
+  - Re-applies mobile immersive/landscape enforcement after raise-hand to prevent the layout from collapsing back to portrait.
+  - Landscape fallback now stays active whenever device is portrait (even in fullscreen) to avoid accidental resets.
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
+[2026-03-09 UTC] Area: Prolean | Type: UI/Live Studio (Remove Mode Buttons + Add Mobile Split Slider)
+- What changed:
+  - Removed `Screen / Split / Students / Layout` buttons from the control bar on both desktop and mobile.
+  - Added mobile horizontal split layout with a draggable slider between professor and right pane.
+  - Kept default mode behavior without user-facing mode toggles.
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2).
+
+[2026-03-10 UTC] Area: Prolean | Type: Feature/Live Raise-Hand Queue + API
+- What changed:
+  - Added `raise_hands` DB table and `ExternalLiveRaiseHand` model with status lifecycle.
+  - Implemented raise-hand API endpoints:
+    - `POST /api/live/raise-hand`
+    - `GET /api/live/raise-hand-queue`
+    - `POST /api/live/approve-hand`
+    - `POST /api/live/remove-speaker`
+  - Enforced anti-spam (30s cooldown) + single pending request per student.
+  - Live room UI now shows:
+    - professor queue panel (top-left) + 5s toast on new requests,
+    - student self indicator with their name when raised.
+  - Mobile split slider now works (drag resizer on mobile).
+- Validation:
+  - `python manage.py check` passed.
+  - `python manage.py test Prolean` passed (2/2, command timed out after completion).
+
+[2026-03-09 UTC] Area: Prolean | Type: Infra/Dependency Warning Fix
+- What changed:
+  - Pinned `chardet==5.2.0` in `requirements.txt` to remove Requests compatibility warning caused by unsupported `chardet` major version.
+- Why:
+  - Deployment logs showed `RequestsDependencyWarning` due to `chardet 7.x` mismatch with `requests` supported range.
