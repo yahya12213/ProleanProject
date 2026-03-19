@@ -166,10 +166,19 @@ apiRouter.get('/students/:id', async (req, res) => {
   }
 });
 
-// Villes
+// Villes (filtrées par segment, exclure "sans ville" et "charge")
 apiRouter.get('/cities', async (req, res) => {
   try {
-    const cities = await prisma.city.findMany({ orderBy: { name: 'asc' } });
+    const { segment_id } = req.query;
+    const where: any = {
+      NOT: [
+        { name: { startsWith: 'Sans ville', mode: 'insensitive' } },
+        { name: { startsWith: 'Charge', mode: 'insensitive' } },
+      ],
+    };
+    if (segment_id) where.segment_id = segment_id as string;
+
+    const cities = await prisma.city.findMany({ where, orderBy: { name: 'asc' } });
     res.status(200).json(cities);
   } catch (error) {
     res.status(500).json({ message: "Erreur", error });
