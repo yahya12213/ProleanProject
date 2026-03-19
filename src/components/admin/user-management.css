@@ -1,0 +1,8 @@
+.segment-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+/* Individual segment colors will be set via inline style or dynamically via JS if needed */

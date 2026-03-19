@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    container_name: prolean_pg
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: prolean
+      POSTGRES_PASSWORD: prolean
+      POSTGRES_DB: proleandb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

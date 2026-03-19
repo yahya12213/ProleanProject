@@ -1,0 +1,450 @@
+// ===========================================================
+// Schema Prisma - Mappé vers les tables existantes de la BDD
+// principale (systeme-de-calcul) sur Railway.
+//
+// IMPORTANT: Ne PAS exécuter "prisma migrate" sur cette base.
+// Utiliser uniquement "prisma generate" pour créer le client.
+// ===========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// TABLES PRINCIPALES (lecture + écriture prudente)
+// ============================================================
+
+model Profile {
+  id              String    @id
+  username        String
+  password        String
+  full_name       String
+  role            String
+  created_at      DateTime?
+  role_id         String?   @db.Uuid
+  profile_image_url String?
+
+  @@map("profiles")
+}
+
+model Student {
+  id              String    @id
+  nom             String
+  prenom          String
+  cin             String
+  email           String?
+  phone           String
+  whatsapp        String?
+  date_naissance  DateTime  @db.Date
+  lieu_naissance  String
+  adresse         String
+  statut_compte   String?
+  profile_image_url String?
+  created_at      DateTime?
+  updated_at      DateTime?
+  status          String    @db.VarChar(20)
+  created_by      String?   @db.Uuid
+
+  session_etudiants SessionEtudiant[]
+
+  @@map("students")
+}
+
+model Formation {
+  id                      String    @id
+  title                   String
+  description             String?
+  price                   Decimal?
+  duration_hours          Int?
+  level                   String?
+  thumbnail_url           String?
+  status                  String
+  passing_score_percentage Int?
+  created_at              DateTime?
+  updated_at              DateTime?
+  corps_formation_id      String?
+  is_pack                 Boolean?
+  certificate_template_id String?
+  prime_assistante         Decimal?
+
+  @@map("formations")
+}
+
+model SessionFormation {
+  id                String    @id
+  titre             String    @db.VarChar(255)
+  description       String?
+  date_debut        DateTime? @db.Date
+  date_fin          DateTime? @db.Date
+  ville_id          String?
+  segment_id        String?
+  statut            String?   @db.VarChar(50)
+  prix_total        Decimal?
+  nombre_places     Int?
+  created_at        DateTime?
+  updated_at        DateTime?
+  corps_formation_id String?
+  session_type      String    @db.VarChar(50)
+  meeting_platform  String?   @db.VarChar(100)
+  meeting_link      String?   @db.VarChar(500)
+
+  session_etudiants SessionEtudiant[]
+
+  @@map("sessions_formation")
+}
+
+model SessionEtudiant {
+  id                        String    @id
+  session_id                String
+  student_id                String
+  statut_paiement           String?   @db.VarChar(50)
+  montant_total             Decimal?
+  montant_paye              Decimal?
+  montant_du                Decimal?
+  date_inscription          DateTime?
+  created_at                DateTime?
+  updated_at                DateTime?
+  formation_id              String?
+  centre_id                 String?
+  classe_id                 String?
+  numero_bon                String?
+  discount_amount           Decimal?
+  discount_reason           String?
+  discount_percentage       Decimal?
+  formation_original_price  Decimal?
+  student_status            String    @db.VarChar(20)
+  certificate_number        String?   @db.VarChar(100)
+  delivery_status           String    @db.VarChar(20)
+  original_date_inscription DateTime?
+
+  session  SessionFormation @relation(fields: [session_id], references: [id])
+  student  Student          @relation(fields: [student_id], references: [id])
+  payments StudentPayment[]
+
+  @@map("session_etudiants")
+}
+
+model SessionFormationLink {
+  id            String    @id
+  session_id    String
+  formation_id  String
+  created_at    DateTime?
+
+  @@map("session_formations")
+}
+
+model StudentPayment {
+  id                  String    @id
+  session_etudiant_id String
+  amount              Decimal
+  payment_date        DateTime  @db.Date
+  payment_method      String    @db.VarChar(50)
+  reference_number    String?
+  note                String?
+  created_at          DateTime?
+  updated_at          DateTime?
+
+  session_etudiant SessionEtudiant @relation(fields: [session_etudiant_id], references: [id])
+
+  @@map("student_payments")
+}
+
+// ============================================================
+// RÉFÉRENTIEL
+// ============================================================
+
+model City {
+  id                  String    @id
+  name                String
+  code                String
+  segment_id          String
+  created_at          DateTime?
+  google_token        String?
+  google_sync_enabled Boolean?
+
+  @@map("cities")
+}
+
+model Segment {
+  id                  String    @id
+  name                String
+  color               String?
+  created_at          DateTime?
+  logo_url            String?   @db.VarChar(500)
+  cnss_number         String?   @db.VarChar(50)
+  identifiant_fiscal  String?   @db.VarChar(50)
+  registre_commerce   String?   @db.VarChar(50)
+  ice                 String?   @db.VarChar(20)
+  company_address     String?
+
+  @@map("segments")
+}
+
+model CorpsFormation {
+  id          String    @id
+  name        String
+  description String?
+  color       String?
+  icon        String?
+  order_index Int?
+  created_at  DateTime?
+  updated_at  DateTime?
+  segment_id  String?
+
+  @@map("corps_formation")
+}
+
+model Centre {
+  id          String    @id
+  name        String
+  adresse     String?
+  ville       String?
+  description String?
+  created_at  DateTime?
+  updated_at  DateTime?
+
+  @@map("centres")
+}
+
+// ============================================================
+// E-LEARNING (vidéos, modules, progression)
+// ============================================================
+
+model FormationModule {
+  id                    String    @id
+  formation_id          String
+  title                 String
+  description           String?
+  order_index           Int
+  prerequisite_module_id String?
+  module_type           String
+  created_at            DateTime?
+
+  videos ModuleVideo[]
+
+  @@map("formation_modules")
+}
+
+model ModuleVideo {
+  id               String    @id
+  module_id        String
+  title            String
+  youtube_url      String
+  duration_seconds Int?
+  description      String?
+  order_index      Int
+  created_at       DateTime?
+
+  module FormationModule @relation(fields: [module_id], references: [id])
+
+  @@map("module_videos")
+}
+
+model VideoProgress {
+  id              String    @id
+  student_id      String
+  video_id        String
+  last_watched_at DateTime?
+  completed_at    DateTime?
+  created_at      DateTime?
+  updated_at      DateTime?
+
+  @@map("video_progress")
+}
+
+model Enrollment {
+  id                  String    @id @db.Uuid
+  student_id          String
+  formation_id        String
+  enrolled_at         DateTime?
+  completed_at        DateTime?
+  last_accessed_at    DateTime?
+  progress_percentage Int?
+  status              String?
+  created_at          DateTime?
+  updated_at          DateTime?
+
+  @@map("enrollments")
+}
+
+// ============================================================
+// RH & PAIE (tables hr_*)
+// ============================================================
+
+model HrEmployee {
+  id                    String    @id @db.Uuid
+  profile_id            String?
+  employee_number       String
+  first_name            String
+  last_name             String
+  cin                   String?
+  birth_date            DateTime? @db.Date
+  birth_place           String?
+  email                 String?
+  phone                 String?
+  address               String?
+  postal_code           String?
+  city                  String?
+  hire_date             DateTime  @db.Date
+  termination_date      DateTime? @db.Date
+  employment_status     String?
+  employment_type       String?
+  position              String?
+  department            String?
+  segment_id            String?
+  centre_id             String?   @db.Uuid
+  manager_id            String?   @db.Uuid
+  photo_url             String?
+  notes                 String?
+  created_at            DateTime?
+  updated_at            DateTime?
+  requires_clocking     Boolean   @default(false)
+  hourly_rate           Decimal?
+  social_security_number String?  @db.VarChar(20)
+  dependents            Int?
+  marital_status        String?   @db.VarChar(20)
+  pay_mode              String?
+  net_salary            Decimal?
+  rib                   String?
+  bank_name             String?
+  gender                String?   @db.VarChar(1)
+
+  payslips HrPayslip[]
+
+  @@map("hr_employees")
+}
+
+model HrPayrollPeriod {
+  id               String    @id @db.Uuid
+  name             String
+  year             Int
+  month            Int
+  start_date       DateTime  @db.Date
+  end_date         DateTime  @db.Date
+  pay_date         DateTime? @db.Date
+  status           String?
+  total_employees  Int?
+  total_gross      Decimal?
+  total_net        Decimal?
+  total_cnss_employee Decimal?
+  total_cnss_employer Decimal?
+  total_amo        Decimal?
+  total_igr        Decimal?
+  notes            String?
+  calculated_at    DateTime?
+  validated_at     DateTime?
+  validated_by     String?
+  closed_at        DateTime?
+  closed_by        String?
+  created_by       String?
+  created_at       DateTime?
+  updated_at       DateTime?
+
+  payslips HrPayslip[]
+
+  @@map("hr_payroll_periods")
+}
+
+model HrPayslip {
+  id                 String    @id @db.Uuid
+  period_id          String    @db.Uuid
+  employee_id        String    @db.Uuid
+  employee_number    String
+  employee_name      String
+  position           String?
+  department         String?
+  hire_date          DateTime? @db.Date
+  base_salary        Decimal
+  hourly_rate        Decimal?
+  working_hours      Decimal?
+  worked_hours       Decimal?
+  overtime_hours_25  Decimal?
+  overtime_hours_50  Decimal?
+  overtime_hours_100 Decimal?
+  overtime_amount    Decimal?
+  absence_days       Decimal?
+  absence_deduction  Decimal?
+  late_minutes       Int?
+  late_deduction     Decimal?
+  gross_salary       Decimal?
+  gross_taxable      Decimal?
+  cnss_base          Decimal?
+  cnss_employee      Decimal?
+  cnss_employer      Decimal?
+  amo_base           Decimal?
+  amo_employee       Decimal?
+  amo_employer       Decimal?
+  igr_base           Decimal?
+  igr_amount         Decimal?
+  other_deductions   Decimal?
+  advances           Decimal?
+  loans              Decimal?
+  total_deductions   Decimal?
+  net_salary         Decimal?
+  bank_name          String?
+  bank_account       String?
+  rib                String?
+  status             String?
+  generated_at       DateTime?
+  validated_at       DateTime?
+  validated_by       String?
+  paid_at            DateTime?
+  paid_by            String?
+  pdf_url            String?
+  created_at         DateTime?
+  updated_at         DateTime?
+  pay_mode           String?
+  working_days_in_period Int?
+  daily_rate         Decimal?
+  alloc_fam          Decimal?
+  tfp                Decimal?
+
+  period   HrPayrollPeriod @relation(fields: [period_id], references: [id])
+  employee HrEmployee      @relation(fields: [employee_id], references: [id])
+
+  lines HrPayslipLine[]
+
+  @@map("hr_payslips")
+}
+
+model HrPayslipLine {
+  id             String    @id @db.Uuid
+  payslip_id     String    @db.Uuid
+  line_type      String
+  category       String
+  code           String
+  label          String
+  quantity       Decimal?
+  rate           Decimal?
+  base_amount    Decimal?
+  amount         Decimal
+  is_taxable     Boolean?
+  is_cnss_subject Boolean?
+  display_order  Int?
+  notes          String?
+  created_at     DateTime?
+
+  payslip HrPayslip @relation(fields: [payslip_id], references: [id])
+
+  @@map("hr_payslip_lines")
+}
+
+model HrPayrollConfig {
+  id              String    @id @db.Uuid
+  config_key      String
+  config_value    String
+  config_type     String?
+  description     String?
+  category        String?
+  is_active       Boolean?
+  effective_date  DateTime? @db.Date
+  updated_by      String?
+  updated_at      DateTime?
+
+  @@map("hr_payroll_config")
+}

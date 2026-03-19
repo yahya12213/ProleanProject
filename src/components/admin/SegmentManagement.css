@@ -1,0 +1,21 @@
+/* Styles for color buttons */
+.color-button {
+  border: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin: 2px;
+  outline: none;
+}
+
+/* Styles for color circles */
+.color-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Example: add background color for each color dynamically if needed */
+/* .color-3B82F6 { background-color: #3B82F6; } */

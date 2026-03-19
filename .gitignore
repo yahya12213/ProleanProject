@@ -1,0 +1,7 @@
+prolean_backup.tar.gz
+node_modules/
+.env
+.env.local
+dist/
+.bolt/
+.idx/
